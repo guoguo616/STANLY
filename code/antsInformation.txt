@@ -1,0 +1,265 @@
+Forward and inverse warps for warping images, pointsets and Jacobians - ANTsX/ANTs Wiki
+Quick reference for applying ANTs warps
+
+Applying the deformations computed by ANTs require the user to specify the correct warps, and to specify them in the correct order. Getting this wrong can cause obvious or subtle errors in the output, depending on the size of the deformations. Common use cases are explained below.
+Terminology
+
+The command
+
+${ANTSPATH}antsRegistrationSyNQuick.sh
+  -d 3 \
+  -f fixedImage.nii.gz \
+  -m movingImage.nii.gz \
+  -o movingToFixed_ \
+  -t s
+
+produces
+
+movingToFixed_1Warp.nii.gz
+movingToFixed_1InverseWarp.nii.gz
+movingToFixed_0GenericAffine.mat
+
+The forward transforms from moving to fixed space are defined as those we use to deform an image in the moving space and produce output in the fixed space. These are movingToFixed_1Warp.nii.gz and movingToFixed_0GenericAffine.mat.
+
+The inverse transforms are the transforms that are used to perform the opposite operation, deforming an image in the fixed space and producing output in the moving space. This operation uses the file movingToFixed_1InverseWarp.nii.gz and the inverse of the forward affine transform movingToFixed_0GenericAffine.mat. The inverse affine transform is not usually stored because it is easy to invert on demand.
+
+Important note on image vs point-set operations: the ordering of transforms for resampling an image into a new space is the opposite of that used to transform points. The forward warps transform a point from fixed to moving space. When resampling an image, we use the forward warps to transform a point from the center of a voxel in the fixed image to its corresponding place in the moving image - the location of this point in the moving image is used to determine the interpolated intensity of the voxel in the output. When calling antsApplyTransformsToPoints, we are doing the same thing but without the final step of resampling of a moving image. So we use the forward warps to transform our points in the fixed space to the moving space.
+Deforming an image
+
+Deforming the moving image to fixed space:
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i movingImage.nii.gz \ 
+  -r fixedImage.nii.gz \ 
+  -t movingToFixed_1Warp.nii.gz \
+  -t movingToFixed_0GenericAffine.mat \ 
+  -o movingToFixedDeformed.nii.gz
+
+Deforming the fixed image to moving space:
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i fixedImage.nii.gz \
+  -r movingImage.nii.gz \ 
+  -t [movingToFixed_0GenericAffine.mat, 1] \ 
+  -t movingToFixed_1InverseWarp.nii.gz \
+  -o fixedToMovingDeformed.nii.gz
+
+The option [movingToFixed_0GenericAffine.mat, 1] tells the program to invert the affine transform contained in movingToFixed_0GenericAffine.mat.
+
+Given ROIs fixedLabels.nii.gz, to be resampled into the space of movingImage.nii.gz, we would use the same warps:
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i fixedImage.nii.gz \
+  -r movingImage.nii.gz \ 
+  -t [movingToFixed_0GenericAffine.mat, 1] \ 
+  -t movingToFixed_1InverseWarp.nii.gz \
+  -n GenericLabel
+  -o fixedToMovingDeformed.nii.gz
+
+but we add the option -n GenericLabel to specify interpolation that preserves label intensities.
+Applying affine transforms only
+
+Calling antsRegistration or the registration script without a deformable transform step will produce a GenericAffine.mat file but no warp field.
+
+${ANTSPATH}antsRegistrationSyNQuick.sh
+  -d 3 \
+  -f fixedImage.nii.gz \
+  -m movingImage.nii.gz \
+  -o movingToFixed_ \
+  -t a
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i movingImage.nii.gz \ 
+  -r fixedImage.nii.gz \ 
+  -t movingToFixed_0GenericAffine.mat \ 
+  -o movingToFixedAffineDeformed.nii.gz
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i fixedImage.nii.gz \
+  -r movingImage.nii.gz \ 
+  -t [movingToFixed_0GenericAffine.mat, 1] \ 
+  -o fixedToMovingAffineDeformed.nii.gz
+
+Applying the affine transform only is also useful for debugging deformable registration. If the final result looks suboptimal, check the affine alignment and improve it if possible, before altering the deformable parameters.
+Reference image (-r option)
+
+The reference image defines both the voxel and the physical space of the output image. The reference image must be in the same physical space as the fixed image if using forward transforms, or the moving image if using inverse transforms. If you would like to change the resolution of the output image, you can do so by resampling the reference image with ResampleImageBySpacing, which preserves the origin and orientation of the image in physical space.
+
+The reference image must have the same number of dimensions as the warp fields. For most use cases you will run antsApplyTransforms -d 3 and this requires a 3D reference image. If your reference space belongs to a multi-component image, you will need a 3D image in the same physical space. One way to obtain this is to compute an average of a 4D time series with antsMotionCorr, or extracting the first 3D volume with the TimeSeriesSubset function in ImageMath.
+Transforming a point set
+
+Transform points from fixed to moving space:
+
+${ANTSPATH}antsApplyTransformsToPoints \
+  -d 3 \
+  -i landmarksInFixedSpace.csv \
+  -o landmarksInMovingSpace.csv \
+  -t movingToFixed_1Warp.nii.gz \
+  -t movingToFixed_0GenericAffine.mat
+
+The forward warps, which we use to deform an image from moving to fixed space, are the warps that transform points from fixed to moving space. To move points in the opposite direction:
+
+${ANTSPATH}antsApplyTransformsToPoints \
+  -d 3 \
+  -i landmarksInMovingSpace.csv \
+  -o landmarksInFixedSpace.csv \
+  -t [movingToFixed_0GenericAffine.mat, 1]
+  -t movingToFixed_1InverseWarp.nii.gz \
+
+The input and output to antsApplyTransformsToPoints is coordinates in physical space as defined by ITK. This may vary from the coordinate system defined by NIFTI or other file formats or software. Point sets should be carefully validated by users. ANTsR has some capabilities to help with this. You can also use ITK-SNAP to locate anatomical points and look up the ITK coordinates interactively.
+Computing the Jacobian
+
+The Jacobian is typically computed in the fixed space, so that Jacobians from a population of moving images can compared directly.
+
+CreateJacobianDeterminantImage 3 movingToFixed1Warp.nii.gz logJacobian.nii.gz 1 1
+
+This outputs the log of the Jacobian determinant in the fixed space.
+Log Jacobian 	Moving image volume change
+< 0 	Expanding
+= 0 	None
+> 0 	Contracting
+
+Simple example data and code here, a more complex example here.
+Warp naming convention in antsCorticalThickness.sh
+
+In this context the moving image is the subject T1 image on which cortical thickness is computed. The fixed image is a template.
+
+The forward warp computed by antsCorticalThickness.sh is SubjectToTemplate1Warp.nii.gz, and the forward affine is SubjectToTemplate0GenericAffine.mat. The inverse warp is called TemplateToSubject0Warp.nii.gz, and the inverse affine is saved as TemplateToSubject1GenericAffine.mat, so you do not need to use the square brackets on the command line.
+
+To warp an image from subject to template space:
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i subjectImage.nii.gz \
+  -r registrationTemplate.nii.gz \ 
+  -t SubjectToTemplate1Warp.nii.gz \
+  -t SubjectToTemplate0GenericAffine.mat \
+  -o subjectImageToTemplateDeformed.nii.gz
+
+To warp an image from template to subject space:
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i templateImage.nii.gz \
+  -r subjectImage.nii.gz \ 
+  -t TemplateToSubject1GenericAffine.mat \
+  -t TemplateToSubject0Warp.nii.gz \
+  -o templateImageToSubjectDeformed.nii.gz
+
+Warp naming convention in antsLongitudinalCorticalThickness.sh
+
+The longitudinal pipeline contains multiple runs of antsCorticalThickness.sh. Together, these provide all the transforms necessary to move any of the subject's images to the population template space, via the intermediate single-subject template. The chain of warps required to perform this operation in either direction is composed by the script, and saved as SubjectToGroupTemplateWarp.nii.gz and GroupTemplateToSubjectWarp.nii.gz. This encompasses both the affine and deformable parts.
+
+Note that each time point will have its own warp, and images may be transformed from subject to group template space with:
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i subjectImageTime1.nii.gz \
+  -r groupTemplate.nii.gz \ 
+  -t SubjectTime1/SubjectToGroupTemplateWarp.nii.gz \
+  -o subjectImageTime1ToGroupTemplateDeformed.nii.gz
+
+Warping to the single-subject template is similar to the cross-sectional usage:
+
+${ANTSPATH}antsApplyTransforms \
+  -d 3 \
+  -i subjectImageTime1.nii.gz \
+  -r groupTemplate.nii.gz \ 
+  -t SubjectTime1/SubjectToTemplate1Warp.nii.gz \
+  -t SubjectTime1/SubjectToTemplate0GenericAffine.mat \
+  -o subjectImageTime1ToGroupTemplateDeformed.nii.gz
+
+Combining warps
+
+Wherever possible, multiple interpolations of the data should be avoided. Warps between modalities or through intermediate templates can be combined on the command line with multiple -t options to antsApplyTransforms.
+Warping multiple modalities to a common template
+
+The usual workflow is to use the T1 or other structural image to define the most accurate registration to a group template. The other modalities are aligned to the T1, and the warps are then combined to deform the other modalities to the same group template space.
+
+By aligning to the intra-session T1, we can exploit the fact that the underlying anatomy is the same, and the deformations will hopefully be small. This makes the registration problem a bit easier, though there can still be considerable challenges because of differing contrasts and distortions. Some images may need specialized pre-processing to correct distortions (for example, using field maps) before being aligned to the T1.
+
+For example, let's say we have a T1 and T2 image, which we want to align to a T1 group template. The T2 has been acquired such that it has the same distortion characteristics as the T1, so any misalignment between the two is due to motion. For this example, we'll just apply a general registration script to align the T2 to T1.
+
+${ANTSPATH}antsRegistrationSyNQuick.sh
+  -d 3 \
+  -f t1.nii.gz \
+  -m t2.nii.gz \
+  -o t2ToT1_ \
+  -t r
+
+${ANTSPATH}antsRegistrationSyNQuick.sh
+  -d 3 \
+  -f template.nii.gz \
+  -m t1.nii.gz \
+  -o t1ToTemplate_ \
+  -t s
+
+We can then call
+
+  ${ANTSPATH}antsApplyTransforms \
+    -d 3 \
+    -i t2.nii.gz \
+    -o t2DeformedToTemplate.nii.gz \
+    -r template.nii.gz \
+    -t t1ToTemplate_1Warp.nii.gz \
+    -t t1ToTemplate_0GenericAffine.mat \
+    -t t2ToT1_0GenericAffine.mat
+
+It may be desirable to resample the other modalities at lower resolution in the template space, which can be done by using a resampled version of the group template as the reference image in the call to antsApplyTransforms.
+Standard space through an intermediate template
+
+Another use case is where we have a local template that has been registered to a standard space, eg MNI152NLin6Asym.nii.gz. For example, say we ran
+
+${ANTSPATH}antsRegistrationSyN.sh
+  -d 3 \
+  -f MNI152NLin6Asym.nii.gz \
+  -m populationTemplate.nii.gz \
+  -o templateToMNI152NLin6Asym_ \
+  -t s
+
+And then for some subject,
+
+${ANTSPATH}antsRegistrationSyN.sh
+  -d 3 \
+  -f populationTemplate.nii.gz \
+  -m t1.nii.gz \
+  -o t1ToTemplate_ \
+  -t s
+
+Now we can warp the subject t1 to MNI space with
+
+  ${ANTSPATH}antsApplyTransforms \
+    -d 3 \
+    -i t1.nii.gz \
+    -o t1DeformedToMNI152NLin6Asym.nii.gz \
+    -r MNI152NLin6Asym.nii.gz \
+    -t templateToMNI152NLin6Asym_1Warp.nii.gz \
+    -t templateToMNI152NLin6Asym_0GenericAffine.mat \
+    -t t1ToTemplate_1Warp.nii.gz \
+    -t t1ToTemplate_0GenericAffine.mat
+
+To warp some labels from MNI space to the subject image, we have to apply inverse warps for each step:
+
+  ${ANTSPATH}antsApplyTransforms \
+    -d 3 \
+    -i labels.nii.gz \
+    -o labelsDeformedToT1.nii.gz \
+    -n GenericLabel
+    -r MNI152NLin6Asym.nii.gz \
+    -t [ t1ToTemplate_0GenericAffine.mat, 1 ]
+    -t t1ToTemplate_1InverseWarp.nii.gz \
+    -t [ templateToMNI152NLin6Asym_0GenericAffine.mat, 1 ] \
+    -t templateToMNI152NLin6Asym_1InverseWarp.nii.gz
+
+Discussion
+
+Internally, deforming an image involves transforming a point set in the opposite direction to the intuitive direction of the warping. The "moving" image is being resampled into the fixed space, and the warps transform a sample point (ie, a voxel in the output image) into the moving space. A point at the center of a voxel in the fixed space is transformed to moving space by the forward warps, an interpolated intensity value is computed, and the result is placed in the voxel in the output image.
+
+This is why the transform ordering for antsApplyTransforms and antsApplyTransformsToPoints is different, and the use of the forward warp for the Jacobian may be counter-intuitive.
+
+To verify the correct ordering of warps, it's necessary to know the choice of fixed and moving image for each registration being applied in the call to antsApplyTransforms.

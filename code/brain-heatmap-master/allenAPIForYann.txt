@@ -1,0 +1,2 @@
+where to download slide 68 of allen mouse coronal atlas
+http://api.brain-map.org/api/v2/svg_download/576990221?groups=28
