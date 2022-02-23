@@ -39,8 +39,8 @@ def importVisiumData(sampleFolder):
         for row in csvreader:
             # checks for in tissue spots
             if row[1] == '1':
-                tissuePositionsList.append(row)
-    tissuePositionsList = np.asarray(tissuePositionsList)
+                tissuePositionsList.append(row[1:])
+    tissuePositionsList = np.array(tissuePositionsList, dtype=float)
     visiumData['tissuePositionsList'] = tissuePositionsList
     scaleFactorPath = open(os.path.join(sampleFolder,"spatial","scalefactors_json.json"))
     visiumData['scaleFactors'] = json.loads(scaleFactorPath.read())
@@ -148,140 +148,72 @@ io.imshow(templateLeftGauss)
 sampleStartingResolution = 6.5 / 1560
 resolutionRatio = sampleStartingResolution / templateStartingResolution
 
-sample06 = importVisiumData("../rawdata/sleepDepBothBatches/sample-06")
-sample06processed = processVisiumData(sample06)
+sample = importVisiumData("../rawdata/sleepDepBothBatches/sample-01")
+sampleProcessed = processVisiumData(sample)
 #%% 
-sampleNorm = cv2.normalize(sample06processed["tissue"], None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+sampleNorm = cv2.normalize(sampleProcessed["tissue"], None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 # (np.sum((templateLeft > 0)/np.sum(sampleNorm > 0))) for below
-
+degreesToRotate = -90
 sampleResize = rescale(sampleNorm,resolutionRatio)
-sampleRotate = rotate(sampleResize, 90)
+# if resize=True not set, image will be slightly misaligned with spots
+sampleRotate = rotate(sampleResize, degreesToRotate, resize=True)
 sampleHistMatch = match_histograms(sampleRotate, templateLeft)
-#sampleInt = np.uint8(sampleRotate * 255)
-#%% import allen data
-
-#templateLeftSlice = ants.from_numpy(templateLeft)
-#sample01Slice = ants.from_numpy(sample01processed["tissue"])
-#templateLeftSlice.plot()
-#sample01Slice.plot()
 
 #%%
 
 templateAntsImage = ants.from_numpy(templateLeft)
 sampleAntsImage = ants.from_numpy(sampleHistMatch)
-#templateAntsImage.set_spacing([templateStartingResolution,templateStartingResolution])
-#sampleAntsImage.set_spacing([templateStartingResolution,templateStartingResolution])
+templateAntsImage.set_spacing([templateStartingResolution,templateStartingResolution])
+sampleAntsImage.set_spacing([templateStartingResolution,templateStartingResolution])
 
-affineXfm = ants.registration(templateAntsImage, sampleAntsImage, 'SyN')
+synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, type_of_transform='SyN', outprefix='../derivatives/sample-01_xfm')
 ants.plot(templateAntsImage, overlay=affineXfm["warpedmovout"])
-synXfm = ants.registration(templateAntsImage, sampleAntsImage, type_of_transform='SyN', initial_transform=affineXfm["fwdtransforms"])
-ants.plot(templateAntsImage, overlay=synXfm["warpedmovout"])
 
-#%% NEXT PLACE TO START
-# ants.apply_ants_transform_to_point(
-#%%
+#%% affine alignment of points
 
-# split template image into left and right hemisphere
-# the 200 extra pixels in the calculations are just to adjust for centerline, can be removed if needed
-# templateGrey = io.imread("/media/zjpeters/Samsung_T5/visiumAlignment/data/spatial/mouse_coronal_nissl_slice_73.jpg", as_gray=True)
+#%% Tissue point registration
+#rotMat = [[np.cos(degreesToRotate),-np.sin(degreesToRotate)],[np.sin(degreesToRotate),np.cos(degreesToRotate)]]
+# -90 = [[0,1],[-1,0]]
+rotMat = [[0,1],[-1,0]]
 
-# templateLeft = templateGrey[:,:(templateGrey.shape[1]//2 - 200)]
-# templateRight = templateGrey[:,(templateGrey.shape[1]//2 + 200):]
+tissuePointsResizeToHighRes = sample["tissuePositionsList"][0:, 3:] * sample["scaleFactors"]["tissue_hires_scalef"]
+tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]
+plt.imshow(sampleProcessed["tissue"])
+plt.plot(tissuePointsResizeToHighRes[:,0],tissuePointsResizeToHighRes[:,1],marker="o",color="blue")
+plt.show()
 
-# templateLeftResize = downscale_local_mean(templateLeft, (4,4))
-# templateRightResize = downscale_local_mean(templateRight, (4,4))
-# templateLeftHeavyGauss = filters.gaussian(templateLeftResize,sigma=60)
-# templateRightHeavyGauss = filters.gaussian(templateRightResize,sigma=60)
-# templateLeftThresh = filters.threshold_otsu(templateLeftHeavyGauss)
-# templateRightThresh = filters.threshold_otsu(templateRightHeavyGauss)
-# templateLeftMask = templateLeftHeavyGauss < templateLeftThresh
-# templateRightMask = templateRightHeavyGauss < templateRightThresh
-# #templateLeftLightGauss = filters.gaussian(templateLeftResize,sigma=20)
-# #templateRightLightGauss = filters.gaussian(templateRightResize,sigma=20)
-# templateLeftTissue = np.zeros(templateLeftResize.shape)
-# templateRightTissue = np.zeros(templateRightResize.shape)
-# templateLeftTissue[templateLeftMask==True] = templateLeftResize[templateLeftMask==True]
-# templateRightTissue[templateRightMask==True] = templateRightResize[templateRightMask==True] 
+tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+# below accounts for shift resulting from matrix rotation above, will be different for different angles
+tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleProcessed["tissue"].shape[0]
+tissuePointsResizeToTemplate = tissuePointsResizeRotate * resolutionRatio
+plt.imshow(sampleRotate)
+plt.plot(tissuePointsResizeToTemplate[:,0],tissuePointsResizeToTemplate[:,1],marker='o',color='red')
+plt.show()
 
-#%% need to rework this a bit to make more sense comparison-wise
-# padSizeVert = int((visiumGrey.shape[0]-templateLeftTissue.shape[0])/2)
-# padSizeHor = int((visiumGrey.shape[1]-templateLeftTissue.shape[1])/2)
-# templateLeftPad = np.pad(templateLeftTissue, ((padSizeVert,padSizeVert),(padSizeHor,padSizeHor)))
-# templateRightPad = np.pad(templateRightTissue, ((padSizeVert,padSizeVert),(padSizeHor,padSizeHor)))
-# io.imshow(templateLeftPad)
-# #io.imshow(templateRightPad)
+#%% apply syn transform to tissue spot coordinates
+csvPad = np.zeros(tissuePointsResizeToTemplate.shape)
+tissuePointsForTransform = np.append(tissuePointsResizeToTemplate, csvPad, 1)
+np.savetxt('../derivatives/sample-01_tissuePointsResizeToTemplate.csv',tissuePointsForTransform, delimiter=',', header="x,y,z,t")
+os.system("antsApplyTransformsToPoints -d 2 -i ../derivatives/sample-01_tissuePointsResizeToTemplate.csv -o ../derivatives/sample-01_tissuePointsResizeToTemplateTransformApplied.csv -t [ ../derivatives/sample-01_xfm0GenericAffine.mat,1]")
 
+#%% open and check transformed coordinates
+transformedTissuePositionList = []
+with open(os.path.join('../derivatives/sample-01_tissuePointsResizeToTemplateTransformApplied.csv'), newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            transformedTissuePositionList.append(row)
+            
+sampleTransformed = synXfm["warpedmovout"].numpy()
 
-#%% work on the dot coordinates
-# rotMat contains the matrix to rotate coordinates 180 degrees
-#rotMat = np.matrix([[0,1],[1,0]])
-#tissuePositionsListResize = []
-#
-#for rows in tissuePositionsList:
-#    tissuePositionsListResize.append([int(rows[4]),int(rows[5])])
-#
-#tissuePositionsListResize = np.asarray(tissuePositionsListResize)
-#tissuePositionsListResize[:,0] = np.squeeze(np.floor(tissuePositionsListResize[:,0] * scaleFactors["tissue_hires_scalef"]))
-#tissuePositionsListResize[:,1] = np.squeeze(np.floor(tissuePositionsListResize[:,1] * scaleFactors["tissue_hires_scalef"]))
-#
-#tissuePositionsListRotate = np.matmul(tissuePositionsListResize,rotMat)
-#
-#
-#antsArray = np.zeros([tissuePositionsListRotate.shape[0],4])
-#antsArray[:,0] = np.squeeze(tissuePositionsListRotate[:,0])
-#antsArray[:,1] = np.squeeze(tissuePositionsListRotate[:,1])
-#antsArray[:,4] = tissuePositionsList[:,0]
+transformedTissuePositionList = np.array(transformedTissuePositionList, dtype=float)
+
+plt.imshow(sampleTransformed)
+plt.plot(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='o', color='green')
+plt.show()
 
 
-#inTissueDots = np.asarray(inTissueDots)
-#inTissueDotsResize = np.rint(inTissueDots * scaleFactors['tissue_hires_scalef'])
-#inTissueDotsRotate = np.matmul(inTissueDotsResize, rotMat)
 
-#plt.scatter(inTissueDotsRotate[:,1],inTissueDotsRotate[:,0])
-#
-#io.imsave(os.path.join(derivativesPath,"allenSlice73.png"),np.uint8(templateLeftPad * 255))
-#io.imsave(os.path.join(derivativesPath,"sorSlice1.png"),np.uint8(visiumRotate * 255))
-
-#%% work on writing the in tissue coordinates to csv compatible with antsApplyTransformsToPoints
-
-#csvFilename = "inTissueDotsRotated.csv"
-#csvHeader="x,y,z,t"
-#
-#np.savetxt(csvFilename, antsArray, delimiter=',', header=csvHeader, comments='')
-#
-#
-#
-##%%
-#
-#warpedTissuePositions = []
-#with open(os.path.join(derivativesPath,"test.csv"), newline='') as csvfile:
-#    csvreader = csv.reader(csvfile, delimiter=',')
-#    for row in csvreader:
-#        warpedTissuePositions.append(row)
-#        
-#warpedTissuePositions = np.delete(warpedTissuePositions,(0),axis=0)
-#
-#
-##%% plotting spots over visium image
-#        
-#fig, ax = plt.subplots()
-#
-#ax.imshow(visiumGrey)
-#ax.plot(antsArray[:,0],antsArray[:,1])
-##ax.imshow(visiumGrey)ax
-##ax.plot(warpedTissuePositions[:,0],warpedTissuePositions[:,1])
-##
-#fig,ax = plt.subplots()
-#ax.imshow(visiumRotate)
-#ax.plot(tissuePositionsListResize[:,0],tissuePositionsListResize[:,1])
-#
-#
-#
-#
-#
-#
-#
-#
 
 
 
