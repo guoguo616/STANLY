@@ -61,8 +61,6 @@ def processVisiumData(visiumSample):
     processedVisium['tissue'][processedVisium['visiumOtsu']==True] = visiumSample['imageData'][processedVisium['visiumOtsu']==True]
     io.imshow(visiumSample['imageData'])
     plt.show()
-    io.imshow(processedVisium['visiumGauss'])
-    plt.show()
     io.imshow(processedVisium['tissue'])
     return processedVisium
 
@@ -196,7 +194,9 @@ plt.show()
 # might want to include section that removes any negative coordinates following spot registration
 # one other option might be to use the whole brain slice for the annotated extraction
 
-transformedTissuePositionListMask = transformedTissuePositionList > 0
+# transformedTissuePositionListMask = transformedTissuePositionList > 0 
+transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < sampleTransformed.shape[0])
+
 transformedTissuePositionListFinal = [];
 transformedBarcodesFinal = []
 for i, masked in enumerate(transformedTissuePositionListMask):
@@ -206,10 +206,10 @@ for i, masked in enumerate(transformedTissuePositionListMask):
 
 transformedTissuePositionListFinal = np.array(transformedTissuePositionListFinal, dtype=float)
 
-plt.imshow(sampleTransformed)
+plt.imshow(templateLeft)
 plt.scatter(transformedTissuePositionListFinal[0:,0],transformedTissuePositionListFinal[0:,1], marker='.', c='green', alpha=0.2)
 plt.show()
-
+plt.imshow
 #%% extract atlas information
 
 # find regions present in current annotation slice
