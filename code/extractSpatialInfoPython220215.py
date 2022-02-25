@@ -20,6 +20,8 @@ import cv2
 import get_matrix_from_h5
 from glob import glob
 import ants
+from allensdk.core.reference_space_cache import ReferenceSpaceCache
+
 # setting up paths
 # needs to read json, h5, jpg, and svg
 derivatives = "../derivatives"
@@ -130,7 +132,7 @@ sampleResize = rescale(sampleNorm,resolutionRatio)
 sampleRotate = rotate(sampleResize, degreesToRotate, resize=True)
 sampleHistMatch = match_histograms(sampleRotate, templateLeft)
 
-#%%
+#%% run registration of sample to template
 
 templateAntsImage = ants.from_numpy(templateLeft)
 sampleAntsImage = ants.from_numpy(sampleHistMatch)
@@ -186,7 +188,7 @@ transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
 transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
 
 plt.imshow(sampleTransformed)
-plt.scatter(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='.', c='green', alpha=0.2)
+plt.scatter(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='.', c='red', alpha=0.3)
 plt.show()
 
 #%% remove any out of bounds points and prepare for comparison to atlas locations
@@ -207,11 +209,30 @@ for i, masked in enumerate(transformedTissuePositionListMask):
 transformedTissuePositionListFinal = np.array(transformedTissuePositionListFinal, dtype=float)
 
 plt.imshow(templateLeft)
-plt.scatter(transformedTissuePositionListFinal[0:,0],transformedTissuePositionListFinal[0:,1], marker='.', c='green', alpha=0.2)
+plt.scatter(transformedTissuePositionListFinal[0:,0],transformedTissuePositionListFinal[0:,1], marker='x', c='red', alpha=0.3)
+plt.show()
+plt.imshow
+
+# create a "fake" annotation image that just looks better in an overlay
+templateAnnotationLeftFake = templateAnnotationLeft
+templateAnnotationLeftFake[templateAnnotationLeft > 1500] = 100
+plt.imshow(templateAnnotationLeft)
+plt.scatter(transformedTissuePositionListFinal[0:,0],transformedTissuePositionListFinal[0:,1], marker='.', c='red', alpha=0.5)
 plt.show()
 plt.imshow
 #%% extract atlas information
+reference_space_key = 'annotation/ccf_2017'
+resolution = 10
+rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
+# ID 1 is the adult mouse structure graph
+tree = rspc.get_structure_tree(structure_graph_id=1) 
+regionList = tree.get_name_map()
+hippocampus = tree.get_structures_by_name(['Hippocampal region'])
+hippocampus[0]['id']
 
+hippocampalMask = np.zeros(templateAnnotationLeft.shape)
+hippocampalMask[templateAnnotationLeft == 1089] = 1
+# hippocampalMask[hippocampalMask != 1080 ] = 0
 # find regions present in current annotation slice
 # templateRegions = np.unique(templateAnnotationLeft)
 
