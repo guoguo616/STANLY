@@ -20,7 +20,6 @@ import cv2
 #mport get_matrix_from_h5
 from glob import glob
 import ants
-from allensdk.core.reference_space_cache import ReferenceSpaceCache
 """
 get_matrix_from_h5 is from code @:
     https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/advanced/h5_matrices
@@ -54,6 +53,9 @@ def get_matrix_from_h5(filename):
             feature_ref[key] = getattr(feature_group, key.decode('UTF-8')).read()
 #         
         return CountMatrix(feature_ref, barcodes, matrix)
+"""
+end of code from 10x
+"""
 
 # setting up paths
 # needs to read json, h5, jpg, and svg
@@ -68,6 +70,17 @@ ara_data = ants.image_read("../data/ccf/ara_nissl_10.nrrd")
 annotation_data = ants.image_read("../data/ccf/annotation_10.nrrd")
 #%%
 # imports the "tissue_hires_image.png" output to register to allen ccf
+""" notes about visium data:
+    there are a total of 4,992 possible spots on a slide
+    tissue_positions_list.csv contains:
+    barcode: The sequence of the barcode associated to the spot.
+    in_tissue: Binary, indicating if the spot falls inside (1) or outside (0) of tissue.
+    array_row: The row coordinate of the spot in the array from 0 to 77. The array has 78 rows.
+    array_col: The column coordinate of the spot in the array. In order to express the orange crate arrangement of the spots, this column index uses even numbers from 0 to 126 for even rows, and odd numbers from 1 to 127 for odd rows. Notice then that each row (even or odd) has 64 spots.
+    pxl_row_in_fullres: The row pixel coordinate of the center of the spot in the full resolution image.
+    pxl_col_in_fullres: The column pixel coordinate of the center of the spot in the full resolution image.
+
+"""
 def importVisiumData(sampleFolder):
     # this currently assumes that sampleFolder contains spatial folder and the
     # filtered_feature_bc_matrix.h5 output from space ranger
@@ -143,9 +156,19 @@ def chooseTemplateSlice(sliceLocation, resolution):
     
     
     return templateSlice, templateLeftSlice, templateRightSlice, templateAnnotationSlice, templateStartingResolution
-#
-#allenSlice73, allenLeftSlice73, allenRightSlice73, allenAnnotSlice73 = chooseTemplateSlice(73, 10)
 
+#%%
+sampleList = []
+templateList = []
+
+with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
+    tsvreader = csv.reader(tsvfile, delimiter='\t')
+    next(tsvreader)
+    for row in tsvreader:
+        sampleList.append(row[0])
+        templateList.append(row[1])
+
+templateList = np.array(templateList, dtype='int')
 #%% choose template slice
 
 # list of best template slices for each sample could be a good inclusion in participants.tsv, if using format
@@ -168,13 +191,15 @@ templateLeftGauss = filters.gaussian(templateLeft, 10)
 io.imshow(templateLeftGauss)
 #%% import sample data
 # this resolution is the mm/pixel estimation of the 6.5mm between dot borders, which is ~1560 pixels in the tissue_hires_image.png
-sampleStartingResolution = 6.5 / 1560
-resolutionRatio = sampleStartingResolution / templateStartingResolution
+# sampleStartingResolution = 6.5 / 1560
+# this resolution is based on each spot being 55um, adjusted to the scale in the scaleFactors setting
 
 sample = importVisiumData("../rawdata/sleepDepBothBatches/sample-07")
 sampleProcessed = processVisiumData(sample)
 sampleMatrix = sample["filteredFeatureMatrix"][2]
 sampleMatrix = sampleMatrix.todense()
+sampleStartingResolution = 0.55 / sample["scaleFactors"]["spot_diameter_fullres"]
+resolutionRatio = sampleStartingResolution / templateStartingResolution
 #%% 
 sampleNorm = cv2.normalize(sampleProcessed["tissue"], None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 # (np.sum((templateLeft > 0)/np.sum(sampleNorm > 0))) for below
@@ -191,7 +216,7 @@ sampleAntsImage = ants.from_numpy(sampleHistMatch)
 # templateAntsImage.set_spacing([templateStartingResolution,templateStartingResolution])
 # sampleAntsImage.set_spacing([templateStartingResolution,templateStartingResolution])
 
-synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, type_of_transform='SyN', outprefix=os.path.join(sampleProcessed['derivativesPath'],f"{sample['sampleID']}_xfm"))
+synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, type_of_transform='SyN', grad_step=0.1, reg_iterations=(60,40,20,0), outprefix=os.path.join(sampleProcessed['derivativesPath'],f"{sample['sampleID']}_xfm"))
 ants.plot(templateAntsImage, overlay=synXfm["warpedmovout"])
 
 #%%
@@ -273,7 +298,7 @@ for i, masked in enumerate(transformedTissuePositionListMask):
         transformedBarcodesFinal.append(sample["tissueSpotBarcodeList"][i])
 
 transformedTissuePositionListFinal = np.array(transformedTissuePositionListFinal, dtype=float)
-
+#%%
 plt.imshow(templateLeft)
 plt.scatter(transformedTissuePositionListFinal[0:,0],transformedTissuePositionListFinal[0:,1], marker='x', c='red', alpha=0.3)
 plt.show()
@@ -287,7 +312,7 @@ plt.scatter(transformedTissuePositionListFinal[0:,0],transformedTissuePositionLi
 plt.show()
 plt.imshow
 
-#%%
+
 plt.imshow(sampleTransformed)
 plt.scatter(transformedTissuePositionListFinal[0:,0],transformedTissuePositionListFinal[0:,1], marker='x', c='red', alpha=0.3)
 plt.show()
@@ -297,30 +322,25 @@ plt.imshow(sampleTransformed,cmap='gray')
 plt.imshow(templateAnnotationLeft, alpha=0.3)
 plt.show()
 #%% extract atlas information
-reference_space_key = 'annotation/ccf_2017'
-resolution = 10
-rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
-# ID 1 is the adult mouse structure graph
-tree = rspc.get_structure_tree(structure_graph_id=1) 
-regionList = tree.get_name_map()
-hippocampus = tree.get_structures_by_name(['Hippocampal region'])
-hippocampus[0]['id']
+# from allensdk.core.reference_space_cache import ReferenceSpaceCache
+# reference_space_key = 'annotation/ccf_2017'
+# resolution = 10
+# rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
+# # ID 1 is the adult mouse structure graph
+# tree = rspc.get_structure_tree(structure_graph_id=1) 
+# regionList = tree.get_name_map()
+# hippocampus = tree.get_structures_by_name(['Hippocampal region'])
+# hippocampus[0]['id']
 
-hippocampalMask = np.zeros(templateAnnotationLeft.shape)
-hippocampalMask[templateAnnotationLeft == 1089] = 1
-# hippocampalMask[hippocampalMask != 1080 ] = 0
-# find regions present in current annotation slice
-# templateRegions = np.unique(templateAnnotationLeft)
+# hippocampalMask = np.zeros(templateAnnotationLeft.shape)
+# hippocampalMask[templateAnnotationLeft == 1089] = 1
 
-# for i in templateRegions:
-#     if i > 0:
-        
+#%% incorporate filtered feature matrix information
+# take the imported filtered feature matrix and match the barcodes with those in the tissue spot barcode list
 
+filteredFeatureMatrixIdx = []
 
-
-
-
-
-
-
+# should this go the other way? i.e. finding transformedBarcodesFinal in sample["filteredFeatureMatrix"][1]
+for origIndex in sample["filteredFeatureMatrix"][1]:
+    filteredFeatureMatrixIdx.append(sample["tissueSpotBarcodeList"].index(origIndex.decode()))
 
