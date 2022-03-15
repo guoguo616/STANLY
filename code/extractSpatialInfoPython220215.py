@@ -344,3 +344,5 @@ filteredFeatureMatrixIdx = []
 for origIndex in sample["filteredFeatureMatrix"][1]:
     filteredFeatureMatrixIdx.append(sample["tissueSpotBarcodeList"].index(origIndex.decode()))
 
+# this orders the filtered feature matrix along the x dimension to match the ordering in the barcode list
+orderedMatrix = sampleMatrix[:,np.array(filteredFeatureMatrixIdx)]
