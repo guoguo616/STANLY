@@ -149,21 +149,21 @@ def rotateTissuePoints(visiumData, rotation):
     tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
     # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
     # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
-    if degreesToRotate == 0:
+    if rotation == 0:
         # a null step, but makes for continuous math
         rotMat = [[1,0],[0,1]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
-    elif degreesToRotate == 90:
+    elif rotation == 90:
         rotMat = [[0,-1],[1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageData"].shape[1]
-    elif degreesToRotate == 180:
+    elif rotation == 180:
         rotMat = [[-1,0],[0,-1]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageData"].shape[0]
         tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageData"].shape[1]
-    elif degreesToRotate == 270:
+    elif rotation == 270:
         rotMat = [[0,1],[-1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageData"].shape[0]
@@ -274,14 +274,17 @@ experiment['sample-id'] = sampleList
 experiment['template-slice'] = templateList[:,0]
 experiment['rotation'] = templateList[:,1]
 #%% import sample data
-degreesToRotate = 180
-allenSlice = 69
-actSample = "../rawdata/sleepDepBothBatches/sample-09"
+# degreesToRotate = 180
+# allenSlice = 69
+# actSample = "../rawdata/sleepDepBothBatches/sample-09"
 
-sample = importVisiumData(actSample)
-template = chooseTemplateSlice(allenSlice)
-sampleProcessed = processVisiumData(sample, template, degreesToRotate)
-sampleRegistered = runANTsRegistration(sampleProcessed, template)
+experimentalResults = {}
+for actSample in range(len(experiment['sample-id'])):
+    sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+    template = chooseTemplateSlice(experiment['template-slice'][actSample])
+    sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
+    sampleRegistered = runANTsRegistration(sampleProcessed, template)
+    experimentalResults[actSample] = sampleRegistered
 
 #%%#########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATION #
