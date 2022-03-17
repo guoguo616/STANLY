@@ -18,7 +18,7 @@ import csv
 import cv2
 from glob import glob
 import ants
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import pdist, squareform, cosine
 
 # setting up paths
 derivatives = "../derivatives"
@@ -206,6 +206,7 @@ def processVisiumData(visiumData, templateData, rotation):
     plt.show()
     processedVisium['filteredFeatureMatrixDense'] = visiumData["filteredFeatureMatrix"][2]
     processedVisium['filteredFeatureMatrixDense'] = processedVisium['filteredFeatureMatrixDense'].todense()
+    processedVisium['filteredFeatureMatrixDense'] = processedVisium['filteredFeatureMatrixDense'].astype(int)
     return processedVisium
 
 # will have to add right left hemisphere choice, eventually potentially sagittal etc
@@ -288,17 +289,17 @@ sampleRegistered = runANTsRegistration(sampleProcessed, template)
 ############################################
 #%% incorporate filtered feature matrix information
 # take the imported filtered feature matrix and match the barcodes with those in the tissue spot barcode list
-# sampleMatrix = sample["filteredFeatureMatrix"][2]
+# sampleMatrix = sampleProcessed["filteredFeatureMatrixDense"][2]
 # sampleMatrix = sampleMatrix.todense()
 # filteredFeatureMatrixIdx = []
 
-#need to add a mask for those removed during registration
+# need to add a mask for those removed during registration
 
 # should this go the other way? i.e. finding transformedBarcodesFinal in sample["filteredFeatureMatrix"][1]
 # for origIndex in sample["filteredFeatureMatrix"][1]:
-#     filteredFeatureMatrixIdx.append(sample["tissueSpotBarcodeList"].index(origIndex.decode()))
+    # filteredFeatureMatrixIdx.append(sample["tissueSpotBarcodeList"].index(origIndex.decode()))
 
-# # this orders the filtered feature matrix along the x dimension to match the ordering in the barcode list
+# this orders the filtered feature matrix along the x dimension to match the ordering in the barcode list
 # orderedMatrix = sampleMatrix[:,np.array(filteredFeatureMatrixIdx)]
 
 #%% calculate pairwise distance for each points in a sample
@@ -314,3 +315,22 @@ samplekNN = np.zeros([samplePDistNN.shape[0],samplePDistNN.shape[1]])
 for i, row in enumerate(samplePDistSM):
     for sigK in range(kNN):
         samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[i][sigK])
+
+samplekNN = samplekNN.astype(int)
+
+#%% run cosine similarity on kNN spots
+V = []
+v = np.zeros([samplekNN.shape[0],samplekNN.shape[1]])
+for i in range(samplekNN.shape[0]):
+    for k, j in enumerate(samplekNN[i]):
+        V = cosine(sampleProcessed['filteredFeatureMatrixDense'][:,i], sampleProcessed['filteredFeatureMatrixDense'][:,j])
+        v[i,k] = 1 - V
+
+
+
+
+
+
+
+
+
