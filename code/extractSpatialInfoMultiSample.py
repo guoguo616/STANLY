@@ -149,21 +149,21 @@ def rotateTissuePoints(visiumData, rotation):
     tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
     # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
     # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
-    if degreesToRotate == 0:
+    if rotation == 0:
         # a null step, but makes for continuous math
         rotMat = [[1,0],[0,1]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
-    elif degreesToRotate == 90:
+    elif rotation == 90:
         rotMat = [[0,-1],[1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageData"].shape[1]
-    elif degreesToRotate == 180:
+    elif rotation == 180:
         rotMat = [[-1,0],[0,-1]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageData"].shape[0]
-        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageData"].shape[1]
-    elif degreesToRotate == 270:
+        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageData"].shape[1]
+        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageData"].shape[0]
+    elif rotation == 270:
         rotMat = [[0,1],[-1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageData"].shape[0]
@@ -215,7 +215,9 @@ def runANTsRegistration(processedVisium, templateData):
     registeredData = {}
     templateAntsImage = ants.from_numpy(templateData['leftHem'])
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
-    synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, type_of_transform='SyN', grad_step=0.1, reg_iterations=(60,40,20,0), outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
+    synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
+    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(100,80,60,40,20,0), \
+    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     ants.plot(templateAntsImage, overlay=synXfm["warpedmovout"])
     # apply syn transform to tissue spot coordinates
@@ -243,6 +245,7 @@ def runANTsRegistration(processedVisium, templateData):
     
     plt.imshow(registeredData['visiumTransformed'],cmap='gray')
     plt.imshow(templateData['leftHem'], alpha=0.3)
+    plt.title(processedVisium['sampleID'])
     plt.show()
         
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
@@ -268,25 +271,38 @@ with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
     for row in tsvreader:
         sampleList.append(row[0])
         templateList.append(row[1:])
-        
-templateList = np.array(templateList, dtype='int')
-experiment = {}
-experiment['sample-id'] = sampleList
-experiment['template-slice'] = templateList[:,0]
-experiment['rotation'] = templateList[:,1]
-#%% import sample data
-degreesToRotate = 180
-allenSlice = 69
-actSample = "../rawdata/sleepDepBothBatches/sample-09"
 
-sample = importVisiumData(actSample)
-template = chooseTemplateSlice(allenSlice)
-sampleProcessed = processVisiumData(sample, template, degreesToRotate)
-sampleRegistered = runANTsRegistration(sampleProcessed, template)
+templateList = np.array(templateList, dtype='int')
+        
+# list of good images
+imageList = [0,1, 2, 3, 4, 5, 6, 7, 8, 10, 13]
+
+experiment = {'sample-id': sampleList,
+              'template-slice': templateList[:,0],
+              'rotation': templateList[:,1]}
+
+truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
+                   'template-slice': templateList[imageList,0],
+                   'rotation': templateList[imageList,1]}
+
+#%% import sample data
+# degreesToRotate = 180
+# allenSlice = 69
+# actSample = "../rawdata/sleepDepBothBatches/sample-09"
+experimentalResults = {}
+# working on below bit
+# experimentalResults = dict.fromkeys(['sample-id','antsOutput'])
+for actSample in range(len(experiment['sample-id'])):
+    sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+    template = chooseTemplateSlice(experiment['template-slice'][actSample])
+    sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
+    sampleRegistered = runANTsRegistration(sampleProcessed, template)
+    experimentalResults[actSample] = sampleRegistered
 
 #%%#########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATION #
 ############################################
+<<<<<<< HEAD
 #%% incorporate filtered feature matrix information
 # take the imported filtered feature matrix and match the barcodes with those in the tissue spot barcode list
 # sampleMatrix = sampleProcessed["filteredFeatureMatrixDense"][2]
@@ -301,6 +317,8 @@ sampleRegistered = runANTsRegistration(sampleProcessed, template)
 
 # this orders the filtered feature matrix along the x dimension to match the ordering in the barcode list
 # orderedMatrix = sampleMatrix[:,np.array(filteredFeatureMatrixIdx)]
+=======
+>>>>>>> multisample
 
 #%% calculate pairwise distance for each points in a sample
 samplePDist = pdist(sampleRegistered['maskedTissuePositionList'], metric='euclidean')
@@ -316,6 +334,7 @@ for i, row in enumerate(samplePDistSM):
     for sigK in range(kNN):
         samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[i][sigK])
 
+<<<<<<< HEAD
 samplekNN = samplekNN.astype(int)
 
 #%% run cosine similarity on kNN spots
@@ -334,3 +353,11 @@ for i in range(samplekNN.shape[0]):
 
 
 
+=======
+#%% create 3d image from selected sample runs
+# list of closer images
+nearbyImageList = [4,5,6,7]
+allCoordinates = np.zeros([1,2])
+for i in imageList:
+    np.append(allCoordinates, experimentalResults[i]['maskedTissuePositionList'])
+>>>>>>> multisample
