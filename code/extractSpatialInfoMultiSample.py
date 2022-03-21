@@ -303,22 +303,53 @@ for actSample in range(len(experiment['sample-id'])):
 ############################################
 
 #%% calculate pairwise distance for each points in a sample
-samplePDist = pdist(sampleRegistered['maskedTissuePositionList'], metric='euclidean')
-samplePDistSM = squareform(samplePDist)
 # kNN here is how many nearest neighbors we want to calculate
 kNN = 12
-samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
-# below contains kNN distances for each in tissue spot based on post alignment distance
-samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
-# output of samplekNN should contain the barcode indices of all of the nearest neighbors
-samplekNN = np.zeros([samplePDistNN.shape[0],samplePDistNN.shape[1]])
-for i, row in enumerate(samplePDistSM):
-    for sigK in range(kNN):
-        samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[i][sigK])
+
+pairwiseSquareMatrix = {}
+pairwiseNearestNeighbors = {}
+
+# need to adjust/build edges, since right now two nearest neighbors with the
+# same distance is causing a crash because of multiple indices
+for actSample in range(len(experimentalResults)):    
+    print(experiment['sample-id'][actSample])
+    samplePDist = []
+    samplePDist = pdist(experimentalResults[actSample]['maskedTissuePositionList'], metric='euclidean')
+    samplePDistSM = []
+    samplePDistSM = squareform(samplePDist)
+    pairwiseSquareMatrix[actSample] = samplePDistSM
+    samplePDistSMSorted = []
+    samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
+    # below contains kNN distances for each in tissue spot based on post alignment distance
+    samplePDistNN = []
+    samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
+    # output of samplekNN should contain the barcode indices of all of the nearest neighbors
+    samplekNN = np.zeros(samplePDistNN.shape)
+    for i, row in enumerate(samplePDistSM):
+        for sigK in range(kNN):
+            samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[i][sigK])
+            
+    pairwiseNearestNeighbors[actSample] = samplekNN
+
+#%% next steps towards clustering data, though this could realistically be replaced by something like BayesSpace
+# from sklearn.cluster import AffinityPropagation
+# from sklearn import metrics
+
+from scipy import spatial
+
+#%% run cosine similarity on kNN spots
+V = []
+v = np.zeros([samplekNN.shape[0],samplekNN.shape[1]])
+for i in range(samplekNN.shape[0]):
+    for k, j in enumerate(samplekNN[i]):
+        V = cosine(sampleProcessed['filteredFeatureMatrixDense'][:,i], sampleProcessed['filteredFeatureMatrixDense'][:,j])
+        v[i,k] = 1 - V
+
+
 
 #%% create 3d image from selected sample runs
-# list of closer images
-nearbyImageList = [4,5,6,7]
-allCoordinates = np.zeros([1,2])
-for i in imageList:
-    np.append(allCoordinates, experimentalResults[i]['maskedTissuePositionList'])
+# # list of closer images
+# nearbyImageList = [4,5,6,7]
+# allCoordinates = np.zeros([1,2])
+# for i in imageList:
+#     np.append(allCoordinates, experimentalResults[i]['maskedTissuePositionList'])
