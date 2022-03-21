@@ -298,9 +298,9 @@ for actSample in range(len(experiment['sample-id'])):
     sampleRegistered = runANTsRegistration(sampleProcessed, template)
     experimentalResults[actSample] = sampleRegistered
 
-#%%#########################################
-# CHECK FOR ACCURACY OF ABOVE REGISTRATION #
-############################################
+#%%##########################################
+# CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
+#############################################
 
 #%% calculate pairwise distance for each points in a sample
 # kNN here is how many nearest neighbors we want to calculate
@@ -308,13 +308,15 @@ kNN = 12
 
 pairwiseSquareMatrix = {}
 pairwiseNearestNeighbors = {}
-
+nearestNeighborEdges = {}
+####
 # need to adjust/build edges, since right now two nearest neighbors with the
 # same distance is causing a crash because of multiple indices
+#### ^ was a euclidean metric issue, changing metric in pdist fixes
 for actSample in range(len(experimentalResults)):    
     print(experiment['sample-id'][actSample])
     samplePDist = []
-    samplePDist = pdist(experimentalResults[actSample]['maskedTissuePositionList'], metric='euclidean')
+    samplePDist = pdist(experimentalResults[actSample]['maskedTissuePositionList'], metric='cosine')
     samplePDistSM = []
     samplePDistSM = squareform(samplePDist)
     pairwiseSquareMatrix[actSample] = samplePDistSM
@@ -323,19 +325,30 @@ for actSample in range(len(experimentalResults)):
     # below contains kNN distances for each in tissue spot based on post alignment distance
     samplePDistNN = []
     samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
+    samplePDistEdges = []
     # output of samplekNN should contain the barcode indices of all of the nearest neighbors
     samplekNN = np.zeros(samplePDistNN.shape)
     for i, row in enumerate(samplePDistSM):
         for sigK in range(kNN):
-            samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[i][sigK])
+            samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[i,sigK])
+            samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[i,sigK])]) 
+            # samplePDistEdges[1,i] = 
             
     pairwiseNearestNeighbors[actSample] = samplekNN
+    nearestNeighborEdges[actSample] = samplePDistEdges
+#%% take nearest neighbor lists and turn into list of coordinate edges i.e. [I,J] 
+
+sampleEdges = []
+for actSample in pairwiseNearestNeighbors:
+    for i, row in enumerate(actSample):
+        sampleEdges.append(())
+
 
 #%% next steps towards clustering data, though this could realistically be replaced by something like BayesSpace
 # from sklearn.cluster import AffinityPropagation
 # from sklearn import metrics
 
-from scipy import spatial
+# from scipy import spatial
 
 #%% run cosine similarity on kNN spots
 V = []
