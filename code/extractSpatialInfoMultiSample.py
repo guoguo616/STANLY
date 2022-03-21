@@ -18,7 +18,7 @@ import csv
 import cv2
 from glob import glob
 import ants
-from scipy.spatial.distance import pdist, squareform, cosine
+from scipy.spatial.distance import pdist, squareform
 
 # setting up paths
 derivatives = "../derivatives"
@@ -206,7 +206,6 @@ def processVisiumData(visiumData, templateData, rotation):
     plt.show()
     processedVisium['filteredFeatureMatrixDense'] = visiumData["filteredFeatureMatrix"][2]
     processedVisium['filteredFeatureMatrixDense'] = processedVisium['filteredFeatureMatrixDense'].todense()
-    processedVisium['filteredFeatureMatrixDense'] = processedVisium['filteredFeatureMatrixDense'].astype(int)
     return processedVisium
 
 # will have to add right left hemisphere choice, eventually potentially sagittal etc
@@ -302,23 +301,6 @@ for actSample in range(len(experiment['sample-id'])):
 #%%#########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATION #
 ############################################
-<<<<<<< HEAD
-#%% incorporate filtered feature matrix information
-# take the imported filtered feature matrix and match the barcodes with those in the tissue spot barcode list
-# sampleMatrix = sampleProcessed["filteredFeatureMatrixDense"][2]
-# sampleMatrix = sampleMatrix.todense()
-# filteredFeatureMatrixIdx = []
-
-# need to add a mask for those removed during registration
-
-# should this go the other way? i.e. finding transformedBarcodesFinal in sample["filteredFeatureMatrix"][1]
-# for origIndex in sample["filteredFeatureMatrix"][1]:
-    # filteredFeatureMatrixIdx.append(sample["tissueSpotBarcodeList"].index(origIndex.decode()))
-
-# this orders the filtered feature matrix along the x dimension to match the ordering in the barcode list
-# orderedMatrix = sampleMatrix[:,np.array(filteredFeatureMatrixIdx)]
-=======
->>>>>>> multisample
 
 #%% calculate pairwise distance for each points in a sample
 # kNN here is how many nearest neighbors we want to calculate
@@ -365,38 +347,9 @@ for i in range(samplekNN.shape[0]):
 
 
 
-<<<<<<< HEAD
-samplekNN = samplekNN.astype(int)
-
-#%% run cosine similarity on kNN spots
-V = []
-v = np.zeros([samplekNN.shape[0],samplekNN.shape[1]])
-for i in range(samplekNN.shape[0]):
-    for k, j in enumerate(samplekNN[i]):
-        V = cosine(sampleProcessed['filteredFeatureMatrixDense'][:,i], sampleProcessed['filteredFeatureMatrixDense'][:,j])
-        v[i,k] = 1 - V
-
-
-
-
-
-
-
-
-
-=======
 #%% create 3d image from selected sample runs
-<<<<<<< HEAD
-# list of closer images
-nearbyImageList = [4,5,6,7]
-allCoordinates = np.zeros([1,2])
-for i in imageList:
-    np.append(allCoordinates, experimentalResults[i]['maskedTissuePositionList'])
->>>>>>> multisample
-=======
 # # list of closer images
 # nearbyImageList = [4,5,6,7]
 # allCoordinates = np.zeros([1,2])
 # for i in imageList:
 #     np.append(allCoordinates, experimentalResults[i]['maskedTissuePositionList'])
->>>>>>> multisample
