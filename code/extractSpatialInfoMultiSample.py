@@ -18,7 +18,7 @@ import csv
 import cv2
 from glob import glob
 import ants
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import pdist, squareform, cosine
 
 # setting up paths
 derivatives = "../derivatives"
@@ -291,7 +291,7 @@ truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
 experimentalResults = {}
 # working on below bit
 # experimentalResults = dict.fromkeys(['sample-id','antsOutput'])
-for actSample in range(len(experiment['sample-id'])):
+for actSample in range(len(truncExperiment['sample-id'])):
     sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
     template = chooseTemplateSlice(experiment['template-slice'][actSample])
     sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
@@ -323,46 +323,98 @@ for actSample in range(len(experimentalResults)):
     samplePDistSMSorted = []
     samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
     # below contains kNN distances for each in tissue spot based on post alignment distance
-    samplePDistNN = []
-    samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
+    # samplePDistNN = []
+    # samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
     samplePDistEdges = []
     # output of samplekNN should contain the barcode indices of all of the nearest neighbors
-    samplekNN = np.zeros(samplePDistNN.shape)
+    samplekNN = np.zeros([samplePDistSM.shape[0],kNN])
     for i, row in enumerate(samplePDistSM):
-        for sigK in range(kNN):
-            samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[i,sigK])
-            samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[i,sigK])]) 
-            # samplePDistEdges[1,i] = 
+        samplePDistNN = []
+        # samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+        if samplePDistSMSorted[i,1] > 0:
+            samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+            for sigK in range(kNN):
+                samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+                samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+        else:
+            samplePDistNN = samplePDistSMSorted[i,2:kNN+2]
+            for sigK in range(kNN):
+                samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+                samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+                # samplePDistEdges[1,i] = 
             
     pairwiseNearestNeighbors[actSample] = samplekNN
     nearestNeighborEdges[actSample] = samplePDistEdges
 #%% take nearest neighbor lists and turn into list of coordinate edges i.e. [I,J] 
 
-sampleEdges = []
-for actSample in pairwiseNearestNeighbors:
-    for i, row in enumerate(actSample):
-        sampleEdges.append(())
+
+allEdges = {}
+
+# goes through each sample and creates a list of edges defined by two points [i,j]
+for i in range(len(pairwiseNearestNeighbors)):
+    actSample = pairwiseNearestNeighbors[i]
+    sampleEdges = np.empty((0,2), int)
+    for j, row in enumerate(actSample):
+        # print(row)
+        actEdges = np.zeros([kNN,2])
+        actEdges[:,0] = j
+        actEdges[:,1] = np.transpose(row)
+        sampleEdges = np.append(sampleEdges, actEdges, axis=0)
+        
+    # removes any duplicate edges (i.e. edges [i,j] and [j,i] are identical)
+    # sortedEdges = np.sort(sampleEdges, axis=1)
+    # uniqueEdges = np.array(np.unique(sortedEdges, axis=0),dtype=int)
+    allEdges[i] = np.array(sampleEdges,dtype=int)
+
+
+
+#%% run cosine similarity on kNN spots
+# can now use edge lists to create weighted adjacency matrices
+
+# actSample = 0
+actEdges = allEdges[10]
+# sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+# template = chooseTemplateSlice(experiment['template-slice'][actSample])
+# sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
+# sampleRegistered = runANTsRegistration(sampleProcessed, template)
+V = []
+cosineSim = []
+# weighted adjacency matrix
+W = np.zeros([actEdges.max()+1,actEdges.max()+1])
+# v = np.zeros([actEdges.shape[0],actEdges.shape[1]])
+for row in actEdges:
+    V = cosine(sampleProcessed['filteredFeatureMatrixDense'][:,row[0]], sampleProcessed['filteredFeatureMatrixDense'][:,row[1]])
+    W[row[0],row[1]] = V
+# weighted laplacian
+D = sum(W)
+
+D = np.diag(D)
+
+L = D - W
+
+# spectral embedding
+
+sampleEigVal, sampleEigVec = np.linalg.eig(L)
+
+# from sklearn import manifold
+# se = manifold.SpectralEmbedding(n_components=2, n_neighbors=kNN)
+# seData = se.fit_transform(L).T
 
 
 #%% next steps towards clustering data, though this could realistically be replaced by something like BayesSpace
-# from sklearn.cluster import AffinityPropagation
+from sklearn.cluster import AffinityPropagation, KMeans
 # from sklearn import metrics
+afprop = AffinityPropagation(max_iter=250)
+afprop.fit(np.real(sampleEigVec))
+cluster_centers_indices = afprop.cluster_centers_indices_
+n_clusters_ = len(cluster_centers_indices)
+# Predict the cluster for all the samples
+P = afprop.predict(np.real(sampleEigVec))
 
+km = KMeans(n_clusters=6).fit(np.real(sampleEigVec))
+# can now plot clusters onto spots using P as color option
+plt.imshow(sampleRegistered['visiumTransformed'],cmap='gray')
+plt.scatter(sampleRegistered['maskedTissuePositionList'][0:,0],sampleRegistered['maskedTissuePositionList'][0:,1], marker='.', c=P, alpha=0.3)
+
+plt.show()
 # from scipy import spatial
-
-#%% run cosine similarity on kNN spots
-V = []
-v = np.zeros([samplekNN.shape[0],samplekNN.shape[1]])
-for i in range(samplekNN.shape[0]):
-    for k, j in enumerate(samplekNN[i]):
-        V = cosine(sampleProcessed['filteredFeatureMatrixDense'][:,i], sampleProcessed['filteredFeatureMatrixDense'][:,j])
-        v[i,k] = 1 - V
-
-
-
-#%% create 3d image from selected sample runs
-# # list of closer images
-# nearbyImageList = [4,5,6,7]
-# allCoordinates = np.zeros([1,2])
-# for i in imageList:
-#     np.append(allCoordinates, experimentalResults[i]['maskedTissuePositionList'])
