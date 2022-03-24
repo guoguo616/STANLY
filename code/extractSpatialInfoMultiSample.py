@@ -206,6 +206,10 @@ def processVisiumData(visiumData, templateData, rotation):
     plt.show()
     processedVisium['filteredFeatureMatrixDense'] = visiumData["filteredFeatureMatrix"][2]
     processedVisium['filteredFeatureMatrixDense'] = processedVisium['filteredFeatureMatrixDense'].todense()
+    filteredFeatureMatrixString = []
+    for bytebarcode in visiumData['filteredFeatureMatrix'][1]:
+        filteredFeatureMatrixString.append(bytebarcode.decode())
+    processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixString 
     return processedVisium
 
 # will have to add right left hemisphere choice, eventually potentially sagittal etc
@@ -248,7 +252,9 @@ def runANTsRegistration(processedVisium, templateData):
     plt.show()
         
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
-    
+    ###############################################################
+    # need to go over barcode and filtered feature matrix masking #
+    ###############################################################
     transformedTissuePositionListFinal = [];
     transformedBarcodesFinal = []
     for i, masked in enumerate(transformedTissuePositionListMask):
@@ -258,6 +264,12 @@ def runANTsRegistration(processedVisium, templateData):
     
     registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     registeredData['maskedBarcodes'] = transformedBarcodesFinal
+        
+    filteredFeatureMatrixBarcodeReorder = []
+    for actbarcode in registeredData['maskedBarcodes']:
+        filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
+    
+    registeredData['filteredFeatureMatrixReorder'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
     return registeredData
     
 #%% import sample list, location, and degrees of rotation from participants.tsv
@@ -298,6 +310,17 @@ for actSample in range(len(truncExperiment['sample-id'])):
     sampleRegistered = runANTsRegistration(sampleProcessed, template)
     experimentalResults[actSample] = sampleRegistered
 
+
+#%% reorder the filtered feature matrix to match the spot list
+filteredFeatureMatrixString = []
+for bytebarcode in sample['filteredFeatureMatrix'][1]:
+    filteredFeatureMatrixString.append(bytebarcode.decode())
+
+filteredFeatureMatrixReorder = []
+for actbarcode in sampleRegistered['maskedBarcodes']:
+    filteredFeatureMatrixReorder.append(filteredFeatureMatrixString.index(actbarcode))
+
+reorderedFilteredFeatureMatrix = sampleProcessed['filteredFeatureMatrixDense'][:,filteredFeatureMatrixReorder]
 #%%##########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
 #############################################
@@ -383,7 +406,7 @@ cosineSim = []
 W = np.zeros([actEdges.max()+1,actEdges.max()+1])
 # v = np.zeros([actEdges.shape[0],actEdges.shape[1]])
 for row in actEdges:
-    V = cosine(sampleProcessed['filteredFeatureMatrixDense'][:,row[0]], sampleProcessed['filteredFeatureMatrixDense'][:,row[1]])
+    V = cosine(sampleRegistered['filteredFeatureMatrixReorder'][:,row[0]], sampleRegistered['filteredFeatureMatrixReorder'][:,row[1]])
     W[row[0],row[1]] = V
 # weighted laplacian
 D = sum(W)
@@ -405,13 +428,13 @@ sampleEigVal, sampleEigVec = np.linalg.eig(L)
 from sklearn.cluster import AffinityPropagation, KMeans
 # from sklearn import metrics
 afprop = AffinityPropagation(max_iter=250)
-afprop.fit(np.real(sampleEigVec))
+afprop.fit(np.real(W))
 cluster_centers_indices = afprop.cluster_centers_indices_
 n_clusters_ = len(cluster_centers_indices)
 # Predict the cluster for all the samples
-P = afprop.predict(np.real(sampleEigVec))
+P = afprop.predict(np.real(W))
 
-km = KMeans(n_clusters=6).fit(np.real(sampleEigVec))
+km = KMeans(n_clusters=6).fit(np.real(W))
 # can now plot clusters onto spots using P as color option
 plt.imshow(sampleRegistered['visiumTransformed'],cmap='gray')
 plt.scatter(sampleRegistered['maskedTissuePositionList'][0:,0],sampleRegistered['maskedTissuePositionList'][0:,1], marker='.', c=P, alpha=0.3)
