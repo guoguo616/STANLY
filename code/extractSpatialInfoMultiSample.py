@@ -311,7 +311,8 @@ experimentalResults = {}
 # experimentalResults = dict.fromkeys(['sample-id','antsOutput'])
 for actSample in range(len(truncExperiment['sample-id'])):
     sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][actSample]))
-    template = chooseTemplateSlice(truncExperiment['template-slice'][actSample])
+    # template = chooseTemplateSlice(truncExperiment['template-slice'][actSample])
+    template = chooseTemplateSlice(70)
     sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][actSample])
     sampleRegistered = runANTsRegistration(sampleProcessed, template)
     experimentalResults[actSample] = sampleRegistered
@@ -324,7 +325,7 @@ for actSample in range(len(truncExperiment['sample-id'])):
 
 #%% calculate pairwise distance for each points in a sample
 # kNN here is how many nearest neighbors we want to calculate
-kNN = 12
+kNN = 36
 
 pairwiseSquareMatrix = {}
 pairwiseNearestNeighbors = {}
@@ -401,10 +402,16 @@ V = []
 cosineSim = []
 # weighted adjacency matrix
 W = np.zeros([actEdges.max()+1,actEdges.max()+1])
-# v = np.zeros([actEdges.shape[0],actEdges.shape[1]])
-for row in actEdges:
+# for row in actEdges:
     V = cosine(experimentalResults[0]['filteredFeatureMatrixMasked'][:,row[0]], experimentalResults[0]['filteredFeatureMatrixMasked'][:,row[1]])
-    W[row[0],row[1]] = 1 - V
+    W[row[0],row[1]] = V
+    W[row[1],row[0]] = V
+    
+# calculate cosine sim for all options, not just connected
+# for row in range(experimentalResults[0]['filteredFeatureMatrixMasked'].shape[1]):
+#     for col in range(experimentalResults[0]['filteredFeatureMatrixMasked'].shape[1]):
+#         V = cosine(experimentalResults[0]['filteredFeatureMatrixMasked'][:,row], experimentalResults[0]['filteredFeatureMatrixMasked'][:,col])
+#         W[row,col] = 1 - V
 # weighted laplacian
 D = sum(W)
 
@@ -412,29 +419,35 @@ D = np.diag(D)
 
 L = D - W
 
+Lsparse = sp_sparse.csc_matrix(L)
+
 # spectral embedding
 
-sampleEigVal, sampleEigVec = np.linalg.eig(L)
+sampleEigVal, sampleEigVec = sp_sparse.linalg.eigs(Lsparse, k=6)
 
+# sampleEigVecSorted = np.sort(sampleEigVec)
+# sampleEigVecSortedIdx = np.argsort(sampleEigVec)
 # from sklearn import manifold
 # se = manifold.SpectralEmbedding(n_components=2, n_neighbors=kNN)
 # seData = se.fit_transform(L).T
 
 
 #%% next steps towards clustering data, though this could realistically be replaced by something like BayesSpace
-from sklearn.cluster import AffinityPropagation, KMeans
+from sklearn.cluster import AffinityPropagation, KMeans, SpectralClustering
 # from sklearn import metrics
-afprop = AffinityPropagation(max_iter=250)
-afprop.fit(np.real(W))
+afprop = AffinityPropagation(max_iter=250, affinity='precomputed')
+afprop.fit(np.real(L))
 cluster_centers_indices = afprop.cluster_centers_indices_
 n_clusters_ = len(cluster_centers_indices)
 # Predict the cluster for all the samples
-P = afprop.predict(np.real(W))
+# P = afprop.predict(np.real(L))
 
-km = KMeans(n_clusters=6).fit(np.real(W))
+km = KMeans(n_clusters=36).fit(np.real(L))
+
+# se = SpectralClustering(n_clusters=kNN, assign_labels='discretize', affinity='precomputed').fit(L)
 # can now plot clusters onto spots using P as color option
 plt.imshow(experimentalResults[0]['visiumTransformed'],cmap='gray')
-plt.scatter(experimentalResults[0]['maskedTissuePositionList'][0:,0],experimentalResults[0]['maskedTissuePositionList'][0:,1], marker='.', c=P, alpha=0.3)
+plt.scatter(experimentalResults[0]['maskedTissuePositionList'][0:,0],experimentalResults[0]['maskedTissuePositionList'][0:,1], marker='.', c=afprop.labels_, alpha=0.3)
 
 plt.show()
 # from scipy import spatial
