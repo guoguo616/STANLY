@@ -137,3 +137,14 @@ scripts during updates
 # plt.imshow(sampleTransformed,cmap='gray')
 # plt.imshow(template['leftHemAnnot'], alpha=0.3)
 # plt.show()
+
+#%% reorder the filtered feature matrix to match the spot list
+filteredFeatureMatrixString = []
+for bytebarcode in sample['filteredFeatureMatrix'][1]:
+    filteredFeatureMatrixString.append(bytebarcode.decode())
+
+filteredFeatureMatrixReorder = []
+for actbarcode in sampleRegistered['maskedBarcodes']:
+    filteredFeatureMatrixReorder.append(filteredFeatureMatrixString.index(actbarcode))
+
+reorderedFilteredFeatureMatrix = sampleProcessed['filteredFeatureMatrixDense'][:,filteredFeatureMatrixReorder]

@@ -210,6 +210,11 @@ def processVisiumData(visiumData, templateData, rotation):
     for bytebarcode in visiumData['filteredFeatureMatrix'][1]:
         filteredFeatureMatrixString.append(bytebarcode.decode())
     processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixString 
+    filteredFeatureMatrixBarcodeReorder = []
+    for actbarcode in processedVisium['tissueSpotBarcodeList']:
+        filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
+    
+    processedVisium['filteredFeatureMatrixReorder'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
     return processedVisium
 
 # will have to add right left hemisphere choice, eventually potentially sagittal etc
@@ -264,12 +269,13 @@ def runANTsRegistration(processedVisium, templateData):
     
     registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     registeredData['maskedBarcodes'] = transformedBarcodesFinal
-        
-    filteredFeatureMatrixBarcodeReorder = []
-    for actbarcode in registeredData['maskedBarcodes']:
-        filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
     
-    registeredData['filteredFeatureMatrixReorder'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
+    # remove below after putting into processingVisium script    
+    filteredFeatureMatrixBarcodeMasked = []
+    for actbarcode in registeredData['maskedBarcodes']:
+        filteredFeatureMatrixBarcodeMasked.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
+    
+    registeredData['filteredFeatureMatrixMasked'] = processedVisium['filteredFeatureMatrixReorder'][:,filteredFeatureMatrixBarcodeMasked]
     return registeredData
     
 #%% import sample list, location, and degrees of rotation from participants.tsv
@@ -304,23 +310,14 @@ experimentalResults = {}
 # working on below bit
 # experimentalResults = dict.fromkeys(['sample-id','antsOutput'])
 for actSample in range(len(truncExperiment['sample-id'])):
-    sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
-    template = chooseTemplateSlice(experiment['template-slice'][actSample])
-    sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
+    sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][actSample]))
+    template = chooseTemplateSlice(truncExperiment['template-slice'][actSample])
+    sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][actSample])
     sampleRegistered = runANTsRegistration(sampleProcessed, template)
     experimentalResults[actSample] = sampleRegistered
 
 
-#%% reorder the filtered feature matrix to match the spot list
-filteredFeatureMatrixString = []
-for bytebarcode in sample['filteredFeatureMatrix'][1]:
-    filteredFeatureMatrixString.append(bytebarcode.decode())
 
-filteredFeatureMatrixReorder = []
-for actbarcode in sampleRegistered['maskedBarcodes']:
-    filteredFeatureMatrixReorder.append(filteredFeatureMatrixString.index(actbarcode))
-
-reorderedFilteredFeatureMatrix = sampleProcessed['filteredFeatureMatrixDense'][:,filteredFeatureMatrixReorder]
 #%%##########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
 #############################################
@@ -337,7 +334,7 @@ nearestNeighborEdges = {}
 # same distance is causing a crash because of multiple indices
 #### ^ was a euclidean metric issue, changing metric in pdist fixes
 for actSample in range(len(experimentalResults)):    
-    print(experiment['sample-id'][actSample])
+    print(truncExperiment['sample-id'][actSample])
     samplePDist = []
     samplePDist = pdist(experimentalResults[actSample]['maskedTissuePositionList'], metric='cosine')
     samplePDistSM = []
@@ -395,7 +392,7 @@ for i in range(len(pairwiseNearestNeighbors)):
 # can now use edge lists to create weighted adjacency matrices
 
 # actSample = 0
-actEdges = allEdges[10]
+actEdges = allEdges[0]
 # sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
 # template = chooseTemplateSlice(experiment['template-slice'][actSample])
 # sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
@@ -406,8 +403,8 @@ cosineSim = []
 W = np.zeros([actEdges.max()+1,actEdges.max()+1])
 # v = np.zeros([actEdges.shape[0],actEdges.shape[1]])
 for row in actEdges:
-    V = cosine(sampleRegistered['filteredFeatureMatrixReorder'][:,row[0]], sampleRegistered['filteredFeatureMatrixReorder'][:,row[1]])
-    W[row[0],row[1]] = V
+    V = cosine(experimentalResults[0]['filteredFeatureMatrixMasked'][:,row[0]], experimentalResults[0]['filteredFeatureMatrixMasked'][:,row[1]])
+    W[row[0],row[1]] = 1 - V
 # weighted laplacian
 D = sum(W)
 
@@ -436,8 +433,8 @@ P = afprop.predict(np.real(W))
 
 km = KMeans(n_clusters=6).fit(np.real(W))
 # can now plot clusters onto spots using P as color option
-plt.imshow(sampleRegistered['visiumTransformed'],cmap='gray')
-plt.scatter(sampleRegistered['maskedTissuePositionList'][0:,0],sampleRegistered['maskedTissuePositionList'][0:,1], marker='.', c=P, alpha=0.3)
+plt.imshow(experimentalResults[0]['visiumTransformed'],cmap='gray')
+plt.scatter(experimentalResults[0]['maskedTissuePositionList'][0:,0],experimentalResults[0]['maskedTissuePositionList'][0:,1], marker='.', c=P, alpha=0.3)
 
 plt.show()
 # from scipy import spatial
