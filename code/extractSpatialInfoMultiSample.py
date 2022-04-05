@@ -217,8 +217,69 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['filteredFeatureMatrixReorder'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
     return processedVisium
 
+# think about replacing processedVisium with visiumExperiment that would be like the experiment option below
+def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
+    # convert into ants image type
+    registeredData = {}
+    templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueHistMatched'])
+    sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
+    synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
+    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(100,80,60,40,20,0), \
+    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
+    registeredData['antsOutput'] = synXfm
+    ants.plot(templateAntsImage, overlay=synXfm["warpedmovout"])
+    # apply syn transform to tissue spot coordinates
+    # first line creates a csv file, second line uses that csv as input for antsApplyTransformsToPoints
+    np.savetxt(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv",processedVisium['tissuePointsForTransform'], delimiter=',', header="x,y,z,t,label,comment")
+    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz")
+    
+    transformedTissuePositionList = []
+    with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv"), newline='') as csvfile:
+            csvreader = csv.reader(csvfile, delimiter=',')
+            next(csvreader)
+            for row in csvreader:
+                transformedTissuePositionList.append(row)
+                
+    registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
+
+    registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype=float)
+    # switching x,y columns back to python compatible and deleting empty columns
+    registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
+    registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
+
+    plt.imshow(registeredData['visiumTransformed'])
+    plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
+    plt.show()
+    
+    plt.imshow(sampleToRegisterTo['tissueHistMatched'])
+    plt.imshow(registeredData['visiumTransformed'], alpha=0.5)
+    plt.title(processedVisium['sampleID'])
+    plt.show()
+        
+    transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
+    ###############################################################
+    # need to go over barcode and filtered feature matrix masking #
+    ###############################################################
+    transformedTissuePositionListFinal = [];
+    transformedBarcodesFinal = []
+    for i, masked in enumerate(transformedTissuePositionListMask):
+        if masked.all() == True:
+            transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
+            transformedBarcodesFinal.append(processedVisium["tissueSpotBarcodeList"][i])
+    
+    registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
+    registeredData['maskedBarcodes'] = transformedBarcodesFinal
+    
+    # remove below after putting into processingVisium script    
+    filteredFeatureMatrixBarcodeMasked = []
+    for actbarcode in registeredData['maskedBarcodes']:
+        filteredFeatureMatrixBarcodeMasked.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
+    
+    registeredData['filteredFeatureMatrixMasked'] = processedVisium['filteredFeatureMatrixReorder'][:,filteredFeatureMatrixBarcodeMasked]
+    return registeredData
+
 # will have to add right left hemisphere choice, eventually potentially sagittal etc
-def runANTsRegistration(processedVisium, templateData):
+def runANTsToAllenRegistration(processedVisium, templateData):
     # convert into ants image type
     registeredData = {}
     templateAntsImage = ants.from_numpy(templateData['leftHem'])
@@ -296,32 +357,62 @@ imageList = [0,1, 2, 3, 4, 5, 6, 7, 8, 10, 13]
 
 experiment = {'sample-id': sampleList,
               'template-slice': templateList[:,0],
-              'rotation': templateList[:,1]}
+              'rotation': templateList[:,1],
+              'experimental-group': templateList[:,2]}
 
 truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
                    'template-slice': templateList[imageList,0],
-                   'rotation': templateList[imageList,1]}
+                   'rotation': templateList[imageList,1],
+                   'experimental-group': templateList[:,2]}
 
 #%% import sample data
 # degreesToRotate = 180
 # allenSlice = 69
 # actSample = "../rawdata/sleepDepBothBatches/sample-09"
-experimentalResults = {}
+
 # working on below bit
 # experimentalResults = dict.fromkeys(['sample-id','antsOutput'])
+processedSamples = {}
 for actSample in range(len(truncExperiment['sample-id'])):
     sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][actSample]))
     # template = chooseTemplateSlice(truncExperiment['template-slice'][actSample])
     template = chooseTemplateSlice(70)
     sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][actSample])
-    sampleRegistered = runANTsRegistration(sampleProcessed, template)
+    processedSamples[actSample] = sampleProcessed
+
+experimentalResults = {}
+bestSample = processedSamples[4]
+for actSample in range(len(processedSamples)):
+    sampleRegistered = runANTsInterSampleRegistration(processedSamples[actSample], bestSample)
     experimentalResults[actSample] = sampleRegistered
-
-
 
 #%%##########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
 #############################################
+
+#%% split data into control and experimental conditions
+controlGroup = []
+controlGroupCoordinates = [[],[]]
+experimentalGroup = []
+experimentalGroupCoordinates =[[],[]]
+# gives 1d list of coordinates for each group stored in xy order, so controlGroupCoordinates[0::2] gives x, controlGroupCoordinates[1::2] gives y
+for i, actGroup in enumerate(truncExperiment['experimental-group']):
+    if actGroup == 0:
+        controlGroup.append(experimentalResults[i])
+        controlGroupCoordinates = np.append(controlGroupCoordinates, experimentalResults[i]['maskedTissuePositionList'])
+    elif actGroup == 1:
+        experimentalGroup.append(experimentalResults[i])
+        experimentalGroupCoordinates = np.append(experimentalGroupCoordinates, experimentalResults[i]['maskedTissuePositionList'])
+    else:
+        print("Not assigned to group")
+
+controlCoordinates = np.array([controlGroupCoordinates[0::2], controlGroupCoordinates[1::2]])
+experimentalCoordinates = np.array([experimentalGroupCoordinates[0::2], experimentalGroupCoordinates[1::2]])
+
+# below crashes kernel
+# import itertools
+# rowOptions = list(itertools.combinations(range(len(np.transpose(controlCoordinates))),2))
+
 
 #%% calculate pairwise distance for each points in a sample
 # kNN here is how many nearest neighbors we want to calculate
@@ -366,88 +457,4 @@ for actSample in range(len(experimentalResults)):
             
     pairwiseNearestNeighbors[actSample] = samplekNN
     nearestNeighborEdges[actSample] = samplePDistEdges
-#%% take nearest neighbor lists and turn into list of coordinate edges i.e. [I,J] 
 
-
-allEdges = {}
-
-# goes through each sample and creates a list of edges defined by two points [i,j]
-for i in range(len(pairwiseNearestNeighbors)):
-    actSample = pairwiseNearestNeighbors[i]
-    sampleEdges = np.empty((0,2), int)
-    for j, row in enumerate(actSample):
-        # print(row)
-        actEdges = np.zeros([kNN,2])
-        actEdges[:,0] = j
-        actEdges[:,1] = np.transpose(row)
-        sampleEdges = np.append(sampleEdges, actEdges, axis=0)
-        
-    # removes any duplicate edges (i.e. edges [i,j] and [j,i] are identical)
-    # sortedEdges = np.sort(sampleEdges, axis=1)
-    # uniqueEdges = np.array(np.unique(sortedEdges, axis=0),dtype=int)
-    allEdges[i] = np.array(sampleEdges,dtype=int)
-
-
-
-#%% run cosine similarity on kNN spots
-# can now use edge lists to create weighted adjacency matrices
-
-# actSample = 0
-actEdges = allEdges[0]
-# sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
-# template = chooseTemplateSlice(experiment['template-slice'][actSample])
-# sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
-# sampleRegistered = runANTsRegistration(sampleProcessed, template)
-V = []
-cosineSim = []
-# weighted adjacency matrix
-W = np.zeros([actEdges.max()+1,actEdges.max()+1])
-# for row in actEdges:
-    V = cosine(experimentalResults[0]['filteredFeatureMatrixMasked'][:,row[0]], experimentalResults[0]['filteredFeatureMatrixMasked'][:,row[1]])
-    W[row[0],row[1]] = V
-    W[row[1],row[0]] = V
-    
-# calculate cosine sim for all options, not just connected
-# for row in range(experimentalResults[0]['filteredFeatureMatrixMasked'].shape[1]):
-#     for col in range(experimentalResults[0]['filteredFeatureMatrixMasked'].shape[1]):
-#         V = cosine(experimentalResults[0]['filteredFeatureMatrixMasked'][:,row], experimentalResults[0]['filteredFeatureMatrixMasked'][:,col])
-#         W[row,col] = 1 - V
-# weighted laplacian
-D = sum(W)
-
-D = np.diag(D)
-
-L = D - W
-
-Lsparse = sp_sparse.csc_matrix(L)
-
-# spectral embedding
-
-sampleEigVal, sampleEigVec = sp_sparse.linalg.eigs(Lsparse, k=6)
-
-# sampleEigVecSorted = np.sort(sampleEigVec)
-# sampleEigVecSortedIdx = np.argsort(sampleEigVec)
-# from sklearn import manifold
-# se = manifold.SpectralEmbedding(n_components=2, n_neighbors=kNN)
-# seData = se.fit_transform(L).T
-
-
-#%% next steps towards clustering data, though this could realistically be replaced by something like BayesSpace
-from sklearn.cluster import AffinityPropagation, KMeans, SpectralClustering
-# from sklearn import metrics
-afprop = AffinityPropagation(max_iter=250, affinity='precomputed')
-afprop.fit(np.real(L))
-cluster_centers_indices = afprop.cluster_centers_indices_
-n_clusters_ = len(cluster_centers_indices)
-# Predict the cluster for all the samples
-# P = afprop.predict(np.real(L))
-
-km = KMeans(n_clusters=36).fit(np.real(L))
-
-# se = SpectralClustering(n_clusters=kNN, assign_labels='discretize', affinity='precomputed').fit(L)
-# can now plot clusters onto spots using P as color option
-plt.imshow(experimentalResults[0]['visiumTransformed'],cmap='gray')
-plt.scatter(experimentalResults[0]['maskedTissuePositionList'][0:,0],experimentalResults[0]['maskedTissuePositionList'][0:,1], marker='.', c=afprop.labels_, alpha=0.3)
-
-plt.show()
-# from scipy import spatial

@@ -8,7 +8,7 @@
 %%
 addpath(fullfile('/','home','zjpeters','matlabToolboxes','JSONio-main'));
 clear;
-root_dir = fullfile('/','home','zjpeters','rdss_tnj','otherLabs','visiumAlignment','rawdata');
+root_dir = fullfile('/','home','zjpeters','Documents','otherLabs','visiumalignment','rawdata');
 % project_label = 'templates';
 
 participants_tsv_name = fullfile(root_dir, 'participants.tsv');
