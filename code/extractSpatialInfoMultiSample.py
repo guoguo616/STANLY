@@ -19,7 +19,7 @@ import cv2
 from glob import glob
 import ants
 from scipy.spatial.distance import pdist, squareform, cosine
-
+# from sklearn import normalize
 # setting up paths
 derivatives = "../derivatives"
 rawdata = "../rawdata/sleepDepBothBatches"
@@ -199,8 +199,6 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['tissuePointsResized'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     processedVisium['tissuePointsResizedForTransform'][:,[0,1]] = processedVisium['tissuePointsResizedForTransform'][:,[1,0]]
-    csvPad = np.zeros([processedVisium['tissuePointsResizedForTransform'].shape[0],4])
-    processedVisium['tissuePointsForTransform'] = np.append(processedVisium['tissuePointsResizedForTransform'], csvPad, 1)
     plt.imshow( processedVisium['tissueRotated'])
     plt.plot(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1],marker='.', c='red', alpha=0.2)
     plt.show()
@@ -210,11 +208,49 @@ def processVisiumData(visiumData, templateData, rotation):
     for bytebarcode in visiumData['filteredFeatureMatrix'][1]:
         filteredFeatureMatrixString.append(bytebarcode.decode())
     processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixString 
+
+    
+    # csvZTPad = np.zeros([processedVisium['tissuePointsResizedForTransform'].shape[0],2])
+    # csvCommentPad = np.zeros([processedVisium['tissuePointsResizedForTransform'].shape[0],1])
+    header=['x','y','z','t','label','comment']
+    csvFormat = []
+    rowFormat = []
+    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for i in range(len(processedVisium['tissuePointsResizedForTransform'])):
+            rowFormat = [processedVisium['tissuePointsResizedForTransform'][i,0]] + [processedVisium['tissuePointsResizedForTransform'][i,1]] + [0] + [0] + [0] + [visiumData['tissueSpotBarcodeList'][i].replace("-1","")]
+            writer.writerow(rowFormat)
+            csvFormat.append(rowFormat)
+            
+    processedVisium['tissuePointsForTransform'] = np.array(csvFormat)
+    
+    
+    # with open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv", 'w', encoding='UTF8') as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(header)
+    #     for i in 
+    #     ,processedVisium['tissuePointsForTransform'], delimiter=',', 
+    # processedVisium['tissuePointsForTransform'] = np.append(processedVisium['tissuePointsForTransform'], processedVisium['filteredFeatureMatrixBarcodeList'],1)
+    # processedVisium['tissuePointsForTransform'] = np.append(processedVisium['tissuePointsForTransform'], csvCommentPad, 1)
     filteredFeatureMatrixBarcodeReorder = []
     for actbarcode in processedVisium['tissueSpotBarcodeList']:
         filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
     
     processedVisium['filteredFeatureMatrixReorder'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
+    # actSample = processedVisium['filteredFeatureMatrixReorder'].astype(float)
+    # actSample[actSample == 0] = np.nan
+    # normalizedFilteredFeatureMatrix = np.zeros(actSample.shape)
+    # for geneCount,geneExp in enumerate(actSample):
+    #     geneMean = np.nanmean(geneExp)
+    #     geneStd = np.nanstd(geneExp)
+    #     for spotCount,actSpot in enumerate(geneExp.transpose()):
+    #         if actSpot == np.nan:
+    #             normalizedFilteredFeatureMatrix[geneCount,spotCount] = 0
+    #         else:            
+    #             geneZ = (actSpot - geneMean) / geneStd
+    #             normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
+    # processedVisium['filteredFeatureMatrixZNormalized'] = normalizedFilteredFeatureMatrix
     return processedVisium
 
 # think about replacing processedVisium with visiumExperiment that would be like the experiment option below
@@ -230,8 +266,8 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     ants.plot(templateAntsImage, overlay=synXfm["warpedmovout"])
     # apply syn transform to tissue spot coordinates
     # first line creates a csv file, second line uses that csv as input for antsApplyTransformsToPoints
-    np.savetxt(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv",processedVisium['tissuePointsForTransform'], delimiter=',', header="x,y,z,t,label,comment")
-    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz")
+    # np.savetxt(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv",processedVisium['tissuePointsForTransform'], delimiter=',', header="x,y,z,t,label,comment")
+    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz")
     
     transformedTissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv"), newline='') as csvfile:
@@ -291,7 +327,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     ants.plot(templateAntsImage, overlay=synXfm["warpedmovout"])
     # apply syn transform to tissue spot coordinates
     # first line creates a csv file, second line uses that csv as input for antsApplyTransformsToPoints
-    np.savetxt(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv",processedVisium['tissuePointsForTransform'], delimiter=',', header="x,y,z,t,label,comment")
+    # np.savetxt(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv",processedVisium['tissuePointsForTransform'], delimiter=',', header="x,y,z,t,label,comment")
     os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplateTransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz")
     
     transformedTissuePositionList = []
@@ -389,6 +425,22 @@ for actSample in range(len(processedSamples)):
 #%%##########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
 #############################################
+#%% normalize filtered feature matrix
+
+actSample = sampleProcessed['filteredFeatureMatrixReorder'].astype(float)
+actSample[actSample == 0] = np.nan
+normalizedFilteredFeatureMatrix = np.zeros(actSample.shape)
+for geneCount,geneExp in enumerate(actSample):
+    geneMean = np.nanmean(geneExp)
+    geneStd = np.nanstd(geneExp)
+    for spotCount,actSpot in enumerate(geneExp.transpose()):
+        if actSpot == np.nan:
+            normalizedFilteredFeatureMatrix[geneCount,spotCount] = 0
+        else:            
+            geneZ = (actSpot - geneMean) / geneStd
+            normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
+    
+
 
 #%% split data into control and experimental conditions
 controlGroup = []
