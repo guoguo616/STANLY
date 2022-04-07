@@ -209,6 +209,10 @@ def processVisiumData(visiumData, templateData, rotation):
         filteredFeatureMatrixString.append(bytebarcode.decode())
     processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixString 
 
+    filteredFeatureMatrixGeneString = []
+    for bytegene in visiumData['filteredFeatureMatrix'][0]['name']:
+        filteredFeatureMatrixGeneString.append(bytegene.decode())
+    processedVisium['filteredFeatureMatrixGeneList'] = filteredFeatureMatrixGeneString
     
     # csvZTPad = np.zeros([processedVisium['tissuePointsResizedForTransform'].shape[0],2])
     # csvCommentPad = np.zeros([processedVisium['tissuePointsResizedForTransform'].shape[0],1])
@@ -399,7 +403,7 @@ experiment = {'sample-id': sampleList,
 truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
                    'template-slice': templateList[imageList,0],
                    'rotation': templateList[imageList,1],
-                   'experimental-group': templateList[:,2]}
+                   'experimental-group': templateList[imageList,2]}
 
 #%% import sample data
 # degreesToRotate = 180
@@ -441,7 +445,20 @@ for geneCount,geneExp in enumerate(actSample):
             normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
     
 
-
+#%% 
+# Arc index is 25493
+# Vxn, index 27 gives nice cortical spread
+# Sgk3, index 32 seems to be hippocampal
+# Sulf1, index 46, hippocampal
+for actSample in range(len(processedSamples)):
+    arcData = processedSamples[actSample]['filteredFeatureMatrixReorder'][25493,:]
+    plt.imshow(experimentalResults[actSample]['visiumTransformed'])
+    plt.scatter(experimentalResults[actSample]['transformedTissuePositionList'][:,0],experimentalResults[actSample]['transformedTissuePositionList'][:,1], c=np.array(arcData))
+    plt.show()
+# arcData = sampleProcessed['filteredFeatureMatrixReorder'][25493,:]
+# plt.imshow(sampleRegistered['visiumTransformed'])
+# plt.scatter(sampleRegistered['transformedTissuePositionList'][:,0],sampleRegistered['transformedTissuePositionList'][:,1], c=np.array(arcData))
+# plt.show()
 #%% split data into control and experimental conditions
 controlGroup = []
 controlGroupCoordinates = [[],[]]
