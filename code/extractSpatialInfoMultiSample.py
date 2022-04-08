@@ -242,19 +242,6 @@ def processVisiumData(visiumData, templateData, rotation):
         filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
     
     processedVisium['filteredFeatureMatrixReorder'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
-    # actSample = processedVisium['filteredFeatureMatrixReorder'].astype(float)
-    # actSample[actSample == 0] = np.nan
-    # normalizedFilteredFeatureMatrix = np.zeros(actSample.shape)
-    # for geneCount,geneExp in enumerate(actSample):
-    #     geneMean = np.nanmean(geneExp)
-    #     geneStd = np.nanstd(geneExp)
-    #     for spotCount,actSpot in enumerate(geneExp.transpose()):
-    #         if actSpot == np.nan:
-    #             normalizedFilteredFeatureMatrix[geneCount,spotCount] = 0
-    #         else:            
-    #             geneZ = (actSpot - geneMean) / geneStd
-    #             normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
-    # processedVisium['filteredFeatureMatrixZNormalized'] = normalizedFilteredFeatureMatrix
     return processedVisium
 
 # think about replacing processedVisium with visiumExperiment that would be like the experiment option below
@@ -445,20 +432,31 @@ for geneCount,geneExp in enumerate(actSample):
             normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
     
 
-#%% 
+#%% extract gene specific information
 # Arc index is 25493
 # Vxn, index 27 gives nice cortical spread
 # Sgk3, index 32 seems to be hippocampal
 # Sulf1, index 46, hippocampal
+# can search for gene by name, must be an exact match for capitalization
+geneIndex = sampleProcessed['filteredFeatureMatrixGeneList'].index('Arc')
 for actSample in range(len(processedSamples)):
-    arcData = processedSamples[actSample]['filteredFeatureMatrixReorder'][25493,:]
-    plt.imshow(experimentalResults[actSample]['visiumTransformed'])
-    plt.scatter(experimentalResults[actSample]['transformedTissuePositionList'][:,0],experimentalResults[actSample]['transformedTissuePositionList'][:,1], c=np.array(arcData))
-    plt.show()
+    geneCount = processedSamples[actSample]['filteredFeatureMatrixReorder'][geneIndex,:]
+    if geneCount.any():
+        spotCount = np.count_nonzero(geneCount)
+        plt.imshow(experimentalResults[actSample]['visiumTransformed'])
+        plt.scatter(experimentalResults[actSample]['transformedTissuePositionList'][:,0],experimentalResults[actSample]['transformedTissuePositionList'][:,1], c=np.array(geneCount))
+        plt.title(processedSamples[actSample]['sampleID'])
+        plt.show()
 # arcData = sampleProcessed['filteredFeatureMatrixReorder'][25493,:]
 # plt.imshow(sampleRegistered['visiumTransformed'])
 # plt.scatter(sampleRegistered['transformedTissuePositionList'][:,0],sampleRegistered['transformedTissuePositionList'][:,1], c=np.array(arcData))
 # plt.show()
+
+#%% work on generating statistics for intersample comparison
+from scipy import stats
+
+
+
 #%% split data into control and experimental conditions
 controlGroup = []
 controlGroupCoordinates = [[],[]]
