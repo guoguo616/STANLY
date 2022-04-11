@@ -290,3 +290,76 @@ for i in range(len(experimentalResults)):
     
 meanSample = allSampleImage / (len(experimentalResults) + 1)
     
+#%% work on generating statistics for intersample comparison
+from scipy import stats
+
+
+#added 4/8/22
+#%% split data into control and experimental conditions
+controlGroup = []
+controlGroupCoordinates = [[],[]]
+experimentalGroup = []
+experimentalGroupCoordinates =[[],[]]
+# gives 1d list of coordinates for each group stored in xy order, so controlGroupCoordinates[0::2] gives x, controlGroupCoordinates[1::2] gives y
+for i, actGroup in enumerate(truncExperiment['experimental-group']):
+    if actGroup == 0:
+        controlGroup.append(experimentalResults[i])
+        controlGroupCoordinates = np.append(controlGroupCoordinates, experimentalResults[i]['maskedTissuePositionList'])
+    elif actGroup == 1:
+        experimentalGroup.append(experimentalResults[i])
+        experimentalGroupCoordinates = np.append(experimentalGroupCoordinates, experimentalResults[i]['maskedTissuePositionList'])
+    else:
+        print("Not assigned to group")
+
+controlCoordinates = np.array([controlGroupCoordinates[0::2], controlGroupCoordinates[1::2]])
+experimentalCoordinates = np.array([experimentalGroupCoordinates[0::2], experimentalGroupCoordinates[1::2]])
+
+# below crashes kernel
+# import itertools
+# rowOptions = list(itertools.combinations(range(len(np.transpose(controlCoordinates))),2))
+
+
+#%% calculate pairwise distance for each points in a sample
+# kNN here is how many nearest neighbors we want to calculate
+kNN = 36
+
+pairwiseSquareMatrix = {}
+pairwiseNearestNeighbors = {}
+nearestNeighborEdges = {}
+####
+# need to adjust/build edges, since right now two nearest neighbors with the
+# same distance is causing a crash because of multiple indices
+#### ^ was a euclidean metric issue, changing metric in pdist fixes
+for actSample in range(len(experimentalResults)):    
+    print(truncExperiment['sample-id'][actSample])
+    samplePDist = []
+    samplePDist = pdist(experimentalResults[actSample]['maskedTissuePositionList'], metric='cosine')
+    samplePDistSM = []
+    samplePDistSM = squareform(samplePDist)
+    pairwiseSquareMatrix[actSample] = samplePDistSM
+    samplePDistSMSorted = []
+    samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
+    # below contains kNN distances for each in tissue spot based on post alignment distance
+    # samplePDistNN = []
+    # samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
+    samplePDistEdges = []
+    # output of samplekNN should contain the barcode indices of all of the nearest neighbors
+    samplekNN = np.zeros([samplePDistSM.shape[0],kNN])
+    for i, row in enumerate(samplePDistSM):
+        samplePDistNN = []
+        # samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+        if samplePDistSMSorted[i,1] > 0:
+            samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+            for sigK in range(kNN):
+                samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+                samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+        else:
+            samplePDistNN = samplePDistSMSorted[i,2:kNN+2]
+            for sigK in range(kNN):
+                samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+                samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+                # samplePDistEdges[1,i] = 
+            
+    pairwiseNearestNeighbors[actSample] = samplekNN
+    nearestNeighborEdges[actSample] = samplePDistEdges
+
