@@ -441,10 +441,10 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     sampleToTemplate = ants.apply_transforms( fixed=templateAntsImage, moving=sampleAntsImage, transformlist=bestSampleRegisteredToTemplate['antsOutput']['fwdtransforms'])
     
     # make sure this actually does what it's supposed to
-    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -o {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -t [ {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_to_{bestSampleRegisteredToTemplate['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_to_{bestSampleRegisteredToTemplate['sampleID']}_xfm1InverseWarp.nii.gz")
+    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -o {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv -t [ {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_xfm1InverseWarp.nii.gz")
     templateRegisteredData = {}
     transformedTissuePositionList = []
-    with open(os.path.join(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv"), newline='') as csvfile:
+    with open(os.path.join(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv"), newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
         next(csvreader)
         for row in csvreader:
@@ -459,6 +459,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     # switching x,y columns back to python compatible and deleting empty columns
     templateRegisteredData['transformedTissuePositionList'][:,[0,1]] = templateRegisteredData['transformedTissuePositionList'][:,[1,0]]
     templateRegisteredData['transformedTissuePositionList'] = np.delete(templateRegisteredData['transformedTissuePositionList'], [2,3,4,5],1)
+    templateRegisteredData["maskedBarcodes"] = registeredVisium['maskedBarcodes']
 
     plt.imshow(templateRegisteredData['visiumTransformed'])
     plt.scatter(templateRegisteredData['transformedTissuePositionList'][0:,0],templateRegisteredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
@@ -478,7 +479,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     for i, masked in enumerate(transformedTissuePositionListMask):
         if masked.all() == True:
             transformedTissuePositionListFinal.append(templateRegisteredData['transformedTissuePositionList'][i])
-            transformedBarcodesFinal.append(templateRegisteredData["tissueSpotBarcodeList"][i])
+            transformedBarcodesFinal.append(templateRegisteredData["maskedBarcodes"][i])
     
     templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     templateRegisteredData['maskedBarcodes'] = transformedBarcodesFinal
@@ -486,7 +487,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     # remove below after putting into processingVisium script    
     filteredFeatureMatrixBarcodeMasked = []
     for actbarcode in templateRegisteredData['maskedBarcodes']:
-        filteredFeatureMatrixBarcodeMasked.append(registeredVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
+        filteredFeatureMatrixBarcodeMasked.append(registeredVisium['filteredFeatureMatrixMasked'].index(actbarcode))
     
     templateRegisteredData['filteredFeatureMatrixMasked'] = registeredVisium['filteredFeatureMatrixMasked'][:,filteredFeatureMatrixBarcodeMasked]
     return templateRegisteredData
@@ -553,6 +554,7 @@ del(ara_data)
 # Sulf1, index 46, hippocampal
 # can search for gene by name, must be an exact match for capitalization
 geneIndex = sampleProcessed['filteredFeatureMatrixGeneList'].index('Arc')
+geneIndex = 0
 for actSample in range(len(processedSamples)):
     geneCount = processedSamples[actSample]['filteredFeatureMatrixReorder'][geneIndex,:]
     if geneCount.any():
@@ -607,93 +609,186 @@ experimentalMeans = []
 controlStd = []
 experimentalStd = []
 # will need to turn this back into a loop
-# for actSample in range(len(experimentalResults)):
-actSample = 4
-geneCount = processedSamples[actSample]['filteredFeatureMatrixReorder'][geneIndex,:]
-if geneCount.any():
-    spotCount = geneCount[np.nonzero(geneCount)]
-    spotIdx = np.nonzero(geneCount)
-    spotIdx = spotIdx[1]
-    spotCoord = experimentalResults[actSample]['transformedTissuePositionList'][spotIdx]
-    spotPercent = len(np.transpose(spotCount)) / len(np.transpose(geneCount))
-    # uncomment to show histogram of gene count
-    # plt.plot(np.histogram(geneCount)[0])
-    # plt.title(processedSamples[actSample]['sampleID'])
-    # plt.show()
-else:
-    print("Gene not expressed in this slice")
-    # continue
-
-# uses spotCount, excluding spots with 0 count
-
-# if truncExperiment['experimental-group'][actSample] == 0:
-#     controlSpots = np.append(controlSpots, np.transpose(spotCount))
-#     controlMeans.append(np.mean(spotCount))
-#     controlStd.append(np.std((spotCount)))
-#     controlSpotPercents.append(spotPercent)
-# elif truncExperiment['experimental-group'][actSample] == 1:
-#     experimentalSpots = np.append(experimentalSpots, np.transpose(spotCount))
-#     experimentalMeans.append(np.mean(spotCount))
-#     experimentalStd.append(np.std((spotCount)))
-#     experimentalSpotPercents.append(spotPercent)
-
-# uses geneCount including spots with 0 counts
-if truncExperiment['experimental-group'][actSample] == 0:
-    controlSpots = np.append(controlSpots, np.transpose(geneCount))
-    controlMeans.append(np.mean(geneCount))
-    controlStd.append(np.std((geneCount)))
-    controlSpotPercents.append(spotPercent)
-elif truncExperiment['experimental-group'][actSample] == 1:
-    experimentalSpots = np.append(experimentalSpots, np.transpose(geneCount))
-    experimentalMeans.append(np.mean(geneCount))
-    experimentalStd.append(np.std((geneCount)))
-    experimentalSpotPercents.append(spotPercent)
+for actSample in range(len(experimentalResults)):
+    # actSample = 4
+    geneCount = processedSamples[actSample]['filteredFeatureMatrixReorder'][geneIndex,:]
+    if geneCount.any():
+        spotCount = geneCount[np.nonzero(geneCount)]
+        spotIdx = np.nonzero(geneCount)
+        spotIdx = spotIdx[1]
+        spotCoord = experimentalResults[actSample]['transformedTissuePositionList'][spotIdx]
+        spotPercent = len(np.transpose(spotCount)) / len(np.transpose(geneCount))
+        # uncomment to show histogram of gene count
+        # plt.plot(np.histogram(geneCount)[0])
+        # plt.title(processedSamples[actSample]['sampleID'])
+        # plt.show()
+    else:
+        print("Gene not expressed in this slice")
+        # continue
     
+    # uses spotCount, excluding spots with 0 count
     
-#####################################################################
-# take spotCoor, calculate euclidean pdist, next                    #
-# do something like np.diag(spotCount) and add/subtract             #
-# to create laplacian. should it include spotcount or genecount?    #
-#####################################################################
-
+    # if truncExperiment['experimental-group'][actSample] == 0:
+    #     controlSpots = np.append(controlSpots, np.transpose(spotCount))
+    #     controlMeans.append(np.mean(spotCount))
+    #     controlStd.append(np.std((spotCount)))
+    #     controlSpotPercents.append(spotPercent)
+    # elif truncExperiment['experimental-group'][actSample] == 1:
+    #     experimentalSpots = np.append(experimentalSpots, np.transpose(spotCount))
+    #     experimentalMeans.append(np.mean(spotCount))
+    #     experimentalStd.append(np.std((spotCount)))
+    #     experimentalSpotPercents.append(spotPercent)
     
-print(processedSamples[actSample]['sampleID'])
-samplePDist = []
-samplePDist = pdist(spotCoord, metric='euclidean')
-samplePDistSM = []
-samplePDistSM = squareform(samplePDist)
-geneDist = np.diagflat(spotCount)
-L = geneDist - (samplePDistSM / 100)
-
-# pairwiseSquareMatrix[actSample] = samplePDistSM
-# samplePDistSMSorted = []
-# samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
-# # below contains kNN distances for each in tissue spot based on post alignment distance
-# # samplePDistNN = []
-# # samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
-# samplePDistEdges = []
-# # output of samplekNN should contain the barcode indices of all of the nearest neighbors
-# samplekNN = np.zeros([samplePDistSM.shape[0],kNN])
-# for i, row in enumerate(samplePDistSM):
-#     samplePDistNN = []
-#     # samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
-#     if samplePDistSMSorted[i,1] > 0:
-#         samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
-#         for sigK in range(kNN):
-#             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
-#             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
-#     else:
-#         samplePDistNN = samplePDistSMSorted[i,2:kNN+2]
-#         for sigK in range(kNN):
-#             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
-#             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
-#             # samplePDistEdges[1,i] = 
+    # uses geneCount including spots with 0 counts
+    if truncExperiment['experimental-group'][actSample] == 0:
+        controlSpots = np.append(controlSpots, np.transpose(geneCount))
+        controlMeans.append(np.mean(geneCount))
+        controlStd.append(np.std((geneCount)))
+        controlSpotPercents.append(spotPercent)
+    elif truncExperiment['experimental-group'][actSample] == 1:
+        experimentalSpots = np.append(experimentalSpots, np.transpose(geneCount))
+        experimentalMeans.append(np.mean(geneCount))
+        experimentalStd.append(np.std((geneCount)))
+        experimentalSpotPercents.append(spotPercent)
         
-# pairwiseNearestNeighbors[actSample] = samplekNN
-# nearestNeighborEdges[actSample] = samplePDistEdges
+        
+    #####################################################################
+    # take spotCoor, calculate euclidean pdist, next                    #
+    # do something like np.diag(spotCount) and add/subtract             #
+    # to create laplacian. should it include spotcount or genecount?    #
+    #####################################################################
+    
+        
+    print(processedSamples[actSample]['sampleID'])
+    samplePDist = []
+    samplePDist = pdist(spotCoord, metric='euclidean')
+    samplePDistSM = []
+    samplePDistSM = squareform(samplePDist)
+    geneDist = np.diagflat(spotCount)
+    L = geneDist - (samplePDistSM / 100)
+    
+    # pairwiseSquareMatrix[actSample] = samplePDistSM
+    # samplePDistSMSorted = []
+    # samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
+    # # below contains kNN distances for each in tissue spot based on post alignment distance
+    # # samplePDistNN = []
+    # # samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
+    # samplePDistEdges = []
+    # # output of samplekNN should contain the barcode indices of all of the nearest neighbors
+    # samplekNN = np.zeros([samplePDistSM.shape[0],kNN])
+    # for i, row in enumerate(samplePDistSM):
+    #     samplePDistNN = []
+    #     # samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+    #     if samplePDistSMSorted[i,1] > 0:
+    #         samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+    #         for sigK in range(kNN):
+    #             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+    #             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+    #     else:
+    #         samplePDistNN = samplePDistSMSorted[i,2:kNN+2]
+    #         for sigK in range(kNN):
+    #             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+    #             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+    #             # samplePDistEdges[1,i] = 
+            
+    # pairwiseNearestNeighbors[actSample] = samplekNN
+    # nearestNeighborEdges[actSample] = samplePDistEdges
 
     
-groupTtest = scipy.stats.ttest_ind(controlSpots, experimentalSpots, equal_var=False, trim=.2)
+groupTtest = scipy.stats.ttest_ind(controlSpots, experimentalSpots)
+
+#%% find nearest neighbors in other slices for each spot
+# kNN here is how many nearest neighbors we want to calculate
+
+import scipy
+
+kNN = 36
+
+pairwiseSquareMatrix = {}
+pairwiseNearestNeighbors = {}
+nearestNeighborEdges = {}
+####
+# need to adjust/build edges, since right now two nearest neighbors with the
+# same distance is causing a crash because of multiple indices
+#### ^ was a euclidean metric issue, changing metric in pdist fixes
+experimentalSpots = []
+controlSpots = []
+controlSpotPercents = []
+experimentalSpotPercents = []
+controlMeans = []
+experimentalMeans = []
+controlStd = []
+experimentalStd = []
+# will need to turn this back into a loop
+for actSample in range(len(experimentalResults)):
+    # if truncExperiment['experimental-group'][actSample] == 0:
+    #     controlSpots = np.append(controlSpots, np.transpose(spotCount))
+    #     controlMeans.append(np.mean(spotCount))
+    #     controlStd.append(np.std((spotCount)))
+    #     controlSpotPercents.append(spotPercent)
+    # elif truncExperiment['experimental-group'][actSample] == 1:
+    #     experimentalSpots = np.append(experimentalSpots, np.transpose(spotCount))
+    #     experimentalMeans.append(np.mean(spotCount))
+    #     experimentalStd.append(np.std((spotCount)))
+    #     experimentalSpotPercents.append(spotPercent)
+    
+    # uses geneCount including spots with 0 counts
+    if truncExperiment['experimental-group'][actSample] == 0:
+        controlSpots = np.append(controlSpots, np.transpose(geneCount))
+        controlMeans.append(np.mean(geneCount))
+        controlStd.append(np.std((geneCount)))
+        controlSpotPercents.append(spotPercent)
+    elif truncExperiment['experimental-group'][actSample] == 1:
+        experimentalSpots = np.append(experimentalSpots, np.transpose(geneCount))
+        experimentalMeans.append(np.mean(geneCount))
+        experimentalStd.append(np.std((geneCount)))
+        experimentalSpotPercents.append(spotPercent)
+        
+        
+    #####################################################################
+    # take spotCoor, calculate euclidean pdist, next                    #
+    # do something like np.diag(spotCount) and add/subtract             #
+    # to create laplacian. should it include spotcount or genecount?    #
+    #####################################################################
+    
+        
+    print(processedSamples[actSample]['sampleID'])
+    samplePDist = []
+    samplePDist = pdist(spotCoord, metric='euclidean')
+    samplePDistSM = []
+    samplePDistSM = squareform(samplePDist)
+    geneDist = np.diagflat(spotCount)
+    L = geneDist - (samplePDistSM / 100)
+    
+    samplePDistSMSorted = []
+    samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
+    # # below contains kNN distances for each in tissue spot based on post alignment distance
+    samplePDistNN = []
+    samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
+    # samplePDistEdges = []
+    # # # output of samplekNN should contain the barcode indices of all of the nearest neighbors
+    # samplekNN = np.zeros([samplePDistSM.shape[0],kNN])
+    # for i, row in enumerate(samplePDistSM):
+    #     samplePDistNN = []
+    #     # samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+    #     if samplePDistSMSorted[i,1] > 0:
+    #         samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+    #         for sigK in range(kNN):
+    #             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+    #             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+    #     else:
+    #         samplePDistNN = samplePDistSMSorted[i,2:kNN+2]
+    #         for sigK in range(kNN):
+    #             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+    #             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+    #             # samplePDistEdges[1,i] = 
+            
+    # pairwiseNearestNeighbors[actSample] = samplekNN
+    # nearestNeighborEdges[actSample] = samplePDistEdges
+
+    
+groupTtest = scipy.stats.ttest_ind(controlSpots, experimentalSpots)
+
 
 #%% retry clustering 
 from sklearn.cluster import AffinityPropagation, KMeans, SpectralClustering
@@ -725,4 +820,4 @@ plt.show()
     
 #%% 
 
-# regSampleToTemplate = applyAntsTransformations(sampleRegistered, bestSampleToTemplate, template)
+regSampleToTemplate = applyAntsTransformations(sampleRegistered, bestSampleToTemplate, template)
