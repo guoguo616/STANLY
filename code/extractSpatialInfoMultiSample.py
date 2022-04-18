@@ -544,23 +544,9 @@ for actSample in range(len(processedSamples)):
 #%%##########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
 #############################################
-#%% normalize filtered feature matrix
-
-actSample = sampleProcessed['filteredFeatureMatrixReorder'].astype(float)
-actSample[actSample == 0] = np.nan
-normalizedFilteredFeatureMatrix = np.zeros(actSample.shape)
-for geneCount,geneExp in enumerate(actSample):
-    geneMean = np.nanmean(geneExp)
-    geneStd = np.nanstd(geneExp)
-    for spotCount,actSpot in enumerate(geneExp.transpose()):
-        if actSpot == np.nan:
-            normalizedFilteredFeatureMatrix[geneCount,spotCount] = 0
-        else:            
-            geneZ = (actSpot - geneMean) / geneStd
-            normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
-    
-
+del(ara_data)
 #%% extract gene specific information
+
 # Arc index is 25493
 # Vxn, index 27 gives nice cortical spread
 # Sgk3, index 32 seems to be hippocampal
@@ -568,18 +554,175 @@ for geneCount,geneExp in enumerate(actSample):
 # can search for gene by name, must be an exact match for capitalization
 geneIndex = sampleProcessed['filteredFeatureMatrixGeneList'].index('Arc')
 for actSample in range(len(processedSamples)):
-    geneCount = processedSamples[actSample]['filteredFeatureMatrixReorder'][46,:]
+    geneCount = processedSamples[actSample]['filteredFeatureMatrixReorder'][geneIndex,:]
     if geneCount.any():
         spotCount = np.count_nonzero(geneCount)
         plt.imshow(experimentalResults[actSample]['visiumTransformed'])
         plt.scatter(experimentalResults[actSample]['transformedTissuePositionList'][:,0],experimentalResults[actSample]['transformedTissuePositionList'][:,1], c=np.array(geneCount))
         plt.title(processedSamples[actSample]['sampleID'])
         plt.show()
+    else:
+        print("Gene not expressed in this slice")
 # arcData = sampleProcessed['filteredFeatureMatrixReorder'][25493,:]
 # plt.imshow(sampleRegistered['visiumTransformed'])
 # plt.scatter(sampleRegistered['transformedTissuePositionList'][:,0],sampleRegistered['transformedTissuePositionList'][:,1], c=np.array(arcData))
 # plt.show()
 
+#%% find nearest neighbors in region
+
+# first list out coordinates for all spots
+
+# might need to consider y image coordinates as -1 rather than 1 to account for image vs data space
+# allSpotCoordinates = []
+# for actSample in range(len(processedSamples)):
+#     for coordinate in experimentalResults[actSample]['transformedTissuePositionList']:
+#         allSpotCoordinates.append(coordinate[:])
+    
+# allSpotCoordinates = np.array(allSpotCoordinates)
+
+#%% calculate pairwise distance for each points in a sample
+# kNN here is how many nearest neighbors we want to calculate
+
+###############
+# should be able to add ttest from scipy based on spotCount in loop below #
+##########################################
+import scipy
+
+
+kNN = 36
+
+pairwiseSquareMatrix = {}
+pairwiseNearestNeighbors = {}
+nearestNeighborEdges = {}
+####
+# need to adjust/build edges, since right now two nearest neighbors with the
+# same distance is causing a crash because of multiple indices
+#### ^ was a euclidean metric issue, changing metric in pdist fixes
+experimentalSpots = []
+controlSpots = []
+controlSpotPercents = []
+experimentalSpotPercents = []
+controlMeans = []
+experimentalMeans = []
+controlStd = []
+experimentalStd = []
+# will need to turn this back into a loop
+# for actSample in range(len(experimentalResults)):
+actSample = 4
+geneCount = processedSamples[actSample]['filteredFeatureMatrixReorder'][geneIndex,:]
+if geneCount.any():
+    spotCount = geneCount[np.nonzero(geneCount)]
+    spotIdx = np.nonzero(geneCount)
+    spotIdx = spotIdx[1]
+    spotCoord = experimentalResults[actSample]['transformedTissuePositionList'][spotIdx]
+    spotPercent = len(np.transpose(spotCount)) / len(np.transpose(geneCount))
+    # uncomment to show histogram of gene count
+    # plt.plot(np.histogram(geneCount)[0])
+    # plt.title(processedSamples[actSample]['sampleID'])
+    # plt.show()
+else:
+    print("Gene not expressed in this slice")
+    # continue
+
+# uses spotCount, excluding spots with 0 count
+
+# if truncExperiment['experimental-group'][actSample] == 0:
+#     controlSpots = np.append(controlSpots, np.transpose(spotCount))
+#     controlMeans.append(np.mean(spotCount))
+#     controlStd.append(np.std((spotCount)))
+#     controlSpotPercents.append(spotPercent)
+# elif truncExperiment['experimental-group'][actSample] == 1:
+#     experimentalSpots = np.append(experimentalSpots, np.transpose(spotCount))
+#     experimentalMeans.append(np.mean(spotCount))
+#     experimentalStd.append(np.std((spotCount)))
+#     experimentalSpotPercents.append(spotPercent)
+
+# uses geneCount including spots with 0 counts
+if truncExperiment['experimental-group'][actSample] == 0:
+    controlSpots = np.append(controlSpots, np.transpose(geneCount))
+    controlMeans.append(np.mean(geneCount))
+    controlStd.append(np.std((geneCount)))
+    controlSpotPercents.append(spotPercent)
+elif truncExperiment['experimental-group'][actSample] == 1:
+    experimentalSpots = np.append(experimentalSpots, np.transpose(geneCount))
+    experimentalMeans.append(np.mean(geneCount))
+    experimentalStd.append(np.std((geneCount)))
+    experimentalSpotPercents.append(spotPercent)
+    
+    
+#####################################################################
+# take spotCoor, calculate euclidean pdist, next                    #
+# do something like np.diag(spotCount) and add/subtract             #
+# to create laplacian. should it include spotcount or genecount?    #
+#####################################################################
+
+    
+print(processedSamples[actSample]['sampleID'])
+samplePDist = []
+samplePDist = pdist(spotCoord, metric='euclidean')
+samplePDistSM = []
+samplePDistSM = squareform(samplePDist)
+geneDist = np.diagflat(spotCount)
+L = geneDist - (samplePDistSM / 100)
+
+# pairwiseSquareMatrix[actSample] = samplePDistSM
+# samplePDistSMSorted = []
+# samplePDistSMSorted = np.sort(samplePDistSM, axis=1)
+# # below contains kNN distances for each in tissue spot based on post alignment distance
+# # samplePDistNN = []
+# # samplePDistNN = samplePDistSMSorted[:,1:kNN+1]
+# samplePDistEdges = []
+# # output of samplekNN should contain the barcode indices of all of the nearest neighbors
+# samplekNN = np.zeros([samplePDistSM.shape[0],kNN])
+# for i, row in enumerate(samplePDistSM):
+#     samplePDistNN = []
+#     # samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+#     if samplePDistSMSorted[i,1] > 0:
+#         samplePDistNN = samplePDistSMSorted[i,1:kNN+1]
+#         for sigK in range(kNN):
+#             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+#             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+#     else:
+#         samplePDistNN = samplePDistSMSorted[i,2:kNN+2]
+#         for sigK in range(kNN):
+#             samplekNN[i,sigK] = np.argwhere(row == samplePDistNN[sigK])
+#             samplePDistEdges.append([i,np.argwhere(row == samplePDistNN[sigK])]) 
+#             # samplePDistEdges[1,i] = 
+        
+# pairwiseNearestNeighbors[actSample] = samplekNN
+# nearestNeighborEdges[actSample] = samplePDistEdges
+
+    
+groupTtest = scipy.stats.ttest_ind(controlSpots, experimentalSpots, equal_var=False, trim=.2)
+
+#%% retry clustering 
+from sklearn.cluster import AffinityPropagation, KMeans, SpectralClustering
+
+afprop = AffinityPropagation(max_iter=250, affinity='precomputed')
+afprop.fit(np.real(L))
+cluster_centers_indices = afprop.cluster_centers_indices_
+n_clusters_ = len(cluster_centers_indices)
+
+km = KMeans(n_clusters=6).fit(np.real(L))
+plt.imshow(experimentalResults[4]['visiumTransformed'],cmap='gray')
+plt.scatter(spotCoord[0:,0],spotCoord[0:,1], marker='.', c=afprop.labels_, alpha=0.3)
+
+plt.show()
+#%% normalize filtered feature matrix
+
+# actSample = sampleProcessed['filteredFeatureMatrixReorder'].astype(float)
+# actSample[actSample == 0] = np.nan
+# normalizedFilteredFeatureMatrix = np.zeros(actSample.shape)
+# for geneCount,geneExp in enumerate(actSample):
+#     geneMean = np.nanmean(geneExp)
+#     geneStd = np.nanstd(geneExp)
+#     for spotCount,actSpot in enumerate(geneExp.transpose()):
+#         if actSpot == np.nan:
+#             normalizedFilteredFeatureMatrix[geneCount,spotCount] = 0
+#         else:            
+#             geneZ = (actSpot - geneMean) / geneStd
+#             normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
+    
 #%% 
 
-regSampleToTemplate = applyAntsTransformations(sampleRegistered, bestSampleToTemplate, template)
+# regSampleToTemplate = applyAntsTransformations(sampleRegistered, bestSampleToTemplate, template)
