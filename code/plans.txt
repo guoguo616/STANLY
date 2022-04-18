@@ -1,3 +1,0 @@
-next steps for visium
-- including automatic size scaling for images
-- remove requirement for image masking in allen
