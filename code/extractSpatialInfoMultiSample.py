@@ -19,7 +19,7 @@ import cv2
 from glob import glob
 import ants
 import pandas as pd
-from scipy.spatial.distance import pdist, squareform, cosine
+from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # from sklearn import normalize
 # setting up paths
 derivatives = "../derivatives"
@@ -297,10 +297,12 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     transformedTissuePositionListFinal = []
     filteredFeatureMatrixBinaryMask = []
     # transformedBarcodesFinal = []
-    filteredFeatureMatrixMasked = [] #np.empty(registeredVisium['filteredFeatureMatrixOrdered'][:,1].shape)
+    filteredFeatureMatrixMasked = np.zeros(processedVisium['filteredFeatureMatrixOrdered'][:,0].shape)
     for i, masked in enumerate(transformedTissuePositionListMask):
         if masked.all() == True:
             filteredFeatureMatrixBinaryMask.append(1)
+            transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
+            filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, processedVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
         else:
             filteredFeatureMatrixBinaryMask.append(0)
     # transformedTissuePositionListFinal = [];
@@ -309,11 +311,11 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     #     if masked.all() == True:
     #         transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
     #         # transformedBarcodesFinal.append(processedVisium["tissueSpotBarcodeList"][i])
-    transformedTissuePositionListFinal = registeredData['transformedTissuePositionList'][filteredFeatureMatrixBinaryMask]
-    filteredFeatureMatrixMasked = processedVisium['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixBinaryMask]
+    # transformedTissuePositionListFinal = pd.DataFrame(registeredData['transformedTissuePositionList'])[filteredFeatureMatrixBinaryMask]
+    # filteredFeatureMatrixMasked = pd.DataFrame(processedVisium['filteredFeatureMatrixOrdered'])[:,filteredFeatureMatrixBinaryMask]
     registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
 
-    registeredData['filteredFeatureMatrixMasked'] = filteredFeatureMatrixMasked
+    registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
     # registeredData['maskedBarcodes'] = transformedBarcodesFinal
     
     # remove below after putting into processingVisium script    
@@ -365,26 +367,29 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     plt.imshow(registeredData['visiumTransformed'], alpha=0.5)
     plt.title(processedVisium['sampleID'])
     plt.show()
-        
-    transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
+    # DON'T NEED TO MASK YET, SAVE FOR ALLEN REGISTRATION        
+    # transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
+
     ###############################################################
     # need to go over barcode and filtered feature matrix masking #
     ###############################################################
-    transformedTissuePositionListFinal = []
-    filteredFeatureMatrixBinaryMask = []
-    # transformedBarcodesFinal = []
-    filteredFeatureMatrixMasked = [] #np.empty(registeredVisium['filteredFeatureMatrixOrdered'][:,1].shape)
-    for i, masked in enumerate(transformedTissuePositionListMask):
-        if masked.all() == True:
-            filteredFeatureMatrixBinaryMask.append(1)
-        else:
-            filteredFeatureMatrixBinaryMask.append(0)
+    # transformedTissuePositionListFinal = []
+    # filteredFeatureMatrixBinaryMask = []
+    # # transformedBarcodesFinal = []
+    # filteredFeatureMatrixMasked = [] #np.empty(registeredVisium['filteredFeatureMatrixOrdered'][:,1].shape)
+    # for i, masked in enumerate(transformedTissuePositionListMask):
+    #     if masked.all() == True:
+    #         filteredFeatureMatrixBinaryMask.append(1)
+    #         transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
+    #         filteredFeatureMatrixMasked.append(processedVisium['filteredFeatureMatrixOrdered'][:,i])
+    #     else:
+    #         filteredFeatureMatrixBinaryMask.append(0)
         
-    transformedTissuePositionListFinal = registeredData['transformedTissuePositionList'][filteredFeatureMatrixBinaryMask]
-    filteredFeatureMatrixMasked = registeredData['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixBinaryMask]
-    registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
+    # transformedTissuePositionListFinal = pd.DataFrame(registeredData['transformedTissuePositionList'])[filteredFeatureMatrixBinaryMask]
+    # filteredFeatureMatrixMasked = pd.DataFrame(registeredData['filteredFeatureMatrixOrdered'])[:,filteredFeatureMatrixBinaryMask]
+    # registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
 
-    registeredData['filteredFeatureMatrixMasked'] = filteredFeatureMatrixMasked
+    # registeredData['filteredFeatureMatrixMasked'] = filteredFeatureMatrixMasked
     # transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
     ###############################################################
     # need to go over barcode and filtered feature matrix masking #
@@ -449,21 +454,24 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     transformedTissuePositionListFinal = []
     filteredFeatureMatrixBinaryMask = []
     # transformedBarcodesFinal = []
-    filteredFeatureMatrixMasked = [] #np.empty(registeredVisium['filteredFeatureMatrixOrdered'][:,1].shape)
+    filteredFeatureMatrixMasked = np.zeros(registeredVisium['filteredFeatureMatrixOrdered'][:,0].shape)
     for i, masked in enumerate(transformedTissuePositionListMask):
         if masked.all() == True:
             filteredFeatureMatrixBinaryMask.append(1)
+            transformedTissuePositionListFinal.append(templateRegisteredData['transformedTissuePositionList'][i])
+            filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
         else:
             filteredFeatureMatrixBinaryMask.append(0)
             # transformedBarcodesFinal.append(templateRegisteredData["tissueSpotBarcodeList"][i])
             
     
-    transformedTissuePositionListFinal = templateRegisteredData['transformedTissuePositionList'][filteredFeatureMatrixBinaryMask]
-    filteredFeatureMatrixMasked = registeredVisium['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixBinaryMask]
+    # transformedTissuePositionListFinal = pd.DataFrame(templateRegisteredData['transformedTissuePositionList'])[filteredFeatureMatrixBinaryMask,:]
+    # filteredFeatureMatrixMasked = pd.DataFrame(registeredVisium['filteredFeatureMatrixOrdered'])[:,filteredFeatureMatrixBinaryMask]
     templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     # templateRegisteredData['maskedBarcodes'] = transformedBarcodesFinal
-    templateRegisteredData['filteredFeatureMatrixMasked'] = filteredFeatureMatrixMasked
+    # templateRegisteredData['filteredFeatureMatrixMasked'] = np.array(filteredFeatureMatrixMasked)
     
+    templateRegisteredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked,0,1)
     # remove below after putting into processingVisium script    
     # filteredFeatureMatrixBarcodeMasked = []
     # for actbarcode in templateRegisteredData['maskedBarcodes']:
@@ -531,6 +539,136 @@ allSamplesToAllen = {}
 for actSample in range(len(experimentalResults)):
     regSampleToTemplate = applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template)
     allSamplesToAllen[actSample] = regSampleToTemplate
+    
+#%% create digital spots for allen template
+# can probably incorporate into import template function
+# working on orange crate packing, currently giving roughly 103 spots/mm2 compared to ~118spots/mm2 in original visium slice
+
+# currently working in 10 space, requiring spot coordinates to be divided by 10 at end of calculation
+# this is mostly to allow modulo calculation
+templateSpots = []
+# need to work out the proper scaline, but this is roughly the number of spots/sample as visium slices
+spotDiameter = 18
+w = np.sqrt(3) * (spotDiameter/2)   # width of pointy up hexagon
+h = spotDiameter    # height of pointy up hexagon
+# startingEvenX = spotDiameter/2
+# 54.5 is adjusted to make the modulo % work corectly below
+# startingOddX = startingEvenX + spotDiameter
+# startingEvenY = spotDiameter/2
+# startingOddY = startingEvenY + spotDiameter
+# templateSpots = [[0], [0]]
+currentX = 0
+currentY = 0
+rowCount = 0
+
+while currentY < template['leftHem'].shape[0]:
+    
+    if currentX < template['leftHem'].shape[1]:
+        templateSpots.append([currentX, currentY])
+        currentX += w
+    elif (currentX > template['leftHem'].shape[1]):
+        # templateSpots.append([currentX, currentY])
+        rowCount += 1
+        currentY += h * (3/4)
+        if ((currentY < template['leftHem'].shape[0]) and (rowCount % 2)):
+            currentX = w/2
+        else:
+            currentX = 0
+    elif ((currentX > template['leftHem'].shape[1] * 10) and (currentY > template['leftHem'].shape[0] * 10)):
+        print("something is wrong")
+
+templateSpots = np.array(templateSpots)
+plt.imshow(template['leftHem'])
+plt.scatter(templateSpots[:,0],templateSpots[:,1],alpha=0.3)
+plt.show()
+
+# now to remove non-tissue spots
+roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
+
+inTissueTemplateSpots = []
+for row in range(len(roundedTemplateSpots)):
+    if template['leftHem'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 15:
+        inTissueTemplateSpots.append(templateSpots[row])
+        
+inTissueTemplateSpots = np.array(inTissueTemplateSpots)
+plt.imshow(template['leftHem'])
+plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], alpha=0.3)
+plt.show()
+
+#%% next find nearest neighbor in digital allen spots for each sample spot
+# import math # might need math.sqrt
+# assuming 1 spot with 6 neighbors
+kSpots = 7
+def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots):
+    # finds distance between current spot and list
+    allSpotNN = []
+    allMeanCdists = []
+    for actSpot in templateSpotsToSearch:
+        # actSpotNN = []
+        # tx, ty = actSpot
+        spotCdist = cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
+        sortedSpotCdist = np.sort(spotCdist, axis=0)
+        actSpotCdist = sortedSpotCdist[0:kSpots]
+        # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
+        spotMeanCdist = np.mean(actSpotCdist)
+        spotNNIdx = []
+        for i in actSpotCdist:
+            actNNIdx = np.where(spotCdist == i)[0]
+            spotNNIdx.append(actNNIdx[:])
+            
+        allMeanCdists.append(spotMeanCdist)
+        allSpotNN.append(np.array(spotNNIdx))
+        
+    allSpotNN = np.squeeze(np.array(allSpotNN))
+    # should be able to add threshold that removes any spots with a mean cdist > some value
+    return allSpotNN
+
+# x = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[10]['maskedTissuePositionList'])
+#%% extract gene specific information
+import scipy
+# Arc index is 25493
+# Vxn, index 27 gives nice cortical spread
+# Sgk3, index 32 seems to be hippocampal
+# Sulf1, index 46, hippocampal
+# can search for gene by name, must be an exact match for capitalization
+geneIndex = allSamplesToAllen[0]['filteredFeatureMatrixGeneList'].index('Arc')
+# geneIndex = 0
+
+allSamplesDigitalNearestNeighbors = []
+digitalSamples = []
+digitalSamplesControl = []
+digitalSamplesExperimental = []
+for actSample in range(len(allSamplesToAllen)):
+    actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
+    actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList)
+    allSamplesDigitalNearestNeighbors.append(actNN)
+    geneCount = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN]
+    spotCount = np.mean(geneCount, axis=1)
+    digitalSamples.append(spotCount)
+    plt.imshow(template['leftHem'])
+    plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(spotCount), alpha=0.3)
+    plt.title(allSamplesToAllen[actSample]['sampleID'])
+    plt.show()
+    
+    if truncExperiment['experimental-group'][actSample] == 0:
+        digitalSamplesControl.append(spotCount)
+
+    elif truncExperiment['experimental-group'][actSample] == 1:
+        digitalSamplesExperimental.append(spotCount)
+        
+digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
+digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
+
+allTtests = []
+for actDigitalSpot in range(len(inTissueTemplateSpots)):
+    actTtest = scipy.stats.ttest_ind(digitalSamplesControl[:,actDigitalSpot], digitalSamplesExperimental[:,actDigitalSpot])[0]
+    allTtests.append(actTtest)
+        
+plt.imshow(template['leftHem'])
+plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(allTtests), alpha=0.3)
+plt.title(allSamplesToAllen[actSample]['sampleID'])
+plt.colorbar()
+plt.show()
 #%% extract gene specific information
 
 # Arc index is 25493
@@ -545,7 +683,7 @@ for actSample in range(len(allSamplesToAllen)):
     if geneCount.any():
         spotCount = np.count_nonzero(geneCount)
         plt.imshow(allSamplesToAllen[actSample]['visiumTransformed'])
-        plt.scatter(allSamplesToAllen[actSample]['maskedTissuePositionList'][:,0],allSamplesToAllen[actSample]['maskedTissuePositionList'][:,1], c=np.array(geneCount))
+        plt.scatter(allSamplesToAllen[actSample]['maskedTissuePositionList'][:,0],allSamplesToAllen[actSample]['maskedTissuePositionList'][:,1], c=np.array(geneCount), alpha=0.3)
         plt.title(allSamplesToAllen[actSample]['sampleID'])
         plt.show()
     else:
@@ -554,18 +692,6 @@ for actSample in range(len(allSamplesToAllen)):
 # plt.imshow(sampleRegistered['visiumTransformed'])
 # plt.scatter(sampleRegistered['transformedTissuePositionList'][:,0],sampleRegistered['transformedTissuePositionList'][:,1], c=np.array(arcData))
 # plt.show()
-
-#%% find nearest neighbors in region
-
-# first list out coordinates for all spots
-
-# might need to consider y image coordinates as -1 rather than 1 to account for image vs data space
-# allSpotCoordinates = []
-# for actSample in range(len(processedSamples)):
-#     for coordinate in experimentalResults[actSample]['transformedTissuePositionList']:
-#         allSpotCoordinates.append(coordinate[:])
-    
-# allSpotCoordinates = np.array(allSpotCoordinates)
 
 #%% calculate pairwise distance for each points in a sample
 # kNN here is how many nearest neighbors we want to calculate
@@ -775,52 +901,7 @@ for actSample in range(len(experimentalResults)):
 groupTtest = scipy.stats.ttest_ind(controlSpots, experimentalSpots)
 
 
-#%% create digital spots for allen template
-# working on orange crate packing, currently giving roughly 103 spots/mm2 compared to ~118spots/mm2 in original visium slice
 
-# currently working in 10 space, requiring spot coordinates to be divided by 10 at end of calculation
-# this is mostly to allow modulo calculation
-templateSpots = []
-startingEvenX = 55/2
-# 54.5 is adjusted to make the modulo % work corectly below
-startingOddX = startingEvenX + 54.5
-startingEvenY = 55/2
-startingOddY = startingEvenY + 54.5
-currentX = startingEvenX
-currentY = startingEvenY
-# templateSpots = [[startingX], [startingY]]
-while currentY < template['leftHem'].shape[0] * 10:
-    
-    if ((currentX < template['leftHem'].shape[1] * 10) and (currentY < template['leftHem'].shape[0] * 10)):
-        templateSpots.append([currentX, currentY])
-        currentX += 100
-    elif (currentX > template['leftHem'].shape[1] * 10):
-        # templateSpots.append([currentX, currentY])
-        currentY += 100
-        if currentX % 1:
-            currentX = startingOddX
-        else:
-            currentX = startingEvenX
-    elif ((currentX > template['leftHem'].shape[1] * 10) and (currentY > template['leftHem'].shape[0] * 10)):
-        print("something is wrong")
-
-templateSpots = np.array(templateSpots)/10
-# plt.imshow(template['leftHem'])
-# plt.scatter(templateSpots[:,0],templateSpots[:,1],alpha=0.1)
-# plt.show()
-
-# now to remove non-tissue spots
-roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
-
-inTissueTemplateSpots = []
-for row in range(len(roundedTemplateSpots)):
-    if template['leftHem'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 15:
-        inTissueTemplateSpots.append(templateSpots[row])
-        
-inTissueTemplateSpots = np.array(inTissueTemplateSpots)
-plt.imshow(template['leftHem'])
-plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], alpha=0.2)
-plt.show()
 #%% retry clustering 
 from sklearn.cluster import AffinityPropagation, KMeans, SpectralClustering
 
