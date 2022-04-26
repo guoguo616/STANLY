@@ -625,14 +625,15 @@ def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots):
 
 # x = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[10]['maskedTissuePositionList'])
 #%% extract gene specific information
+# this version runs ttest on all slices
 import scipy
 # Arc index is 25493
 # Vxn, index 27 gives nice cortical spread
 # Sgk3, index 32 seems to be hippocampal
 # Sulf1, index 46, hippocampal
 # can search for gene by name, must be an exact match for capitalization
-geneIndex = allSamplesToAllen[0]['filteredFeatureMatrixGeneList'].index('Arc')
-# geneIndex = 0
+geneIndex = allSamplesToAllen[0]['filteredFeatureMatrixGeneList'].index('Sgk3')
+# geneIndex = 12
 
 allSamplesDigitalNearestNeighbors = []
 digitalSamples = []
@@ -661,12 +662,90 @@ digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).s
 
 allTtests = []
 for actDigitalSpot in range(len(inTissueTemplateSpots)):
-    actTtest = scipy.stats.ttest_ind(digitalSamplesControl[:,actDigitalSpot], digitalSamplesExperimental[:,actDigitalSpot])[0]
-    allTtests.append(actTtest)
+    actTtest = scipy.stats.ttest_ind(digitalSamplesControl[:,actDigitalSpot], digitalSamplesExperimental[:,actDigitalSpot])
+    if actTtest[1] < 0.05:
+        allTtests.append(actTtest[0])
+    else:
+        allTtests.append(np.nan)
         
 plt.imshow(template['leftHem'])
-plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(allTtests), alpha=0.3)
+plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(allTtests), alpha=0.8)
 plt.title(allSamplesToAllen[actSample]['sampleID'])
+plt.colorbar()
+plt.show()
+#%% extract gene specific information
+# this version creates mean control and experimental images
+import scipy
+# Arc index is 25493
+# Vxn, index 27 gives nice cortical spread
+# Sgk3, index 32 seems to be hippocampal
+# Sulf1, index 46, hippocampal
+# can search for gene by name, must be an exact match for capitalization
+geneIndex = allSamplesToAllen[0]['filteredFeatureMatrixGeneList'].index('Vxn')
+# geneIndex = 12
+
+allSamplesDigitalNearestNeighbors = []
+digitalSamples = []
+digitalSamplesControl = []
+digitalSamplesExperimental = []
+meanDigitalSample = np.zeros([1449,1])
+meanDigitalControls = np.zeros([1449,1])
+meanDigitalExperimentals = np.zeros([1449,1])
+nSamples = 0
+nControls = 0
+nExperimentals = 0
+for actSample in range(len(allSamplesToAllen)):
+    actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
+    actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList)
+    allSamplesDigitalNearestNeighbors.append(actNN)
+    geneCount = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN]
+    spotCount = np.mean(geneCount, axis=1)
+    digitalSamples.append(spotCount)
+    plt.imshow(template['leftHem'])
+    plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(spotCount), alpha=0.3)
+    plt.title(allSamplesToAllen[actSample]['sampleID'])
+    plt.show()
+    meanDigitalSample += spotCount
+    nSamples += 1
+    if truncExperiment['experimental-group'][actSample] == 0:
+        digitalSamplesControl.append(spotCount)
+        meanDigitalControls += spotCount
+        nControls += 1
+
+    elif truncExperiment['experimental-group'][actSample] == 1:
+        digitalSamplesExperimental.append(spotCount)
+        meanDigitalExperimentals += spotCount
+        nExperimentals += 1
+        
+digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
+digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
+
+allTtests = []
+for actDigitalSpot in range(len(inTissueTemplateSpots)):
+    actTtest = scipy.stats.ttest_ind(digitalSamplesControl[:,actDigitalSpot], digitalSamplesExperimental[:,actDigitalSpot])
+    if actTtest[1] < 0.05:
+        allTtests.append(actTtest[0])
+    else:
+        allTtests.append(np.nan)
+        
+meanDigitalSample = meanDigitalSample / nSamples
+meanDigitalControls = meanDigitalControls / nControls
+meanDigitalExperimentals = meanDigitalExperimentals / nExperimentals
+plt.imshow(template['leftHem'])
+plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8)
+plt.title("Mean of all samples")
+plt.colorbar()
+plt.show()
+
+plt.imshow(template['leftHem'])
+plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8)
+plt.title("Mean of controls")
+plt.colorbar()
+plt.show()
+
+plt.imshow(template['leftHem'])
+plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8)
+plt.title("Mean of experimental")
 plt.colorbar()
 plt.show()
 #%% extract gene specific information
