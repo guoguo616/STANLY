@@ -611,17 +611,24 @@ def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots):
         actSpotCdist = sortedSpotCdist[0:kSpots]
         # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
         spotMeanCdist = np.mean(actSpotCdist)
+        
+        filledTemplateSpots = []
         spotNNIdx = []
         for i in actSpotCdist:
+            # if spotMeanCdist < 20:
             actNNIdx = np.where(spotCdist == i)[0]
             spotNNIdx.append(actNNIdx[:])
+                # filledTemplateSpots.append(np.array(actSpot))
+                # print(actSpot)
+            # else:
+            #     continue
             
         allMeanCdists.append(spotMeanCdist)
         allSpotNN.append(np.array(spotNNIdx))
         
     allSpotNN = np.squeeze(np.array(allSpotNN))
     # should be able to add threshold that removes any spots with a mean cdist > some value
-    return allSpotNN
+    return allSpotNN, filledTemplateSpots
 
 # x = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[10]['maskedTissuePositionList'])
 #%% extract gene specific information
@@ -631,8 +638,9 @@ import scipy
 # Vxn, index 27 gives nice cortical spread
 # Sgk3, index 32 seems to be hippocampal
 # Sulf1, index 46, hippocampal
+# Egr1
 # can search for gene by name, must be an exact match for capitalization
-geneIndex = allSamplesToAllen[0]['filteredFeatureMatrixGeneList'].index('Sgk3')
+geneIndex = allSamplesToAllen[0]['filteredFeatureMatrixGeneList'].index('Arc')
 # geneIndex = 12
 
 allSamplesDigitalNearestNeighbors = []
@@ -641,12 +649,12 @@ digitalSamplesControl = []
 digitalSamplesExperimental = []
 for actSample in range(len(allSamplesToAllen)):
     actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
-    actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList)
+    actNN, filledSpots = findDigitalNearestNeighbors(inTissueTemplateSpots, actList)
     allSamplesDigitalNearestNeighbors.append(actNN)
     geneCount = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN]
     spotCount = np.mean(geneCount, axis=1)
     digitalSamples.append(spotCount)
-    plt.imshow(template['leftHem'])
+    plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
     plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(spotCount), alpha=0.3)
     plt.title(allSamplesToAllen[actSample]['sampleID'])
     plt.show()
@@ -668,7 +676,7 @@ for actDigitalSpot in range(len(inTissueTemplateSpots)):
     else:
         allTtests.append(np.nan)
         
-plt.imshow(template['leftHem'])
+plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
 plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(allTtests), alpha=0.8)
 plt.title(allSamplesToAllen[actSample]['sampleID'])
 plt.colorbar()
