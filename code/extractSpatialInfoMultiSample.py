@@ -214,9 +214,6 @@ def processVisiumData(visiumData, templateData, rotation):
     for bytegene in visiumData['filteredFeatureMatrix'][0]['name']:
         filteredFeatureMatrixGeneString.append(bytegene.decode())
     processedVisium['filteredFeatureMatrixGeneList'] = filteredFeatureMatrixGeneString
-    
-    # csvZTPad = np.zeros([processedVisium['tissuePointsResizedForTransform'].shape[0],2])
-    # csvCommentPad = np.zeros([processedVisium['tissuePointsResizedForTransform'].shape[0],1])
     header=['x','y','z','t','label','comment']
     csvFormat = []
     rowFormat = []
@@ -230,21 +227,23 @@ def processVisiumData(visiumData, templateData, rotation):
             
     processedVisium['tissuePointsForTransform'] = np.array(csvFormat)
     
-    
-    # with open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv", 'w', encoding='UTF8') as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow(header)
-    #     for i in 
-    #     ,processedVisium['tissuePointsForTransform'], delimiter=',', 
-    # processedVisium['tissuePointsForTransform'] = np.append(processedVisium['tissuePointsForTransform'], processedVisium['filteredFeatureMatrixBarcodeList'],1)
-    # processedVisium['tissuePointsForTransform'] = np.append(processedVisium['tissuePointsForTransform'], csvCommentPad, 1)
-    
     # this orders the filtered feature matrix so that the columns are in the order of the coordinate list, so barcodes no longer necessary
     filteredFeatureMatrixBarcodeReorder = []
     for actbarcode in processedVisium['tissueSpotBarcodeList']:
         filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
     
     processedVisium['filteredFeatureMatrixOrdered'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
+    # write re-ordered filtered feature matrix csv to match tissue spot order
+    # csvFormat = []
+    rowFormat = []
+    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        for i in range(len(processedVisium['filteredFeatureMatrixOrdered'])):
+            rowFormat = processedVisium['filteredFeatureMatrixOrdered'][i,:]
+            writer.writerow(rowFormat)
+            # csvFormat.append(rowFormat)
+            
+    cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",processedVisium['tissue'])
     return processedVisium
 
 # think about replacing processedVisium with visiumExperiment that would be like the experiment option below
@@ -261,10 +260,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
-    # ants.plot(templateAntsImage, overlay=synXfm["warpedmovout"])
     # apply syn transform to tissue spot coordinates
-    # first line creates a csv file, second line uses that csv as input for antsApplyTransformsToPoints
-    # np.savetxt(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv",processedVisium['tissuePointsForTransform'], delimiter=',', header="x,y,z,t,label,comment")
     os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplateTransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz")
     
     transformedTissuePositionList = []
@@ -291,12 +287,8 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     plt.show()
         
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
-    ###############################################################
-    # need to go over barcode and filtered feature matrix masking #
-    ###############################################################
     transformedTissuePositionListFinal = []
     filteredFeatureMatrixBinaryMask = []
-    # transformedBarcodesFinal = []
     filteredFeatureMatrixMasked = np.zeros(processedVisium['filteredFeatureMatrixOrdered'][:,0].shape)
     for i, masked in enumerate(transformedTissuePositionListMask):
         if masked.all() == True:
@@ -305,25 +297,22 @@ def runANTsToAllenRegistration(processedVisium, templateData):
             filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, processedVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
         else:
             filteredFeatureMatrixBinaryMask.append(0)
-    # transformedTissuePositionListFinal = [];
-    # # transformedBarcodesFinal = []
-    # for i, masked in enumerate(transformedTissuePositionListMask):
-    #     if masked.all() == True:
-    #         transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
-    #         # transformedBarcodesFinal.append(processedVisium["tissueSpotBarcodeList"][i])
-    # transformedTissuePositionListFinal = pd.DataFrame(registeredData['transformedTissuePositionList'])[filteredFeatureMatrixBinaryMask]
-    # filteredFeatureMatrixMasked = pd.DataFrame(processedVisium['filteredFeatureMatrixOrdered'])[:,filteredFeatureMatrixBinaryMask]
     registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
 
     registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
-    # registeredData['maskedBarcodes'] = transformedBarcodesFinal
     
-    # remove below after putting into processingVisium script    
-    # filteredFeatureMatrixBarcodeMasked = []
-    # for actbarcode in registeredData['maskedBarcodes']:
-    #     filteredFeatureMatrixBarcodeMasked.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
+    # write re-ordered filtered feature matrix csv to match tissue spot order
+    # csvFormat = []
+    rowFormat = []
+    with open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        for i in range(len(registeredData['filteredFeatureMatrixMasked'])):
+            rowFormat = registeredData['filteredFeatureMatrixMasked'][i,:]
+            writer.writerow(rowFormat)
+            # csvFormat.append(rowFormat)
+            
+    cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['visiumTransformed'])
     
-    # registeredData['filteredFeatureMatrixMasked'] = processedVisium['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixBarcodeMasked]
     return registeredData
 
 def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
@@ -367,57 +356,20 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     plt.imshow(registeredData['visiumTransformed'], alpha=0.5)
     plt.title(processedVisium['sampleID'])
     plt.show()
-    # DON'T NEED TO MASK YET, SAVE FOR ALLEN REGISTRATION        
-    # transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
 
-    ###############################################################
-    # need to go over barcode and filtered feature matrix masking #
-    ###############################################################
-    # transformedTissuePositionListFinal = []
-    # filteredFeatureMatrixBinaryMask = []
-    # # transformedBarcodesFinal = []
-    # filteredFeatureMatrixMasked = [] #np.empty(registeredVisium['filteredFeatureMatrixOrdered'][:,1].shape)
-    # for i, masked in enumerate(transformedTissuePositionListMask):
-    #     if masked.all() == True:
-    #         filteredFeatureMatrixBinaryMask.append(1)
-    #         transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
-    #         filteredFeatureMatrixMasked.append(processedVisium['filteredFeatureMatrixOrdered'][:,i])
-    #     else:
-    #         filteredFeatureMatrixBinaryMask.append(0)
-        
-    # transformedTissuePositionListFinal = pd.DataFrame(registeredData['transformedTissuePositionList'])[filteredFeatureMatrixBinaryMask]
-    # filteredFeatureMatrixMasked = pd.DataFrame(registeredData['filteredFeatureMatrixOrdered'])[:,filteredFeatureMatrixBinaryMask]
-    # registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
+    cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png",registeredData['visiumTransformed'])
 
-    # registeredData['filteredFeatureMatrixMasked'] = filteredFeatureMatrixMasked
-    # transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
-    ###############################################################
-    # need to go over barcode and filtered feature matrix masking #
-    ###############################################################
-    # transformedTissuePositionListFinal = [];
-    # transformedBarcodesFinal = []
-    # for i, masked in enumerate(transformedTissuePositionListMask):
-    #     if masked.all() == True:
-    #         transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
-    #         transformedBarcodesFinal.append(processedVisium["tissueSpotBarcodeList"][i])
-    
-    # registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
-    # registeredData['maskedBarcodes'] = transformedBarcodesFinal
-    
-    # remove below after putting into processingVisium script    
-    # filteredFeatureMatrixBarcodeMasked = []
-    # for actbarcode in registeredData['maskedBarcodes']:
-    #     filteredFeatureMatrixBarcodeMasked.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
-    
     return registeredData
     
 def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, templateData):
+    # if not os.exists(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv"):
+        
     templateAntsImage = ants.from_numpy(templateData['leftHem'])
     sampleAntsImage = ants.from_numpy(registeredVisium['visiumTransformed'])
     sampleToTemplate = ants.apply_transforms( fixed=templateAntsImage, moving=sampleAntsImage, transformlist=bestSampleRegisteredToTemplate['antsOutput']['fwdtransforms'])
     
     # make sure this actually does what it's supposed to
-    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -o {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv -t [ {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_xfm1InverseWarp.nii.gz")
+    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -o {os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv -t [ {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm1InverseWarp.nii.gz")
     templateRegisteredData = {}
     transformedTissuePositionList = []
     with open(os.path.join(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv"), newline='') as csvfile:
@@ -448,9 +400,6 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     plt.show()
         
     transformedTissuePositionListMask = np.logical_and(templateRegisteredData['transformedTissuePositionList'] > 0, templateRegisteredData['transformedTissuePositionList'] < templateRegisteredData['visiumTransformed'].shape[0])
-    ###############################################################
-    # need to go over barcode and filtered feature matrix masking #
-    ###############################################################
     transformedTissuePositionListFinal = []
     filteredFeatureMatrixBinaryMask = []
     # transformedBarcodesFinal = []
@@ -468,6 +417,17 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     
     templateRegisteredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked,0,1)
+    # write re-ordered filtered feature matrix csv to match tissue spot order
+    # csvFormat = []
+    rowFormat = []
+    with open(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        for i in range(len(templateRegisteredData['filteredFeatureMatrixMasked'])):
+            rowFormat = templateRegisteredData['filteredFeatureMatrixMasked'][i,:]
+            writer.writerow(rowFormat)
+            # csvFormat.append(rowFormat)
+    cv2.imwrite(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png",templateRegisteredData['visiumTransformed'])
+
     return templateRegisteredData
 
 #%% import sample list, location, and degrees of rotation from participants.tsv
@@ -538,6 +498,9 @@ for actSample in range(len(experimentalResults)):
 # this is mostly to allow modulo calculation
 templateSpots = []
 # need to work out the proper scaline, but this is roughly the number of spots/sample as visium slices
+################
+# tested at 18 #
+################
 spotDiameter = 18
 w = np.sqrt(3) * (spotDiameter/2)   # width of pointy up hexagon
 h = spotDiameter    # height of pointy up hexagon
@@ -623,44 +586,47 @@ def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots, 
 
 # x = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[10]['maskedTissuePositionList'])
 
-for i, regSample in enumerate(allSamplesToAllen):
+# for i, regSample in enumerate(allSamplesToAllen):
         
-    # removes any spots with fewer than 5000 total gene counts
-    countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
-    spotMask = countsPerSpot > 5000
-    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
-    allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
-    # remove genes with no counts
-    countsPerGene = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
-    geneMask = countsPerGene > 0
-    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
-    geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
-    allSamplesToAllen[i]['geneListMasked'] = geneMaskedGeneList
+#     # removes any spots with fewer than 5000 total gene counts
+#     countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
+#     spotMask = countsPerSpot > 5000
+#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
+#     allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
+#     # remove genes with no counts
+#     countsPerGene = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
+#     geneMask = countsPerGene > 0
+#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
+#     geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
+#     allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
 #%% extract gene specific information
 # this version runs ttest on all slices
 import scipy
+from statsmodels.stats.multitest import multipletests
 # Arc index is 25493
 # Vxn, index 27 gives nice cortical spread
 # Sgk3, index 32 seems to be hippocampal
 # Sulf1, index 46, hippocampal
 # Egr1
 # can search for gene by name, must be an exact match for capitalization
+################
+# tested at 07 #
+################
 kSpots = 7
 geneToSearch = 'Arc'
-geneIndex = allSamplesToAllen[0]['geneListMasked'].index(geneToSearch)
-# geneIndex = 12
 
 allSamplesDigitalNearestNeighbors = []
 digitalSamples = []
 digitalSamplesControl = []
 digitalSamplesExperimental = []
-meanDigitalSample = np.zeros([1449,1])
-meanDigitalControls = np.zeros([1449,1])
-meanDigitalExperimentals = np.zeros([1449,1])
+meanDigitalSample = np.zeros([len(inTissueTemplateSpots),1])
+meanDigitalControls = np.zeros([len(inTissueTemplateSpots),1])
+meanDigitalExperimentals = np.zeros([len(inTissueTemplateSpots),1])
 nSamples = 0
 nControls = 0
 nExperimentals = 0
 for actSample in range(len(allSamplesToAllen)):
+    geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(geneToSearch)
     actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
     actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList, kSpots)
     allSamplesDigitalNearestNeighbors.append(actNN)
@@ -689,29 +655,42 @@ for actSample in range(len(allSamplesToAllen)):
 digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
 digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
 
-allTtests = []
+maskedTtests = []
+allTstats = []
+allPvals = []
 for actDigitalSpot in range(len(inTissueTemplateSpots)):
     spotMaskCon = np.where(digitalSamplesControl[:,actDigitalSpot] > 0)
     maskedControlSpots = np.array(digitalSamplesControl[spotMaskCon,actDigitalSpot])
     spotMaskExp = np.where(digitalSamplesExperimental[:,actDigitalSpot] > 0)
     maskedExperimentalSpots = np.array(digitalSamplesExperimental[spotMaskExp,actDigitalSpot])
     actTtest = scipy.stats.ttest_ind(np.squeeze(maskedControlSpots), np.squeeze(maskedExperimentalSpots))
+    allTstats.append(actTtest[0])
+    allPvals.append(actTtest[1])
     if actTtest[1] < 0.05:
-        allTtests.append(actTtest[0])
+        maskedTtests.append(actTtest[0])
     else:
-        allTtests.append(np.nan)
+        maskedTtests.append(np.nan)
         
 meanDigitalSample = meanDigitalSample / nSamples
 meanDigitalControls = meanDigitalControls / nControls
 meanDigitalExperimentals = meanDigitalExperimentals / nExperimentals
+mulCompResults = multipletests(allPvals, 0.05, method='fdr_bh')
+maskedTests = []
 
+checkForSigSpots = any(mulCompResults[0])
+for i, test in enumerate(mulCompResults[0]):
+    if test == True:
+        maskedTests.append(allTstats[i])
+    else:
+        maskedTests.append(np.nan)
 
 #%% plotting statistics
 import matplotlib.colors as mcolors
-finiteMin = np.min(np.array(allTtests)[np.isfinite(allTtests)])
-finiteMax = np.max(np.array(allTtests)[np.isfinite(allTtests)])
+
+finiteMin = np.min(np.array(maskedTtests)[np.isfinite(maskedTtests)])
+finiteMax = np.max(np.array(maskedTtests)[np.isfinite(maskedTtests)])
 zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
-tTestColormap = zeroCenteredCmap(allTtests)
+tTestColormap = zeroCenteredCmap(maskedTtests)
 
 plt.imshow(bestSampleToTemplate['visiumTransformed'])
 plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8)
@@ -731,12 +710,21 @@ plt.title(f'Mean gene count for {geneToSearch}, experimental')
 plt.colorbar()
 plt.show()
 
+# plt.imshow(bestSampleToTemplate['visiumTransformed'])
+# plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(allTstats[mulCompResults[0]]), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+# plt.title(f't-statistic for {geneToSearch}, p < 0.05')
+# plt.colorbar()
+# plt.show()
+
 plt.imshow(bestSampleToTemplate['visiumTransformed'])
-plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(allTtests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(maskedTests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
 plt.title(f't-statistic for {geneToSearch}, p < 0.05')
 plt.colorbar()
 plt.show()
 
+#%% 
+plt.imshow(bestSample['tissueHistMatched'])
+plt.imshow(experimentalResults[8]['visiumTransformed'],alpha=0.5)
 #%% process filtered feature matrix data
 
 testSample = allSamplesToAllen[0]
