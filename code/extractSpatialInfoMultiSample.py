@@ -59,7 +59,7 @@ def get_matrix_from_h5(filename):
         indices = getattr(mat_group, 'indices').read()
         indptr = getattr(mat_group, 'indptr').read()
         shape = getattr(mat_group, 'shape').read()
-        matrix = sp_sparse.csc_matrix((data, indices, indptr), shape=shape)
+        matrix = sp_sparse.csc_matrix((data, indices, indptr), shape=shape) 
          
         feature_ref = {}
         feature_group = f.get_node(mat_group, 'features')
@@ -255,8 +255,8 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     templateAntsImage = ants.from_numpy(templateData['leftHem'])
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(100,80,60,40,20,0), \
-    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
+    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120,100,80,60,40,20,0), \
+    syn_sampling=2, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -586,19 +586,184 @@ def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots, 
 
 # x = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[10]['maskedTissuePositionList'])
 
-# for i, regSample in enumerate(allSamplesToAllen):
+
+#%% this line needs to be incorporated into one of the functions, so only run once
+for i, regSample in enumerate(allSamplesToAllen):
         
-#     # removes any spots with fewer than 5000 total gene counts
-#     countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
-#     spotMask = countsPerSpot > 5000
-#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
-#     allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
-#     # remove genes with no counts
-#     countsPerGene = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
-#     geneMask = countsPerGene > 0
-#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
-#     geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
-#     allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
+    # removes any spots with fewer than 5000 total gene counts
+    countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
+    spotMask = countsPerSpot > 5000
+    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
+    allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
+    # remove genes with no counts
+    countsPerGene = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
+    geneMask = countsPerGene > 0
+    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
+    geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
+    allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
+    
+#%% compare gene lists and find genes present in all samples
+# list of genes present to all slices
+allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
+for i, regSample in enumerate(allSamplesToAllen):
+    if i == 0:
+        continue
+    allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
+        
+#%% can now use this gene list to loop over expressed genes 
+import scipy
+from statsmodels.stats.multitest import multipletests
+import matplotlib.colors as mcolors
+
+kSpots = 7
+nDigitalSpots = len(inTissueTemplateSpots)
+nTotalSamples = len(allSamplesToAllen)
+# ,'Egr1','Lars2','Ccl4'
+testGeneList = ['Arc','Egr1','Lars2','Ccl4']
+sigGenes = []
+for nOfGenesChecked,actGene in enumerate(testGeneList):
+    # geneToSearch = actGene
+    
+    # allSamplesDigitalNearestNeighbors = []
+    # digitalSamples = []
+    digitalSamplesControl = []
+    digitalSamplesExperimental = []
+    # meanDigitalSample = np.zeros([nDigitalSpots,1])
+    meanDigitalControls = np.zeros([nDigitalSpots,1])
+    meanDigitalExperimentals = np.zeros([nDigitalSpots,1])
+    nTestedSamples = 0
+    nControls = 0
+    nExperimentals = 0
+    for actSample in range(nTotalSamples):
+        geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(actGene)
+        actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
+        actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList, kSpots)
+        # allSamplesDigitalNearestNeighbors.append(actNN)
+        geneCount = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN]
+        for spots in enumerate(actNN):
+            if ~np.all(spots[1]):
+                geneCount[spots[0]] = np.nan
+                
+        spotCount = np.nanmean(geneCount, axis=1)
+        # digitalSamples.append(spotCount)
+
+        # meanDigitalSample += spotCount
+        nTestedSamples += 1
+        if truncExperiment['experimental-group'][actSample] == 0:
+            digitalSamplesControl.append(spotCount)
+            meanDigitalControls += spotCount
+            nControls += 1
+        elif truncExperiment['experimental-group'][actSample] == 1:
+            digitalSamplesExperimental.append(spotCount)
+            meanDigitalExperimentals += spotCount
+            nExperimentals += 1
+            
+    digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
+    digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
+    
+    maskedTtests = []
+    allTstats = []
+    allPvals = []
+    for actDigitalSpot in range(nDigitalSpots):
+        if (np.sum(np.isnan(digitalSamplesControl[:,actDigitalSpot]) > 3) or (np.sum(np.isnan(digitalSamplesExperimental[:,actDigitalSpot])) > 3)):
+            allTstats.append(np.nan)
+            allPvals.append(np.nan)
+            continue
+            
+        else:
+            # spotMaskCon = np.where(digitalSamplesControl[:,actDigitalSpot] > 0)
+            # maskedControlSpots = digitalSamplesControl[digitalSamplesControl[:,actDigitalSpot] > 0, actDigitalSpot]
+            # maskedControlSpots = np.array(digitalSamplesControl[spotMaskCon,actDigitalSpot])
+            # spotMaskExp = np.where(digitalSamplesExperimental[:,actDigitalSpot] > 0)
+            # maskedExperimentalSpots = digitalSamplesExperimental[digitalSamplesExperimental[:,actDigitalSpot] > 0, actDigitalSpot]
+            # maskedExperimentalSpots = np.array(digitalSamplesExperimental[spotMaskExp,actDigitalSpot])
+            # controlSpots = digitalSamplesControl[:,actDigitalSpot]
+            actTtest = scipy.stats.ttest_ind(digitalSamplesControl[:,actDigitalSpot], digitalSamplesExperimental[:,actDigitalSpot],nan_policy='omit')
+            allTstats.append(actTtest[0])
+            allPvals.append(actTtest[1])
+        # if actTtest[1] < 0.05:
+        #     maskedTtests.append(actTtest[0])
+        # else:
+        #     maskedTtests.append(np.nan)
+    
+    # runs multiple comparisons on pVals for sample
+    # mulCompResults = multipletests(allPvals, 0.05, method='fdr_bh')
+    # allPvalsSorted = np.sort(allPvals)
+    # allPvalsSortedIdx = np.argsort(allPvals)
+    mulCompResults = multipletests(allPvals, 0.05, method='fdr_bh', is_sorted=False)
+    # mulCompResultsAtIdx = np.take_along_axis(np.array(mulCompResults[0]), allPvalsSortedIdx, axis=0)
+    
+    # checkForSigSpots = any(mulCompResultsAtIdx)
+    if (any(mulCompResults[0]) == True) & (sum(mulCompResults[0]) > 2):
+        finiteMin = np.nanmin(allTstats)
+        finiteMax = np.nanmax(allTstats)
+        zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
+        tTestColormap = zeroCenteredCmap(maskedTtests)
+        sigGenes.append(actGene)
+        # meanDigitalSample = meanDigitalSample / nTestedSamples
+        meanDigitalControls = meanDigitalControls / nControls
+        meanDigitalExperimentals = meanDigitalExperimentals / nExperimentals
+        maskedFdrTests = []
+        for actFdr, test in enumerate(mulCompResults[0]):
+            if test == True:
+                maskedFdrTests.append(allTstats[actFdr])
+            else:
+                maskedFdrTests.append(np.nan)
+        maxGeneCount = np.nanmax([meanDigitalExperimentals,meanDigitalControls])
+        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+        # plt.title(f'Mean gene count for {actGene}, all samples')
+        # plt.colorbar()
+        # plt.show()
+        
+        plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+        plt.title(f'Mean gene count for {actGene}, controls')
+        plt.colorbar()
+        plt.show()
+        
+        plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+        plt.title(f'Mean gene count for {actGene}, experimental')
+        plt.colorbar()
+        plt.show()
+        
+        plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(maskedFdrTests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+        plt.title(f't-statistic FDR corrected for {actGene}, p < 0.05')
+        plt.colorbar()
+        plt.show()
+    # elif (checkForSigSpots == True) & (sum(mulCompResults[0]) == 1):
+                
+            
+        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8)
+        # plt.title(f'Mean gene count for {actGene}, all samples')
+        # plt.colorbar()
+        # plt.show()
+        
+        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8)
+        # plt.title(f'Mean gene count for {actGene}, controls')
+        # plt.colorbar()
+        # plt.show()
+        
+        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8)
+        # plt.title(f'Mean gene count for {actGene}, experimental')
+        # plt.colorbar()
+        # plt.show()
+        
+        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
+        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(maskedTtests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+        # plt.title(f't-statistic for {actGene}, p < 0.05')
+        # plt.colorbar()
+        # plt.show()
+    # else:
+    #     continue
+    #     print(f"No significant spots for {actGene}")
+        
+    
 #%% extract gene specific information
 # this version runs ttest on all slices
 import scipy
@@ -613,7 +778,7 @@ from statsmodels.stats.multitest import multipletests
 # tested at 07 #
 ################
 kSpots = 7
-geneToSearch = 'Arc'
+geneToSearch = 'Ccl4'
 
 allSamplesDigitalNearestNeighbors = []
 digitalSamples = []
@@ -637,10 +802,6 @@ for actSample in range(len(allSamplesToAllen)):
             
     spotCount = np.nanmean(geneCount, axis=1)
     digitalSamples.append(spotCount)
-    plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-    plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(spotCount), alpha=0.3)
-    plt.title(allSamplesToAllen[actSample]['sampleID'])
-    plt.show()
     meanDigitalSample += spotCount
     nSamples += 1
     if truncExperiment['experimental-group'][actSample] == 0:
@@ -727,17 +888,17 @@ plt.imshow(bestSample['tissueHistMatched'])
 plt.imshow(experimentalResults[8]['visiumTransformed'],alpha=0.5)
 #%% process filtered feature matrix data
 
-testSample = allSamplesToAllen[0]
-for i, regSample in enumerate(allSamplesToAllen):
+# testSample = allSamplesToAllen[0]
+# for i, regSample in enumerate(allSamplesToAllen):
         
-    # removes any spots with fewer than 5000 total gene counts
-    countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
-    spotMask = countsPerSpot > 5000
-    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
-    allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
-    # remove genes with no counts
-    countsPerGene = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
-    geneMask = countsPerGene > 0
-    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
-    geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
-    allSamplesToAllen[i]['geneListMasked'] = geneMaskedGeneList
+#     # removes any spots with fewer than 5000 total gene counts
+#     countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
+#     spotMask = countsPerSpot > 5000
+#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
+#     allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
+#     # remove genes with no counts
+#     countsPerGene = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
+#     geneMask = countsPerGene > 0
+#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
+#     geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
+#     allSamplesToAllen[i]['geneListMasked'] = geneMaskedGeneList
