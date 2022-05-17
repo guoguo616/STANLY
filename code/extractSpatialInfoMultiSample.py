@@ -3,7 +3,7 @@
 """
 Created on Mon Feb  7 09:49:40 2022
 
-@author: zjpeters
+@author: zjpeters.
 """
 
 # data being read in includes: json, h5, csv, nrrd, jpg, and svg
@@ -255,8 +255,8 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     templateAntsImage = ants.from_numpy(templateData['leftHem'])
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120,100,80,60,40,20,0), \
-    syn_sampling=2, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
+    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
+    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -321,8 +321,8 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueHistMatched'])
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(100,80,60,40,20,0), \
-    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
+    type_of_transform='SyNAggro', grad_step=0.15, reg_iterations=(100,80,60,40,20,0), \
+    syn_sampling=3, flow_sigma=1, syn_metric='meansquares', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -461,10 +461,12 @@ truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
 # experimentalResults = dict.fromkeys(['sample-id','antsOutput'])
 
 processedSamples = {}
+bestTemplateSlice = 70
+template = chooseTemplateSlice(bestTemplateSlice)
 for actSample in range(len(truncExperiment['sample-id'])):
     sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][actSample]))
     # template = chooseTemplateSlice(truncExperiment['template-slice'][actSample])
-    template = chooseTemplateSlice(70)
+    
     sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][actSample])
     processedSamples[actSample] = sampleProcessed
 
@@ -473,6 +475,8 @@ bestSample = processedSamples[4]
 
 bestSampleToTemplate = runANTsToAllenRegistration(bestSample, template)
 
+
+#%%
 experimentalResults = {}
 for actSample in range(len(processedSamples)):
     sampleRegistered = runANTsInterSampleRegistration(processedSamples[actSample], bestSample)
@@ -540,6 +544,7 @@ roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
 
 inTissueTemplateSpots = []
 for row in range(len(roundedTemplateSpots)):
+    # 15 in the following is just to erode around the edge of the brain
     if template['leftHem'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 15:
         inTissueTemplateSpots.append(templateSpots[row])
         
@@ -620,6 +625,15 @@ nDigitalSpots = len(inTissueTemplateSpots)
 nTotalSamples = len(allSamplesToAllen)
 # ,'Egr1','Lars2','Ccl4'
 testGeneList = ['Arc','Egr1','Lars2','Ccl4']
+# caudoputamenGeneList = ['Adora2a','Drd2','Pde10a','Drd1','Scn4b','Gpr6','Ido1','Adcy5','Rasd2','Meis2']
+# allocortexGeneList = ['Nptxr','Lmo3','Slc30a3','Syn2','Snca','Ccn3','Bmp3','Olfm1','Ldha','Tafa2']
+# fibertractsGeneList = ['Plp1','Mag','Opalin','Cnp','Trf','Cldn11','Cryab','Mobp','Qdpr','Sept4']
+# hippocampalregionGeneList = ['Wipf3','Cabp7','Cnih2','Gria1','Ptk2b','Cebpb','Nr3c2','Lct','Arhgef25','Epha7']
+# hypothalamusGeneList = ['Gpx3','Resp18','AW551984','Minar2','Nap1l5','Gabrq','Pcbd1','Sparc','Vat1','6330403K07Rik']
+# neocortexGeneList = ['1110008P14Rik','Ccl27a','Mef2c','Tbr1','Cox8a','Snap25','Nrgn','Vxn','Efhd2','Satb2']
+# striatumlikeGeneList = ['Hap1','Scn5a','Pnck','Ahi1','Snhg11','Galnt16','Pnmal2','Baiap3','Ly6h','Meg3']
+# thalamusGeneList = ['Plekhg1','Tcf7l2','Ntng1','Ramp3','Rora','Patj','Rgs16','Nsmf','Ptpn4','Rab37']
+# testGeneList = caudoputamenGeneList + allocortexGeneList + fibertractsGeneList + hippocampalregionGeneList + hypothalamusGeneList + neocortexGeneList + striatumlikeGeneList + thalamusGeneList
 sigGenes = []
 for nOfGenesChecked,actGene in enumerate(testGeneList):
     # geneToSearch = actGene
@@ -771,7 +785,7 @@ from statsmodels.stats.multitest import multipletests
 # Arc index is 25493
 # Vxn, index 27 gives nice cortical spread
 # Sgk3, index 32 seems to be hippocampal
-# Sulf1, index 46, hippocampal
+# Sulf1, index 46, hippocampal `
 # Egr1
 # can search for gene by name, must be an exact match for capitalization
 ################
@@ -845,43 +859,66 @@ for i, test in enumerate(mulCompResults[0]):
     else:
         maskedTests.append(np.nan)
 
+#%% extract atlas information
+from allensdk.core.reference_space_cache import ReferenceSpaceCache
+reference_space_key = 'annotation/ccf_2017'
+resolution = 10
+rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
+rsp = rspc.get_reference_space()
+#%%
+# ID 1 is the adult mouse structure graph
+tree = rspc.get_structure_tree(structure_graph_id=1) 
+regionList = tree.get_name_map()
+hippocampus = tree.get_structures_by_name(['Hippocampal formation'])
+
+hippocampalMask = rsp.make_structure_mask([hippocampus[0]['id']])
+# testingTemplate = template
+# hippocampalMask = np.zeros(template['leftHemAnnot'].shape)
+# for i in hippocampus[0]['structure_id_path']:
+#     hippocampalMask += np.where(testingTemplate['leftHemAnnot'] == i, 1,0)
+#     print(i)
+#     # print("next")
+#     # hippocampalMask[x[0],x[1]] = 1
+    
+
+plt.imshow(hippocampalMask[700,:,570:])
+#%%
+
+bestTemplateSlice10 = bestTemplateSlice * 10
+plt.imshow(bestSampleToTemplate['visiumTransformed'])
+plt.imshow(hippocampalMask[700,:,570:], alpha=0.3)
+plt.show()
 #%% plotting statistics
-import matplotlib.colors as mcolors
+# import matplotlib.colors as mcolors
 
-finiteMin = np.min(np.array(maskedTtests)[np.isfinite(maskedTtests)])
-finiteMax = np.max(np.array(maskedTtests)[np.isfinite(maskedTtests)])
-zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
-tTestColormap = zeroCenteredCmap(maskedTtests)
-
-plt.imshow(bestSampleToTemplate['visiumTransformed'])
-plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8)
-plt.title(f'Mean gene count for {geneToSearch}, all samples')
-plt.colorbar()
-plt.show()
-
-plt.imshow(bestSampleToTemplate['visiumTransformed'])
-plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8)
-plt.title(f'Mean gene count for {geneToSearch}, controls')
-plt.colorbar()
-plt.show()
-
-plt.imshow(bestSampleToTemplate['visiumTransformed'])
-plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8)
-plt.title(f'Mean gene count for {geneToSearch}, experimental')
-plt.colorbar()
-plt.show()
+# finiteMin = np.min(np.array(maskedTtests)[np.isfinite(maskedTtests)])
+# finiteMax = np.max(np.array(maskedTtests)[np.isfinite(maskedTtests)])
+# zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
+# tTestColormap = zeroCenteredCmap(maskedTtests)
 
 # plt.imshow(bestSampleToTemplate['visiumTransformed'])
-# plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(allTstats[mulCompResults[0]]), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
-# plt.title(f't-statistic for {geneToSearch}, p < 0.05')
+# plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8)
+# plt.title(f'Mean gene count for {geneToSearch}, all samples')
 # plt.colorbar()
 # plt.show()
 
-plt.imshow(bestSampleToTemplate['visiumTransformed'])
-plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(maskedTests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
-plt.title(f't-statistic for {geneToSearch}, p < 0.05')
-plt.colorbar()
-plt.show()
+# plt.imshow(bestSampleToTemplate['visiumTransformed'])
+# plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8)
+# plt.title(f'Mean gene count for {geneToSearch}, controls')
+# plt.colorbar()
+# plt.show()
+
+# plt.imshow(bestSampleToTemplate['visiumTransformed'])
+# plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8)
+# plt.title(f'Mean gene count for {geneToSearch}, experimental')
+# plt.colorbar()
+# plt.show()
+
+# plt.imshow(bestSampleToTemplate['visiumTransformed'])
+# plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(maskedTests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+# plt.title(f't-statistic for {geneToSearch}, p < 0.05')
+# plt.colorbar()
+# plt.show()
 
 #%% 
 plt.imshow(bestSample['tissueHistMatched'])
