@@ -321,8 +321,8 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueHistMatched'])
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.15, reg_iterations=(100,80,60,40,20,0), \
-    syn_sampling=3, flow_sigma=1, syn_metric='meansquares', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
+    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(100,80,60,40,20,0), \
+    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -353,7 +353,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     plt.show()
     
     plt.imshow(sampleToRegisterTo['tissueHistMatched'])
-    plt.imshow(registeredData['visiumTransformed'], alpha=0.5)
+    plt.imshow(registeredData['visiumTransformed'], alpha=0.7)
     plt.title(processedVisium['sampleID'])
     plt.show()
 
@@ -623,8 +623,8 @@ import matplotlib.colors as mcolors
 kSpots = 7
 nDigitalSpots = len(inTissueTemplateSpots)
 nTotalSamples = len(allSamplesToAllen)
-# ,'Egr1','Lars2','Ccl4'
-testGeneList = ['Arc','Egr1','Lars2','Ccl4']
+# 'Arc','Egr1','Lars2','Ccl4'
+testGeneList = ['Arc','Egr1']
 # caudoputamenGeneList = ['Adora2a','Drd2','Pde10a','Drd1','Scn4b','Gpr6','Ido1','Adcy5','Rasd2','Meis2']
 # allocortexGeneList = ['Nptxr','Lmo3','Slc30a3','Syn2','Snca','Ccn3','Bmp3','Olfm1','Ldha','Tafa2']
 # fibertractsGeneList = ['Plp1','Mag','Opalin','Cnp','Trf','Cldn11','Cryab','Mobp','Qdpr','Sept4']
@@ -779,115 +779,115 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         
     
 #%% extract gene specific information
-# this version runs ttest on all slices
-import scipy
-from statsmodels.stats.multitest import multipletests
-# Arc index is 25493
-# Vxn, index 27 gives nice cortical spread
-# Sgk3, index 32 seems to be hippocampal
-# Sulf1, index 46, hippocampal `
-# Egr1
-# can search for gene by name, must be an exact match for capitalization
-################
-# tested at 07 #
-################
-kSpots = 7
-geneToSearch = 'Ccl4'
+# # this version runs ttest on all slices
+# import scipy
+# from statsmodels.stats.multitest import multipletests
+# # Arc index is 25493
+# # Vxn, index 27 gives nice cortical spread
+# # Sgk3, index 32 seems to be hippocampal
+# # Sulf1, index 46, hippocampal `
+# # Egr1
+# # can search for gene by name, must be an exact match for capitalization
+# ################
+# # tested at 07 #
+# ################
+# kSpots = 7
+# geneToSearch = 'Ccl4'
 
-allSamplesDigitalNearestNeighbors = []
-digitalSamples = []
-digitalSamplesControl = []
-digitalSamplesExperimental = []
-meanDigitalSample = np.zeros([len(inTissueTemplateSpots),1])
-meanDigitalControls = np.zeros([len(inTissueTemplateSpots),1])
-meanDigitalExperimentals = np.zeros([len(inTissueTemplateSpots),1])
-nSamples = 0
-nControls = 0
-nExperimentals = 0
-for actSample in range(len(allSamplesToAllen)):
-    geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(geneToSearch)
-    actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
-    actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList, kSpots)
-    allSamplesDigitalNearestNeighbors.append(actNN)
-    geneCount = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN]
-    for spots in enumerate(actNN):
-        if ~np.all(spots[1]):
-            geneCount[spots[0]] = np.nan
+# allSamplesDigitalNearestNeighbors = []
+# digitalSamples = []
+# digitalSamplesControl = []
+# digitalSamplesExperimental = []
+# meanDigitalSample = np.zeros([len(inTissueTemplateSpots),1])
+# meanDigitalControls = np.zeros([len(inTissueTemplateSpots),1])
+# meanDigitalExperimentals = np.zeros([len(inTissueTemplateSpots),1])
+# nSamples = 0
+# nControls = 0
+# nExperimentals = 0
+# for actSample in range(len(allSamplesToAllen)):
+#     geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(geneToSearch)
+#     actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
+#     actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList, kSpots)
+#     allSamplesDigitalNearestNeighbors.append(actNN)
+#     geneCount = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN]
+#     for spots in enumerate(actNN):
+#         if ~np.all(spots[1]):
+#             geneCount[spots[0]] = np.nan
             
-    spotCount = np.nanmean(geneCount, axis=1)
-    digitalSamples.append(spotCount)
-    meanDigitalSample += spotCount
-    nSamples += 1
-    if truncExperiment['experimental-group'][actSample] == 0:
-        digitalSamplesControl.append(spotCount)
-        meanDigitalControls += spotCount
-        nControls += 1
-    elif truncExperiment['experimental-group'][actSample] == 1:
-        digitalSamplesExperimental.append(spotCount)
-        meanDigitalExperimentals += spotCount
-        nExperimentals += 1
+#     spotCount = np.nanmean(geneCount, axis=1)
+#     digitalSamples.append(spotCount)
+#     meanDigitalSample += spotCount
+#     nSamples += 1
+#     if truncExperiment['experimental-group'][actSample] == 0:
+#         digitalSamplesControl.append(spotCount)
+#         meanDigitalControls += spotCount
+#         nControls += 1
+#     elif truncExperiment['experimental-group'][actSample] == 1:
+#         digitalSamplesExperimental.append(spotCount)
+#         meanDigitalExperimentals += spotCount
+#         nExperimentals += 1
         
-digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
-digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
+# digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
+# digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
 
-maskedTtests = []
-allTstats = []
-allPvals = []
-for actDigitalSpot in range(len(inTissueTemplateSpots)):
-    spotMaskCon = np.where(digitalSamplesControl[:,actDigitalSpot] > 0)
-    maskedControlSpots = np.array(digitalSamplesControl[spotMaskCon,actDigitalSpot])
-    spotMaskExp = np.where(digitalSamplesExperimental[:,actDigitalSpot] > 0)
-    maskedExperimentalSpots = np.array(digitalSamplesExperimental[spotMaskExp,actDigitalSpot])
-    actTtest = scipy.stats.ttest_ind(np.squeeze(maskedControlSpots), np.squeeze(maskedExperimentalSpots))
-    allTstats.append(actTtest[0])
-    allPvals.append(actTtest[1])
-    if actTtest[1] < 0.05:
-        maskedTtests.append(actTtest[0])
-    else:
-        maskedTtests.append(np.nan)
+# maskedTtests = []
+# allTstats = []
+# allPvals = []
+# for actDigitalSpot in range(len(inTissueTemplateSpots)):
+#     spotMaskCon = np.where(digitalSamplesControl[:,actDigitalSpot] > 0)
+#     maskedControlSpots = np.array(digitalSamplesControl[spotMaskCon,actDigitalSpot])
+#     spotMaskExp = np.where(digitalSamplesExperimental[:,actDigitalSpot] > 0)
+#     maskedExperimentalSpots = np.array(digitalSamplesExperimental[spotMaskExp,actDigitalSpot])
+#     actTtest = scipy.stats.ttest_ind(np.squeeze(maskedControlSpots), np.squeeze(maskedExperimentalSpots))
+#     allTstats.append(actTtest[0])
+#     allPvals.append(actTtest[1])
+#     if actTtest[1] < 0.05:
+#         maskedTtests.append(actTtest[0])
+#     else:
+#         maskedTtests.append(np.nan)
         
-meanDigitalSample = meanDigitalSample / nSamples
-meanDigitalControls = meanDigitalControls / nControls
-meanDigitalExperimentals = meanDigitalExperimentals / nExperimentals
-mulCompResults = multipletests(allPvals, 0.05, method='fdr_bh')
-maskedTests = []
+# meanDigitalSample = meanDigitalSample / nSamples
+# meanDigitalControls = meanDigitalControls / nControls
+# meanDigitalExperimentals = meanDigitalExperimentals / nExperimentals
+# mulCompResults = multipletests(allPvals, 0.05, method='fdr_bh')
+# maskedTests = []
 
-checkForSigSpots = any(mulCompResults[0])
-for i, test in enumerate(mulCompResults[0]):
-    if test == True:
-        maskedTests.append(allTstats[i])
-    else:
-        maskedTests.append(np.nan)
+# checkForSigSpots = any(mulCompResults[0])
+# for i, test in enumerate(mulCompResults[0]):
+#     if test == True:
+#         maskedTests.append(allTstats[i])
+#     else:
+#         maskedTests.append(np.nan)
 
 #%% extract atlas information
-from allensdk.core.reference_space_cache import ReferenceSpaceCache
-reference_space_key = 'annotation/ccf_2017'
-resolution = 10
-rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
-rsp = rspc.get_reference_space()
+# from allensdk.core.reference_space_cache import ReferenceSpaceCache
+# reference_space_key = 'annotation/ccf_2017'
+# resolution = 10
+# rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
+# rsp = rspc.get_reference_space()
 #%%
 # ID 1 is the adult mouse structure graph
-tree = rspc.get_structure_tree(structure_graph_id=1) 
-regionList = tree.get_name_map()
-hippocampus = tree.get_structures_by_name(['Hippocampal formation'])
+# tree = rspc.get_structure_tree(structure_graph_id=1) 
+# regionList = tree.get_name_map()
+# hippocampus = tree.get_structures_by_name(['Hippocampal formation'])
 
-hippocampalMask = rsp.make_structure_mask([hippocampus[0]['id']])
-# testingTemplate = template
-# hippocampalMask = np.zeros(template['leftHemAnnot'].shape)
-# for i in hippocampus[0]['structure_id_path']:
-#     hippocampalMask += np.where(testingTemplate['leftHemAnnot'] == i, 1,0)
-#     print(i)
-#     # print("next")
-#     # hippocampalMask[x[0],x[1]] = 1
+# hippocampalMask = rsp.make_structure_mask([hippocampus[0]['id']])
+# # testingTemplate = template
+# # hippocampalMask = np.zeros(template['leftHemAnnot'].shape)
+# # for i in hippocampus[0]['structure_id_path']:
+# #     hippocampalMask += np.where(testingTemplate['leftHemAnnot'] == i, 1,0)
+# #     print(i)
+# #     # print("next")
+# #     # hippocampalMask[x[0],x[1]] = 1
     
 
-plt.imshow(hippocampalMask[700,:,570:])
+# plt.imshow(hippocampalMask[700,:,570:])
 #%%
 
-bestTemplateSlice10 = bestTemplateSlice * 10
-plt.imshow(bestSampleToTemplate['visiumTransformed'])
-plt.imshow(hippocampalMask[700,:,570:], alpha=0.3)
-plt.show()
+# bestTemplateSlice10 = bestTemplateSlice * 10
+# plt.imshow(bestSampleToTemplate['visiumTransformed'])
+# plt.imshow(hippocampalMask[700,:,570:], alpha=0.3)
+# plt.show()
 #%% plotting statistics
 # import matplotlib.colors as mcolors
 
@@ -921,8 +921,8 @@ plt.show()
 # plt.show()
 
 #%% 
-plt.imshow(bestSample['tissueHistMatched'])
-plt.imshow(experimentalResults[8]['visiumTransformed'],alpha=0.5)
+# plt.imshow(bestSample['tissueHistMatched'])
+# plt.imshow(experimentalResults[8]['visiumTransformed'],alpha=0.5)
 #%% process filtered feature matrix data
 
 # testSample = allSamplesToAllen[0]
