@@ -579,6 +579,7 @@ def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots, 
                 # filledTemplateSpots.append(np.array(actSpot))
                 # print(actSpot)
             else:
+                # should probably change this from 0s to something like -1
                 spotNNIdx = np.zeros([kNN,1],dtype=int)
                 # spotNNIdx[:] = np.nan
             
@@ -624,18 +625,19 @@ kSpots = 7
 nDigitalSpots = len(inTissueTemplateSpots)
 nTotalSamples = len(allSamplesToAllen)
 # 'Arc','Egr1','Lars2','Ccl4'
-testGeneList = ['Arc','Egr1']
-# caudoputamenGeneList = ['Adora2a','Drd2','Pde10a','Drd1','Scn4b','Gpr6','Ido1','Adcy5','Rasd2','Meis2']
-# allocortexGeneList = ['Nptxr','Lmo3','Slc30a3','Syn2','Snca','Ccn3','Bmp3','Olfm1','Ldha','Tafa2']
-# fibertractsGeneList = ['Plp1','Mag','Opalin','Cnp','Trf','Cldn11','Cryab','Mobp','Qdpr','Sept4']
-# hippocampalregionGeneList = ['Wipf3','Cabp7','Cnih2','Gria1','Ptk2b','Cebpb','Nr3c2','Lct','Arhgef25','Epha7']
-# hypothalamusGeneList = ['Gpx3','Resp18','AW551984','Minar2','Nap1l5','Gabrq','Pcbd1','Sparc','Vat1','6330403K07Rik']
-# neocortexGeneList = ['1110008P14Rik','Ccl27a','Mef2c','Tbr1','Cox8a','Snap25','Nrgn','Vxn','Efhd2','Satb2']
-# striatumlikeGeneList = ['Hap1','Scn5a','Pnck','Ahi1','Snhg11','Galnt16','Pnmal2','Baiap3','Ly6h','Meg3']
-# thalamusGeneList = ['Plekhg1','Tcf7l2','Ntng1','Ramp3','Rora','Patj','Rgs16','Nsmf','Ptpn4','Rab37']
+testGeneList = ['Arc','Egr1','Lars2','Ccl4']
+caudoputamenGeneList = ['Adora2a','Drd2','Pde10a','Drd1','Scn4b','Gpr6','Ido1','Adcy5','Rasd2','Meis2']
+allocortexGeneList = ['Nptxr','Lmo3','Slc30a3','Syn2','Snca','Ccn3','Bmp3','Olfm1','Ldha','Tafa2']
+fibertractsGeneList = ['Plp1','Mag','Opalin','Cnp','Trf','Cldn11','Cryab','Mobp','Qdpr','Sept4']
+hippocampalregionGeneList = ['Wipf3','Cabp7','Cnih2','Gria1','Ptk2b','Cebpb','Nr3c2','Lct','Arhgef25','Epha7']
+hypothalamusGeneList = ['Gpx3','Resp18','AW551984','Minar2','Nap1l5','Gabrq','Pcbd1','Sparc','Vat1','6330403K07Rik']
+neocortexGeneList = ['1110008P14Rik','Ccl27a','Mef2c','Tbr1','Cox8a','Snap25','Nrgn','Vxn','Efhd2','Satb2']
+striatumlikeGeneList = ['Hap1','Scn5a','Pnck','Ahi1','Snhg11','Galnt16','Pnmal2','Baiap3','Ly6h','Meg3']
+thalamusGeneList = ['Plekhg1','Tcf7l2','Ntng1','Ramp3','Rora','Patj','Rgs16','Nsmf','Ptpn4','Rab37']
 # testGeneList = caudoputamenGeneList + allocortexGeneList + fibertractsGeneList + hippocampalregionGeneList + hypothalamusGeneList + neocortexGeneList + striatumlikeGeneList + thalamusGeneList
 sigGenes = []
-for nOfGenesChecked,actGene in enumerate(testGeneList):
+
+for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
     # geneToSearch = actGene
     
     # allSamplesDigitalNearestNeighbors = []
@@ -643,17 +645,33 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
     digitalSamplesControl = []
     digitalSamplesExperimental = []
     # meanDigitalSample = np.zeros([nDigitalSpots,1])
-    meanDigitalControls = np.zeros([nDigitalSpots,1])
-    meanDigitalExperimentals = np.zeros([nDigitalSpots,1])
+    meanDigitalControls = np.zeros([nDigitalSpots])
+    meanDigitalExperimentals = np.zeros([nDigitalSpots])
     nTestedSamples = 0
     nControls = 0
     nExperimentals = 0
     for actSample in range(nTotalSamples):
         geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(actGene)
-        actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
-        actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, actList, kSpots)
+        spotCheck = np.count_nonzero(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,:])
+        # use binary mask to remove any tissue spots with no expression
+        spotMask = np.transpose(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,:] > 0)
+        spotMaskedTissuePoints = []
+        spotMaskedFeatureMatrix = []
+        for idx, actBool in enumerate(spotMask):
+            if actBool == True:
+                spotMaskedTissuePoints.append(allSamplesToAllen[actSample]['maskedTissuePositionList'][idx,:])
+                spotMaskedFeatureMatrix.append(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,idx])
+        #  an uncomment below to limit search to only those genes with a certain number of expressed spots
+        if spotCheck < 15:
+            continue
+        # print(f"Checking {actGene}")
+        spotMaskedTissuePoints = np.array(spotMaskedTissuePoints)
+        spotMaskedFeatureMatrix = np.array(spotMaskedFeatureMatrix)
+        # actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
+        actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, spotMaskedTissuePoints, kSpots)
         # allSamplesDigitalNearestNeighbors.append(actNN)
-        geneCount = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN]
+        geneCount = spotMaskedFeatureMatrix[actNN]
+        # digitalSpotGeneCount = []
         for spots in enumerate(actNN):
             if ~np.all(spots[1]):
                 geneCount[spots[0]] = np.nan
@@ -664,14 +682,21 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         # meanDigitalSample += spotCount
         nTestedSamples += 1
         if truncExperiment['experimental-group'][actSample] == 0:
+            # print("Slice is control")
             digitalSamplesControl.append(spotCount)
             meanDigitalControls += spotCount
+            # this gives the number of control samples with more than 15 spots containing the gene
             nControls += 1
         elif truncExperiment['experimental-group'][actSample] == 1:
+            # print("Slice is experimental")
             digitalSamplesExperimental.append(spotCount)
             meanDigitalExperimentals += spotCount
+            # this gives the number of experimental samples with more than 15 spots containing the gene
             nExperimentals += 1
             
+        else:
+            continue
+        
     digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
     digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
     
@@ -679,7 +704,9 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
     allTstats = []
     allPvals = []
     for actDigitalSpot in range(nDigitalSpots):
-        if (np.sum(np.isnan(digitalSamplesControl[:,actDigitalSpot]) > 3) or (np.sum(np.isnan(digitalSamplesExperimental[:,actDigitalSpot])) > 3)):
+        if ~digitalSamplesControl.any() or ~digitalSamplesExperimental.any():
+            continue
+        elif (np.sum(np.isnan(digitalSamplesControl[:,actDigitalSpot]) > 3) or (np.sum(np.isnan(digitalSamplesExperimental[:,actDigitalSpot])) > 3)):
             allTstats.append(np.nan)
             allPvals.append(np.nan)
             continue
@@ -704,8 +731,28 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
     # mulCompResults = multipletests(allPvals, 0.05, method='fdr_bh')
     # allPvalsSorted = np.sort(allPvals)
     # allPvalsSortedIdx = np.argsort(allPvals)
-    mulCompResults = multipletests(allPvals, 0.05, method='fdr_bh', is_sorted=False)
-    # mulCompResultsAtIdx = np.take_along_axis(np.array(mulCompResults[0]), allPvalsSortedIdx, axis=0)
+    pValMask = np.array(allPvals) > 0
+    maskedPVals = []
+    maskedDigitalCoordinates = []
+    maskedMeanDigitalControls = []
+    maskedMeanDigitalExperimentals = []
+    for idx, actBool in enumerate(pValMask):
+        if actBool == True:
+            maskedPVals.append(allPvals[idx])
+            maskedDigitalCoordinates.append(inTissueTemplateSpots[idx,:])
+            maskedMeanDigitalControls.append(meanDigitalControls[idx])
+            maskedMeanDigitalExperimentals.append(meanDigitalExperimentals[idx])
+            # spotMaskedFeatureMatrix.append(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,idx])
+            
+
+    if any(maskedPVals):
+        maskedDigitalCoordinates = np.array(maskedDigitalCoordinates)
+        maskedMeanDigitalControls = np.array(maskedMeanDigitalControls)
+        maskedMeanDigitalExperimentals = np.array(maskedMeanDigitalExperimentals)
+        mulCompResults = multipletests(maskedPVals, 0.05, method='fdr_bh', is_sorted=False)
+        # mulCompResultsAtIdx = np.take_along_axis(np.array(mulCompResults[0]), allPvalsSortedIdx, axis=0)
+    else:
+        continue
     
     # checkForSigSpots = any(mulCompResultsAtIdx)
     if (any(mulCompResults[0]) == True) & (sum(mulCompResults[0]) > 2):
@@ -715,15 +762,15 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         tTestColormap = zeroCenteredCmap(maskedTtests)
         sigGenes.append(actGene)
         # meanDigitalSample = meanDigitalSample / nTestedSamples
-        meanDigitalControls = meanDigitalControls / nControls
-        meanDigitalExperimentals = meanDigitalExperimentals / nExperimentals
+        maskedMeanDigitalControls = maskedMeanDigitalControls / nControls
+        maskedMeanDigitalExperimentals = maskedMeanDigitalExperimentals / nExperimentals
         maskedFdrTests = []
         for actFdr, test in enumerate(mulCompResults[0]):
             if test == True:
                 maskedFdrTests.append(allTstats[actFdr])
             else:
                 maskedFdrTests.append(np.nan)
-        maxGeneCount = np.nanmax([meanDigitalExperimentals,meanDigitalControls])
+        maxGeneCount = np.nanmax([maskedMeanDigitalControls,maskedMeanDigitalControls])
         # plt.imshow(bestSampleToTemplate['visiumTransformed'])
         # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
         # plt.title(f'Mean gene count for {actGene}, all samples')
@@ -731,52 +778,23 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         # plt.show()
         
         plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+        plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
         plt.title(f'Mean gene count for {actGene}, controls')
         plt.colorbar()
         plt.show()
         
         plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+        plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
         plt.title(f'Mean gene count for {actGene}, experimental')
         plt.colorbar()
         plt.show()
         
         plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(maskedFdrTests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+        plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedFdrTests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
         plt.title(f't-statistic FDR corrected for {actGene}, p < 0.05')
         plt.colorbar()
         plt.show()
-    # elif (checkForSigSpots == True) & (sum(mulCompResults[0]) == 1):
-                
-            
-        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8)
-        # plt.title(f'Mean gene count for {actGene}, all samples')
-        # plt.colorbar()
-        # plt.show()
-        
-        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8)
-        # plt.title(f'Mean gene count for {actGene}, controls')
-        # plt.colorbar()
-        # plt.show()
-        
-        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8)
-        # plt.title(f'Mean gene count for {actGene}, experimental')
-        # plt.colorbar()
-        # plt.show()
-        
-        # plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(maskedTtests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
-        # plt.title(f't-statistic for {actGene}, p < 0.05')
-        # plt.colorbar()
-        # plt.show()
-    # else:
-    #     continue
-    #     print(f"No significant spots for {actGene}")
-        
+    
     
 #%% extract gene specific information
 # # this version runs ttest on all slices
