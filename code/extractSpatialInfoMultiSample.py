@@ -233,15 +233,8 @@ def processVisiumData(visiumData, templateData, rotation):
         filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
     
     processedVisium['filteredFeatureMatrixOrdered'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
-    # write re-ordered filtered feature matrix csv to match tissue spot order
-    # csvFormat = []
-    rowFormat = []
-    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.csv", 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        for i in range(len(processedVisium['filteredFeatureMatrixOrdered'])):
-            rowFormat = processedVisium['filteredFeatureMatrixOrdered'][i,:]
-            writer.writerow(rowFormat)
-            # csvFormat.append(rowFormat)
+    sp_sparse.save_npz("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", sp_sparse.csc_matrix(processedVisium['filteredFeatureMatrixOrdered']))
+    # np.savetxt("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.csv", processedVisium['filteredFeatureMatrixOrdered'], delimiter=",")
             
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",processedVisium['tissue'])
     return processedVisium
@@ -303,14 +296,14 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     
     # write re-ordered filtered feature matrix csv to match tissue spot order
     # csvFormat = []
-    rowFormat = []
-    with open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv", 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        for i in range(len(registeredData['filteredFeatureMatrixMasked'])):
-            rowFormat = registeredData['filteredFeatureMatrixMasked'][i,:]
-            writer.writerow(rowFormat)
-            # csvFormat.append(rowFormat)
-            
+    # rowFormat = []
+    # with open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv", 'w', encoding='UTF8') as f:
+    #     writer = csv.writer(f)
+    #     for i in range(len(registeredData['filteredFeatureMatrixMasked'])):
+    #         rowFormat = registeredData['filteredFeatureMatrixMasked'][i,:]
+    #         writer.writerow(rowFormat)
+    #         # csvFormat.append(rowFormat)
+    sp_sparse.save_npz("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['filteredFeatureMatrixMasked']))        
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['visiumTransformed'])
     
     return registeredData
@@ -419,13 +412,14 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     templateRegisteredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked,0,1)
     # write re-ordered filtered feature matrix csv to match tissue spot order
     # csvFormat = []
-    rowFormat = []
-    with open(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv", 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        for i in range(len(templateRegisteredData['filteredFeatureMatrixMasked'])):
-            rowFormat = templateRegisteredData['filteredFeatureMatrixMasked'][i,:]
-            writer.writerow(rowFormat)
-            # csvFormat.append(rowFormat)
+    # rowFormat = []
+    # with open(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv", 'w', encoding='UTF8') as f:
+    #     writer = csv.writer(f)
+    #     for i in range(len(templateRegisteredData['filteredFeatureMatrixMasked'])):
+    #         rowFormat = templateRegisteredData['filteredFeatureMatrixMasked'][i,:]
+    #         writer.writerow(rowFormat)
+    #         # csvFormat.append(rowFormat)
+    sp_sparse.save_npz(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(templateRegisteredData['filteredFeatureMatrixMasked']))
     cv2.imwrite(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png",templateRegisteredData['visiumTransformed'])
 
     return templateRegisteredData
@@ -634,10 +628,10 @@ hypothalamusGeneList = ['Gpx3','Resp18','AW551984','Minar2','Nap1l5','Gabrq','Pc
 neocortexGeneList = ['1110008P14Rik','Ccl27a','Mef2c','Tbr1','Cox8a','Snap25','Nrgn','Vxn','Efhd2','Satb2']
 striatumlikeGeneList = ['Hap1','Scn5a','Pnck','Ahi1','Snhg11','Galnt16','Pnmal2','Baiap3','Ly6h','Meg3']
 thalamusGeneList = ['Plekhg1','Tcf7l2','Ntng1','Ramp3','Rora','Patj','Rgs16','Nsmf','Ptpn4','Rab37']
-# testGeneList = caudoputamenGeneList + allocortexGeneList + fibertractsGeneList + hippocampalregionGeneList + hypothalamusGeneList + neocortexGeneList + striatumlikeGeneList + thalamusGeneList
+testGeneList = testGeneList + caudoputamenGeneList + allocortexGeneList + fibertractsGeneList + hippocampalregionGeneList + hypothalamusGeneList + neocortexGeneList + striatumlikeGeneList + thalamusGeneList
 sigGenes = []
 
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+for nOfGenesChecked,actGene in enumerate(testGeneList):
     # geneToSearch = actGene
     
     # allSamplesDigitalNearestNeighbors = []
@@ -653,28 +647,34 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
     for actSample in range(nTotalSamples):
         geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(actGene)
         spotCheck = np.count_nonzero(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,:])
+        # need to do better than "no expression" because that eliminates the fact that the amount is actually 0, not untested
+        
         # use binary mask to remove any tissue spots with no expression
-        spotMask = np.transpose(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,:] > 0)
-        spotMaskedTissuePoints = []
-        spotMaskedFeatureMatrix = []
-        for idx, actBool in enumerate(spotMask):
-            if actBool == True:
-                spotMaskedTissuePoints.append(allSamplesToAllen[actSample]['maskedTissuePositionList'][idx,:])
-                spotMaskedFeatureMatrix.append(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,idx])
+        # spotMask = np.transpose(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,:] > 0)
+        # spotMaskedTissuePoints = []
+        # spotMaskedFeatureMatrix = []
+        
+        # for idx, actBool in enumerate(spotMask):
+        #     if actBool == True:
+        #         spotMaskedTissuePoints.append(allSamplesToAllen[actSample]['maskedTissuePositionList'][idx,:])
+        #         spotMaskedFeatureMatrix.append(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,idx])
         #  an uncomment below to limit search to only those genes with a certain number of expressed spots
+        # spotMaskedTissuePoints = np.array(spotMaskedTissuePoints)
+        # spotMaskedFeatureMatrix = np.array(spotMaskedFeatureMatrix)
         if spotCheck < 15:
             continue
         # print(f"Checking {actGene}")
-        spotMaskedTissuePoints = np.array(spotMaskedTissuePoints)
-        spotMaskedFeatureMatrix = np.array(spotMaskedFeatureMatrix)
+
         # actList = allSamplesToAllen[actSample]['maskedTissuePositionList']
-        actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, spotMaskedTissuePoints, kSpots)
+        actNN = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[actSample]['maskedTissuePositionList'], kSpots)
         # allSamplesDigitalNearestNeighbors.append(actNN)
-        geneCount = spotMaskedFeatureMatrix[actNN]
+        geneCount = np.zeros([nDigitalSpots,kSpots])
         # digitalSpotGeneCount = []
         for spots in enumerate(actNN):
             if ~np.all(spots[1]):
-                geneCount[spots[0]] = np.nan
+                geneCount[spots[0]] = 0
+            else:
+                geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
                 
         spotCount = np.nanmean(geneCount, axis=1)
         # digitalSamples.append(spotCount)
@@ -770,7 +770,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
                 maskedFdrTests.append(allTstats[actFdr])
             else:
                 maskedFdrTests.append(np.nan)
-        maxGeneCount = np.nanmax([maskedMeanDigitalControls,maskedMeanDigitalControls])
+        maxGeneCount = np.max([maskedMeanDigitalControls,maskedMeanDigitalExperimentals])
         # plt.imshow(bestSampleToTemplate['visiumTransformed'])
         # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
         # plt.title(f'Mean gene count for {actGene}, all samples')
@@ -779,13 +779,13 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
         
         plt.imshow(bestSampleToTemplate['visiumTransformed'])
         plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
-        plt.title(f'Mean gene count for {actGene}, controls')
+        plt.title(f'Mean gene count for {actGene}, control')
         plt.colorbar()
         plt.show()
         
         plt.imshow(bestSampleToTemplate['visiumTransformed'])
         plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
-        plt.title(f'Mean gene count for {actGene}, experimental')
+        plt.title(f'Mean gene count for {actGene}, sleep deprivation')
         plt.colorbar()
         plt.show()
         
