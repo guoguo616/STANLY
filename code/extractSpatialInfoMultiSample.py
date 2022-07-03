@@ -248,8 +248,8 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     templateAntsImage = ants.from_numpy(templateData['leftHem'])
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
-    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
+    type_of_transform='SyNBoldAff', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
+    syn_sampling=2, flow_sigma=1.5,syn_metric='meansquares', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -314,8 +314,8 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueHistMatched'])
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(100,80,60,40,20,0), \
-    syn_sampling=2, flow_sigma=2, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
+    type_of_transform='SyNBoldAff', grad_step=0.1, reg_iterations=(120,100,80,60,40,20,0), \
+    syn_sampling=2, flow_sigma=1.5, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -601,6 +601,7 @@ for i, regSample in enumerate(allSamplesToAllen):
     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
     geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
     allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
+    allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'],axis=1)
     
 #%% compare gene lists and find genes present in all samples
 # list of genes present to all slices
@@ -612,7 +613,7 @@ for i, regSample in enumerate(allSamplesToAllen):
         
 #%% read gene list from txt file
 geneListFromTxt = []
-with open('../seqdata/listTrapSeqFDRSigGenes.txt') as f:
+with open('../seqdata/genesInSpatialTranscriptomicsStrooperPaperNoDescription.txt') as f:
     for gene in f:
         geneListFromTxt.append(gene.strip('\n'))
         
@@ -685,7 +686,7 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
                 if ~np.all(spots[1]):
                     geneCount[spots[0]] = 0
                 else:
-                    geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
+                    geneCount[spots[0]] = allSamplesToAllen[actSample]['zScoredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
                     
             spotCount = np.nanmean(geneCount, axis=1)
             # digitalSamples.append(spotCount)
@@ -818,43 +819,43 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
 print("--- %s seconds ---" % (time.time() - start_time))
 
 #%% prepare some images for jyoti
-# create a "fake" annotation image by replacing all regions with # > 1500 with one value that just looks better in an overlay
-templateAnnotationLeftFake = template['leftHemAnnot']
-templateAnnotationLeftFake[template['leftHemAnnot'] > 1500] = 100
-plt.imshow(templateAnnotationLeftFake)
-plt.show()
+# # create a "fake" annotation image by replacing all regions with # > 1500 with one value that just looks better in an overlay
+# templateAnnotationLeftFake = template['leftHemAnnot']
+# templateAnnotationLeftFake[template['leftHemAnnot'] > 1500] = 100
+# plt.imshow(templateAnnotationLeftFake)
+# plt.show()
 
-sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][4]))
-sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][4])
-plt.imshow(sample['imageData'], cmap="viridis_r")
-plt.show()
+# sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][4]))
+# sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][4])
+# plt.imshow(sample['imageData'], cmap="viridis_r")
+# plt.show()
 
-plt.imshow(bestSample['tissueHistMatched'])
-plt.show()
+# plt.imshow(bestSample['tissueHistMatched'])
+# plt.show()
 
-plt.imshow(sampleProcessed['tissueRotated'])
-plt.scatter(sampleProcessed['tissuePointsResized'][0:,0], sampleProcessed['tissuePointsResized'][0:,1],marker='o', c='blue', alpha=0.2)
-plt.show()
+# plt.imshow(sampleProcessed['tissueRotated'])
+# plt.scatter(sampleProcessed['tissuePointsResized'][0:,0], sampleProcessed['tissuePointsResized'][0:,1],marker='o', c='blue', alpha=0.2)
+# plt.show()
 
-plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-plt.show()
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.show()
 
-plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-plt.scatter(allSamplesToAllen[4]['transformedTissuePositionList'][0:,0],allSamplesToAllen[4]['transformedTissuePositionList'][0:,1], marker='o', c='blue', alpha=0.2)
-plt.show()
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.scatter(allSamplesToAllen[4]['transformedTissuePositionList'][0:,0],allSamplesToAllen[4]['transformedTissuePositionList'][0:,1], marker='o', c='blue', alpha=0.2)
+# plt.show()
 
-plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-plt.scatter(template['leftHem'], alpha=0.3)
-plt.show()
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.scatter(template['leftHem'], alpha=0.3)
+# plt.show()
 
-plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-plt.imshow(template['leftHem'], alpha=0.3)
-plt.show()
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.imshow(template['leftHem'], alpha=0.3)
+# plt.show()
 
 
-plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-plt.imshow(templateAnnotationLeftFake, alpha=0.3)
-plt.show()
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.imshow(templateAnnotationLeftFake, alpha=0.3)
+# plt.show()
 #%% create moran's i calculation
 import sklearn
 # kSpots = 7
@@ -925,10 +926,10 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
                 if ~np.all(spots[1]):
                     geneCount[spots[0]] = 0
                 else:
-                    geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
+                    geneCount[spots[0]] = allSamplesToAllen[actSample]['zScoredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
                     
             spotCount = np.nanmean(geneCount, axis=1)
-            meanSpotCount = np.mean(geneCount)
+            meanSpotCount = np.nanmean(geneCount)
             nTestedSamples += 1
             if truncExperiment['experimental-group'][actSample] == 0:
                 # print("Slice is control")
