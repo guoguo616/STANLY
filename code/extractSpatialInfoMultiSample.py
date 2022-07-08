@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
+""".
 Created on Mon Feb  7 09:49:40 2022
 
 @author: zjpeters.
@@ -281,19 +281,21 @@ def runANTsToAllenRegistration(processedVisium, templateData):
         
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
     transformedTissuePositionListFinal = []
-    filteredFeatureMatrixBinaryMask = []
-    filteredFeatureMatrixMasked = np.zeros(processedVisium['filteredFeatureMatrixOrdered'][:,0].shape)
+    # filteredFeatureMatrixBinaryMask = []
+    # filteredFeatureMatrixMasked = np.zeros(processedVisium['filteredFeatureMatrixOrdered'][:,0].shape)
+    filteredFeatureMatrixMaskedIdx = []
     for i, masked in enumerate(transformedTissuePositionListMask):
         if masked.all() == True:
-            filteredFeatureMatrixBinaryMask.append(1)
+            filteredFeatureMatrixMaskedIdx.append(i)
+            # filteredFeatureMatrixBinaryMask.append(1)
             transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
-            filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, processedVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
-        else:
-            filteredFeatureMatrixBinaryMask.append(0)
+            # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, processedVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
+        # else:
+            # filteredFeatureMatrixBinaryMask.append(0)
     registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
 
-    registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
-    
+    # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
+    registeredData['filteredFeatureMatrixMasked'] = processedVisium['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixMaskedIdx]
     # write re-ordered filtered feature matrix csv to match tissue spot order
     # csvFormat = []
     # rowFormat = []
@@ -394,23 +396,43 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
         
     transformedTissuePositionListMask = np.logical_and(templateRegisteredData['transformedTissuePositionList'] > 0, templateRegisteredData['transformedTissuePositionList'] < templateRegisteredData['visiumTransformed'].shape[0])
     transformedTissuePositionListFinal = []
-    filteredFeatureMatrixBinaryMask = []
+    # filteredFeatureMatrixBinaryMask = []
     # transformedBarcodesFinal = []
-    filteredFeatureMatrixMasked = np.zeros(registeredVisium['filteredFeatureMatrixOrdered'][:,0].shape)
+    filteredFeatureMatrixMaskedIdx = []
+    # filteredFeatureMatrixMasked = np.zeros(registeredVisium['filteredFeatureMatrixOrdered'][:,0].shape)
     for i, masked in enumerate(transformedTissuePositionListMask):
         if masked.all() == True:
-            filteredFeatureMatrixBinaryMask.append(1)
+            filteredFeatureMatrixMaskedIdx.append(i)
             transformedTissuePositionListFinal.append(templateRegisteredData['transformedTissuePositionList'][i])
-            filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
-        else:
-            filteredFeatureMatrixBinaryMask.append(0)
+            # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
+
+        # else:
+        #     filteredFeatureMatrixBinaryMask.append(0)
             # transformedBarcodesFinal.append(templateRegisteredData["tissueSpotBarcodeList"][i])
             
     
     templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     
-    templateRegisteredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked,0,1)
-    # write re-ordered filtered feature matrix csv to match tissue spot order
+    templateRegisteredData['filteredFeatureMatrixMasked'] = registeredVisium['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixMaskedIdx]
+    
+    # transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
+    # transformedTissuePositionListFinal = []
+    # # filteredFeatureMatrixBinaryMask = []
+    # # filteredFeatureMatrixMasked = np.zeros(processedVisium['filteredFeatureMatrixOrdered'][:,0].shape)
+    # filteredFeatureMatrixMaskedIdx = []
+    # for i, masked in enumerate(transformedTissuePositionListMask):
+    #     if masked.all() == True:
+    #         filteredFeatureMatrixMaskedIdx.append(i)
+    #         # filteredFeatureMatrixBinaryMask.append(1)
+    #         transformedTissuePositionListFinal.append(registeredData['transformedTissuePositionList'][i])
+    #         # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, processedVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
+    #     # else:
+            # filteredFeatureMatrixBinaryMask.append(0)
+    # registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
+
+    # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
+    # registeredData['filteredFeatureMatrixMasked'] 
+# write re-ordered filtered feature matrix csv to match tissue spot order
     # csvFormat = []
     # rowFormat = []
     # with open(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv", 'w', encoding='UTF8') as f:
@@ -464,13 +486,12 @@ for actSample in range(len(truncExperiment['sample-id'])):
     sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][actSample])
     processedSamples[actSample] = sampleProcessed
 
+#%%
 # in this case just the best looking slice
 bestSample = processedSamples[4]
 
 bestSampleToTemplate = runANTsToAllenRegistration(bestSample, template)
 
-
-#%%
 experimentalResults = {}
 for actSample in range(len(processedSamples)):
     sampleRegistered = runANTsInterSampleRegistration(processedSamples[actSample], bestSample)
@@ -588,6 +609,21 @@ def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots, 
 
 
 #%% this line needs to be incorporated into one of the functions, so only run once
+# for i, regSample in enumerate(allSamplesToAllen):
+        
+#     # removes any spots with fewer than 5000 total gene counts
+#     countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
+#     spotMask = countsPerSpot > 5000
+#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
+#     allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
+#     # remove genes with no counts
+#     countsPerGene = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
+#     geneMask = countsPerGene > 0
+#     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
+#     geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
+#     allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
+#     allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[i]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
+
 for i, regSample in enumerate(allSamplesToAllen):
         
     # removes any spots with fewer than 5000 total gene counts
@@ -601,7 +637,7 @@ for i, regSample in enumerate(allSamplesToAllen):
     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
     geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
     allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
-    allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'],axis=1)
+    allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[i]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
     
 #%% compare gene lists and find genes present in all samples
 # list of genes present to all slices
@@ -642,7 +678,7 @@ sigGenes = []
 
 start_time = time.time()
 
-for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
+for nOfGenesChecked,actGene in enumerate(testGeneList):
     # geneToSearch = actGene
     
     # allSamplesDigitalNearestNeighbors = []
@@ -650,8 +686,8 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
     digitalSamplesControl = []
     digitalSamplesExperimental = []
     # meanDigitalSample = np.zeros([nDigitalSpots,1])
-    meanDigitalControls = np.zeros([nDigitalSpots])
-    meanDigitalExperimentals = np.zeros([nDigitalSpots])
+    digitalControls = np.zeros([nDigitalSpots])
+    digitalExperimentals = np.zeros([nDigitalSpots])
     nTestedSamples = 0
     nControls = 0
     nExperimentals = 0
@@ -696,13 +732,13 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
             if truncExperiment['experimental-group'][actSample] == 0:
                 # print("Slice is control")
                 digitalSamplesControl.append(spotCount)
-                meanDigitalControls += spotCount
+                digitalControls += spotCount
                 # this gives the number of control samples with more than 15 spots containing the gene
                 nControls += 1
             elif truncExperiment['experimental-group'][actSample] == 1:
                 # print("Slice is experimental")
                 digitalSamplesExperimental.append(spotCount)
-                meanDigitalExperimentals += spotCount
+                digitalExperimentals += spotCount
                 # this gives the number of experimental samples with more than 15 spots containing the gene
                 nExperimentals += 1
                 
@@ -717,7 +753,8 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
     
     digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
     digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
-    
+    meanDigitalControls = digitalControls / nControls
+    meanDigitalExperimentals = digitalExperimentals / nExperimentals
     maskedTtests = []
     allTstats = []
     allPvals = []
@@ -800,13 +837,13 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
             plt.imshow(bestSampleToTemplate['visiumTransformed'])
             plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
             # plt.title(f'Mean gene count for {actGene}, control')
-            plt.title(f'Non sleep deprived')
+            plt.title(f'Mean gene count for {actGene}, non sleep deprived')
             plt.colorbar()
             plt.show()
             
             plt.imshow(bestSampleToTemplate['visiumTransformed'])
             plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
-            plt.title(f'Sleep deprived')
+            plt.title(f'Mean gene count for {actGene}, sleep deprived')
             plt.colorbar()
             plt.show()
             
@@ -856,6 +893,12 @@ print("--- %s seconds ---" % (time.time() - start_time))
 # plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
 # plt.imshow(templateAnnotationLeftFake, alpha=0.3)
 # plt.show()
+
+plt.imshow(allSamplesToAllen[0]['visiumTransformed'])
+plt.scatter(allSamplesToAllen[0]['maskedTissuePositionList'][:,0],allSamplesToAllen[0]['maskedTissuePositionList'][:,1], c=np.array(allSamplesToAllen[0]['zScoredFeatureMatrixMasked'][geneIndex]), cmap='seismic',alpha=0.8,plotnonfinite=False)
+# plt.title(f't-statistic FDR corrected for {actGene}, p < 0.05')
+plt.colorbar()
+plt.show()
 #%% create moran's i calculation
 import sklearn
 # kSpots = 7
@@ -1058,50 +1101,35 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
         plt.colorbar()
         plt.show()
         
-    globalIDelta = globalIControls - globalIExperimentals
-    globalIDeltaMin = np.min(globalIDelta)
-    globalIDeltaMax = np.max(globalIDelta)
+    spotLocalIDelta = IiControls - IiExperimentals
+    spotLocalIDeltaMin = np.min(spotLocalIDelta)
+    spotLocalIDeltaMax = np.max(spotLocalIDelta)
 
-    if globalIDeltaMin > 0:
+    if spotLocalIDeltaMin > 0:
         plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(IiControls), cmap='Reds',alpha=0.8,vmin=0, vmax=localIMax)
-        plt.title(f'testing Morans I for {actGene}, non-sleep dep, global I: {globalIControls}')
+        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(spotLocalIDelta), cmap='Reds',alpha=0.8,vmin=0, vmax=localIMax)
+        plt.title(f'Local Morans I difference for {actGene}')
         plt.colorbar()
         plt.show()
         
-        plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(IiExperimentals), cmap='Reds',alpha=0.8,vmin=0, vmax=localIMax)
-        plt.title(f'testing Morans I for {actGene}, sleep dep, global I: {globalIExperimentals}')
-        plt.colorbar()
-        plt.show()
 
-    elif globalIDeltaMax < 0:
+    elif spotLocalIDeltaMax < 0:
         plt.imshow(bestSampleToTemplate['visiumTransformed'])       
-        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(IiControls), cmap='Blues_r',alpha=0.8,vmin=localIMin, vmax=0)
-        plt.title(f'testing Morans I for {actGene}, non-sleep dep, global I: {globalIControls}')
+        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(spotLocalIDelta), cmap='Blues_r',alpha=0.8,vmin=localIMin, vmax=0)
+        plt.title(f'Local Morans I difference for {actGene}')
         plt.colorbar()
         plt.show()
-        
-        plt.imshow(bestSampleToTemplate['visiumTransformed'])
-        plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(IiExperimentals), cmap='Blues_r',alpha=0.8,vmin=localIMin, vmax=0)
-        plt.title(f'testing Morans I for {actGene}, sleep dep, global I: {globalIExperimentals}')
-        plt.colorbar()
-        plt.show()
+
         
     else:
         try:
-            zeroCenteredCmap = mcolors.TwoSlopeNorm(0, vmin=globalIDeltaMin, vmax=globalIDeltaMax)
+            zeroCenteredCmap = mcolors.TwoSlopeNorm(0, vmin=spotLocalIDeltaMin, vmax=spotLocalIDeltaMax)
             plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(IiControls), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
-            plt.title(f'testing Morans I for {actGene}, non-sleep dep, global I: {globalIControls}')
+            plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(spotLocalIDelta), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+            plt.title(f'Local Morans I difference for {actGene}')
             plt.colorbar()
             plt.show()
-            
-            plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(IiExperimentals), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
-            plt.title(f'testing Morans I for {actGene}, sleep dep, global I: {globalIExperimentals}')
-            plt.colorbar()
-            plt.show()
+
         except:
             continue
 # sumOfWeightedDifferencesControls = np.sum(np.multiply(normalizedWij, spatialLagControls),axis=1)
