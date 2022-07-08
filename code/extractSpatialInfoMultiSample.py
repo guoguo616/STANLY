@@ -1020,6 +1020,7 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
     
     xMeanControls = np.mean(meanDigitalControls)
     xMeanExperimentals = np.mean(meanDigitalExperimentals)
+    xMean = np.mean([meanDigitalControls,meanDigitalExperimentals])
     wij = np.zeros([nDigitalSpots,kSpots])
     # xiDeltaSquaredControls = np.zeros([nDigitalSpots,kSpots])
     # xiDeltaSquaredExperimentals = np.zeros([nDigitalSpots,kSpots])
@@ -1029,6 +1030,8 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
     xiDeltaExperimentals = np.zeros([nDigitalSpots])
     xiDeltaSquaredControls = np.zeros([nDigitalSpots])
     xiDeltaSquaredExperimentals = np.zeros([nDigitalSpots])
+    xjDeltaSquaredControls = np.zeros([nDigitalSpots,kSpots])
+    xjDeltaSquaredExperimentals = np.zeros([nDigitalSpots,kSpots])
     for NNs in enumerate(spotNNIdx):
         
         xiDeltaControls[NNs[0]] = meanDigitalControls[NNs[0]] - xMeanControls
@@ -1049,13 +1052,15 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
             # xjDeltaExperimentals = meanDigitalExperimentals[j[1]] - xMeanExperimentals
             xjDeltaControls[NNs[0],j[0]] = meanDigitalControls[j[1]] - xMeanControls
             xjDeltaExperimentals[NNs[0],j[0]] = meanDigitalExperimentals[j[1]] - xMeanExperimentals
+            xjDeltaSquaredControls[NNs[0]] = np.square(xjDeltaControls[NNs[0]])
+            xjDeltaSquaredExperimentals[NNs[0]] = np.square(xjDeltaExperimentals[NNs[0]])
             # spatialLagExperimentals[NNs[0],j[0]] = xiDeltaExperimentals * xjDeltaExperimentals * spotInverseCdistSM[NNs[0],j[1]]
-            wij[NNs[0],j[0]] = spotInverseCdistSM[NNs[0],j[1]]
+            wij[NNs[0],j[0]] = spotCdistSM[NNs[0],j[1]]
     # row standardize wij        
     normalizedWij = sklearn.preprocessing.normalize(wij, norm="l1")
     # local moran's i
-    m2Controls = np.sum(xiDeltaSquaredControls) / nDigitalSpots
-    m2Experimentals = np.sum(xiDeltaSquaredExperimentals) / nDigitalSpots
+    m2Controls = np.sum(xjDeltaSquaredControls) / (nDigitalSpots - 1)
+    m2Experimentals = np.sum(xjDeltaSquaredExperimentals) / (nDigitalSpots - 1)
     IiControls = (xiDeltaControls / m2Controls) * np.sum(np.multiply(normalizedWij, xjDeltaControls))
     IiExperimentals = (xiDeltaExperimentals / m2Experimentals) * np.sum(np.multiply(normalizedWij, xjDeltaExperimentals))
     
