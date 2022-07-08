@@ -20,6 +20,7 @@ from glob import glob
 import ants
 import pandas as pd
 from scipy.spatial.distance import pdist, squareform, cosine, cdist
+import subprocess
 # from sklearn import normalize
 # setting up paths
 derivatives = "../derivatives"
@@ -28,8 +29,10 @@ rawdata = "../rawdata/sleepDepBothBatches"
 # need to think about best way to load allen data given the size
 # ara_nissl_10 is 10 um, ara_nissl_100 is 100um
 # this one takes awhile, so don't rerun often
-ara_data = ants.image_read("../data/ccf/ara_nissl_10.nrrd")
-annotation_data = ants.image_read("../data/ccf/annotation_10.nrrd")
+if not 'ara_data' in locals():
+    ara_data = ants.image_read("../data/ccf/ara_nissl_10.nrrd")
+    annotation_data = ants.image_read("../data/ccf/annotation_10.nrrd")
+    
 
 """ notes about visium data:
     there are a total of 4,992 possible spots on a slide
@@ -254,7 +257,14 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
     # apply syn transform to tissue spot coordinates
-    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplateTransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz")
+    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplateTransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz]"
+    pid = os.system(applyTransformStr)
+    
+    if pid:
+        os.wait()
+        print("Applying transformation to spots")
+    else:
+        print("Finished transforming spots!")
     
     transformedTissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplateTransformApplied.csv"), newline='') as csvfile:
@@ -325,8 +335,14 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     # apply syn transform to tissue spot coordinates
     # first line creates a csv file, second line uses that csv as input for antsApplyTransformsToPoints
     # np.savetxt(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}.csv",processedVisium['tissuePointsForTransform'], delimiter=',', header="x,y,z,t,label,comment")
-    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz")
+    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz"
+    pid = os.system(applyTransformStr)
     
+    if pid:
+        os.wait()
+        print("Applying transformation to spots")
+    else:
+        print("Finished transforming spots!")
     transformedTissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv"), newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
@@ -448,6 +464,10 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
 
 #%% import sample list, location, and degrees of rotation from participants.tsv
 # sampleList contains sample ids, templateList contains template slices and degrees of rotation to match
+bestTemplateSlice = 70
+template = chooseTemplateSlice(bestTemplateSlice)
+del(ara_data)
+
 sampleList = []
 templateList = []
 with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
@@ -477,8 +497,7 @@ truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
 # experimentalResults = dict.fromkeys(['sample-id','antsOutput'])
 
 processedSamples = {}
-bestTemplateSlice = 70
-template = chooseTemplateSlice(bestTemplateSlice)
+
 for actSample in range(len(truncExperiment['sample-id'])):
     sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][actSample]))
     # template = chooseTemplateSlice(truncExperiment['template-slice'][actSample])
@@ -501,7 +520,7 @@ for actSample in range(len(processedSamples)):
 #%%##########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
 #############################################
-del(ara_data)
+
 del(processedSamples)
 #%% 
 allSamplesToAllen = {}
