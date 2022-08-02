@@ -624,3 +624,47 @@ plt.show()
 #             geneZ = (actSpot - geneMean) / geneStd
 #             normalizedFilteredFeatureMatrix[geneCount,spotCount] = geneZ
     
+#%% prepare some images for jyoti
+# # create a "fake" annotation image by replacing all regions with # > 1500 with one value that just looks better in an overlay
+# templateAnnotationLeftFake = template['leftHemAnnot']
+# templateAnnotationLeftFake[template['leftHemAnnot'] > 1500] = 100
+# plt.imshow(templateAnnotationLeftFake)
+# plt.show()
+
+# sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][4]))
+# sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][4])
+# plt.imshow(sample['imageData'], cmap="viridis_r")
+# plt.show()
+
+# plt.imshow(bestSample['tissueHistMatched'])
+# plt.show()
+
+# plt.imshow(sampleProcessed['tissueRotated'])
+# plt.scatter(sampleProcessed['tissuePointsResized'][0:,0], sampleProcessed['tissuePointsResized'][0:,1],marker='o', c='blue', alpha=0.2)
+# plt.show()
+
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.show()
+
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.scatter(allSamplesToAllen[4]['transformedTissuePositionList'][0:,0],allSamplesToAllen[4]['transformedTissuePositionList'][0:,1], marker='o', c='blue', alpha=0.2)
+# plt.show()
+
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.scatter(template['leftHem'], alpha=0.3)
+# plt.show()
+
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.imshow(template['leftHem'], alpha=0.3)
+# plt.show()
+
+
+# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+# plt.imshow(templateAnnotationLeftFake, alpha=0.3)
+# plt.show()
+
+# plt.imshow(allSamplesToAllen[0]['visiumTransformed'])
+# plt.scatter(allSamplesToAllen[0]['maskedTissuePositionList'][:,0],allSamplesToAllen[0]['maskedTissuePositionList'][:,1], c=np.array(allSamplesToAllen[0]['zScoredFeatureMatrixMasked'][geneIndex]), cmap='seismic',alpha=0.8,plotnonfinite=False)
+# # plt.title(f't-statistic FDR corrected for {actGene}, p < 0.05')
+# plt.colorbar()
+# plt.show()

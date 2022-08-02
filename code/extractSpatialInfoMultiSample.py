@@ -192,7 +192,7 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['visiumOtsu'] = processedVisium['visiumGauss'] < processedVisium['otsuThreshold']
     processedVisium['tissue'] = np.zeros(processedVisium['visiumGauss'].shape)
     processedVisium['tissue'][processedVisium['visiumOtsu']==True] = visiumData['imageData'][processedVisium['visiumOtsu']==True]
-    processedVisium['visiumGauss'] = filters.gaussian(visiumData['imageData'], sigma=10)
+    processedVisium['visiumGauss'] = filters.gaussian(visiumData['imageData'], sigma=5)
     processedVisium['tissueGauss'] = np.zeros(processedVisium['visiumGauss'].shape)
     processedVisium['tissueGauss'][processedVisium['visiumOtsu']==True] = processedVisium['visiumGauss'][processedVisium['visiumOtsu']==True]
 
@@ -513,7 +513,7 @@ for actSample in range(len(truncExperiment['sample-id'])):
     sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][actSample])
     processedSamples[actSample] = sampleProcessed
 
-#%%
+#%% register to "best" sample
 # in this case just the best looking slice
 bestSample = processedSamples[4]
 
@@ -882,50 +882,7 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         
 print("--- %s seconds ---" % (time.time() - start_time))
 
-#%% prepare some images for jyoti
-# # create a "fake" annotation image by replacing all regions with # > 1500 with one value that just looks better in an overlay
-# templateAnnotationLeftFake = template['leftHemAnnot']
-# templateAnnotationLeftFake[template['leftHemAnnot'] > 1500] = 100
-# plt.imshow(templateAnnotationLeftFake)
-# plt.show()
 
-# sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][4]))
-# sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][4])
-# plt.imshow(sample['imageData'], cmap="viridis_r")
-# plt.show()
-
-# plt.imshow(bestSample['tissueHistMatched'])
-# plt.show()
-
-# plt.imshow(sampleProcessed['tissueRotated'])
-# plt.scatter(sampleProcessed['tissuePointsResized'][0:,0], sampleProcessed['tissuePointsResized'][0:,1],marker='o', c='blue', alpha=0.2)
-# plt.show()
-
-# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-# plt.show()
-
-# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-# plt.scatter(allSamplesToAllen[4]['transformedTissuePositionList'][0:,0],allSamplesToAllen[4]['transformedTissuePositionList'][0:,1], marker='o', c='blue', alpha=0.2)
-# plt.show()
-
-# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-# plt.scatter(template['leftHem'], alpha=0.3)
-# plt.show()
-
-# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-# plt.imshow(template['leftHem'], alpha=0.3)
-# plt.show()
-
-
-# plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-# plt.imshow(templateAnnotationLeftFake, alpha=0.3)
-# plt.show()
-
-# plt.imshow(allSamplesToAllen[0]['visiumTransformed'])
-# plt.scatter(allSamplesToAllen[0]['maskedTissuePositionList'][:,0],allSamplesToAllen[0]['maskedTissuePositionList'][:,1], c=np.array(allSamplesToAllen[0]['zScoredFeatureMatrixMasked'][geneIndex]), cmap='seismic',alpha=0.8,plotnonfinite=False)
-# # plt.title(f't-statistic FDR corrected for {actGene}, p < 0.05')
-# plt.colorbar()
-# plt.show()
 #%% create moran's i calculation
 import sklearn
 # kSpots = 7
@@ -1200,6 +1157,10 @@ hippocampus = tree.get_structures_by_name(['Hippocampal formation'])
 
 hippocampal3dMask = rsp.make_structure_mask([hippocampus[0]['id']])
 hippocampalMask = hippocampal3dMask[700,:,570:]
+
+rhinalFissure = tree.get_structures_by_name(['rhinal fissure'])
+rhinalFissure3dMask = rsp.make_structure_mask([rhinalFissure[0]['id']])
+rhinalFissureMask = rhinalFissure3dMask[700,:,570:]
 # testingTemplate = template
 # hippocampalMask = np.zeros(template['leftHemAnnot'].shape)
 # for i in hippocampus[0]['structure_id_path']:
@@ -1216,6 +1177,12 @@ plt.imshow(bestSampleToTemplate['visiumTransformed'])
 plt.imshow(hippocampalMask, alpha=0.3)
 plt.show()
 
+plt.imshow(rhinalFissureMask)
+plt.show()
+bestTemplateSlice10 = bestTemplateSlice * 10
+plt.imshow(bestSampleToTemplate['visiumTransformed'])
+plt.imshow(hippocampalMask, alpha=0.3)
+plt.show()
 #%% create digital hippocampal spots
 # templateSpots = []
 # currentX = 0
@@ -1247,10 +1214,20 @@ plt.show()
 # roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
 
 hippocampalDigitalTemplateSpots = []
+# spotIdx gives a list of spots within the hippocampal formation
+spotIdx = []
 for row in range(len(roundedTemplateSpots)):
     # 15 in the following is just to erode around the edge of the brain
     if hippocampalMask[roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] == 1:
         hippocampalDigitalTemplateSpots.append(templateSpots[row])
+        spotIdx.append(row)
+
+# n = 0
+# for row in enumerate(roundedTemplateSpots):
+#     # 15 in the following is just to erode around the edge of the brain
+#     if hippocampalMask[row[1][1],row[1][0]] == 1:
+#         hippocampalDigitalTemplateSpots.append(templateSpots[row[0]])
+#         n += 1
         
 hippocampalDigitalTemplateSpots = np.array(hippocampalDigitalTemplateSpots)
 plt.imshow(template['leftHem'])
@@ -1261,6 +1238,7 @@ plt.show()
 # needs to take an input of regions defined in allen ccf
 # should be able to use original spots when searching roi
 # run through entire gene list looking for a change in expression between conditions
+nSigGenes = 0
 for nOfGenesChecked,actGene in enumerate(testGeneList):
     # geneToSearch = actGene
     
@@ -1277,7 +1255,7 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
     for actSample in range(nTotalSamples):
         try:
             geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(actGene)
-            spotCheck = np.count_nonzero(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][hippocampalDigitalTemplateSpots,:])
+            spotCheck = np.count_nonzero(allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][spotIdx,:])
             # need to do better than "no expression" because that eliminates the fact that the amount is actually 0, not untested
             
             # use binary mask to remove any tissue spots with no expression
@@ -1305,23 +1283,24 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
                 if ~np.all(spots[1]):
                     geneCount[spots[0]] = 0
                 else:
-                    geneCount[spots[0]] = allSamplesToAllen[actSample]['zScoredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
+                    geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
                     
-            spotCount = np.nanmean(geneCount, axis=1)
+            geneCount = geneCount.reshape([-1])
+            # spotCount = np.nanmean(geneCount, axis=1)
             # digitalSamples.append(spotCount)
     
             # meanDigitalSample += spotCount
             nTestedSamples += 1
             if truncExperiment['experimental-group'][actSample] == 0:
                 # print("Slice is control")
-                digitalSamplesControl.append(spotCount)
-                digitalControls += spotCount
+                digitalSamplesControl.append(geneCount)
+                digitalControls += geneCount
                 # this gives the number of control samples with more than 15 spots containing the gene
                 nControls += 1
             elif truncExperiment['experimental-group'][actSample] == 1:
                 # print("Slice is experimental")
-                digitalSamplesExperimental.append(spotCount)
-                digitalExperimentals += spotCount
+                digitalSamplesExperimental.append(geneCount)
+                digitalExperimentals += geneCount
                 # this gives the number of experimental samples with more than 15 spots containing the gene
                 nExperimentals += 1
                 
@@ -1366,44 +1345,26 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         maskedDigitalCoordinates = []
         maskedMeanDigitalControls = []
         maskedMeanDigitalExperimentals = []
-
+        meanDigitalControlHippocampalFormation = np.mean(digitalSamplesControl)
+        meanDigitalExperimentalHippocampalFormation = np.mean(digitalSamplesExperimental)
+        
         if actTtest[1] <= 0.05:
             
-            # checkForSigSpots = any(mulCompResultsAtIdx)
-            # if (any(mulCompResults[0]) == True) & (sum(mulCompResults[0]) > 2):
-            # finiteMin = np.nanmin([meanDigitalControls,meanDigitalExperimentals])
-            # finiteMax = np.nanmax([meanDigitalControls,meanDigitalExperimentals])
-            # zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
-            # tTestColormap = zeroCenteredCmap(maskedTtests)
-            # sigGenes.append(actGene)
-            # # meanDigitalSample = meanDigitalSample / nTestedSamples
-            # maskedMeanDigitalControls = maskedMeanDigitalControls / nControls
-            # maskedMeanDigitalExperimentals = maskedMeanDigitalExperimentals / nExperimentals
-            # maskedFdrTests = []
-            # for actFdr, test in enumerate(mulCompResults[0]):
-            #     if test == True:
-            #         maskedFdrTests.append(allTstats[actFdr])
-            #     else:
-            #         maskedFdrTests.append(np.nan)
+            nSigGenes += 1
             maxGeneCount = np.max([meanDigitalControls,meanDigitalExperimentals])
+            tStatColor = np.full(hippocampalDigitalTemplateSpots.shape[0],meanDigitalControlHippocampalFormation)
+            plt.imshow(bestSampleToTemplate['visiumTransformed'])
+            plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c=tStatColor, alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+            # plt.title(f'Mean gene count for {actGene}, control')
+            plt.title(f'{actGene}, non sleep deprived, hippocampal expression p <= 0.05')
+            plt.colorbar()
+            plt.show()
+            
             # plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            # plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalSample), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
-            # plt.title(f'Mean gene count for {actGene}, all samples')
+            # plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+            # plt.title(f'Mean gene count for {actGene}, sleep deprived, hippocampal expression p <= 0.05')
             # plt.colorbar()
             # plt.show()
-            
-            plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c=np.array(meanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
-            # plt.title(f'Mean gene count for {actGene}, control')
-            plt.title(f'Mean gene count for {actGene}, non sleep deprived, hippocampal expression p <= 0.05')
-            plt.colorbar()
-            plt.show()
-            
-            plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c=np.array(meanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
-            plt.title(f'Mean gene count for {actGene}, sleep deprived, hippocampal expression p <= 0.05')
-            plt.colorbar()
-            plt.show()
             
  
             # # maskedPVals.append(allPvals[idx])
