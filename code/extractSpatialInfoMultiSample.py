@@ -207,6 +207,7 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['tissueResized'] = rescale(processedVisium['tissueNormalized'],processedVisium['resolutionRatio'])
     processedVisium['tissueRotated'] = rotate(processedVisium['tissueResized'], rotation, resize=True)
     processedVisium['tissueHistMatched'] = match_histograms(processedVisium['tissueRotated'], templateData['leftHem'])
+    processedVisium['tissueHistMatched'] = processedVisium['tissueHistMatched'] - processedVisium['tissueHistMatched'].min()
     processedVisium['tissuePointsRotated'] = rotateTissuePoints(visiumData, rotation)
     processedVisium['tissuePointsResized'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
@@ -703,9 +704,11 @@ thalamusGeneList = ['Plekhg1','Tcf7l2','Ntng1','Ramp3','Rora','Patj','Rgs16','Ns
 testGeneList = testGeneList + caudoputamenGeneList + allocortexGeneList + fibertractsGeneList + hippocampalregionGeneList + hypothalamusGeneList + neocortexGeneList + striatumlikeGeneList + thalamusGeneList
 sigGenes = []
 
+listOfSigGenes220812 = ['Tdp1','Oxsm','Homer1','Katna1','Slc52a3','Btaf1','Aff3','Gm10561','Mtrf1l','Ergic2','Lims1','Gpr3','Serinc2','Arc','Vgf','Trib1','Itpkc','Ier5','Cep57l1','Dlx5','Ccdc151','Tfr2','Colgalt2','Camk1g','Mir124a-1hg','Gm27003','Tnfrsf25','Npas4','Rgs6','Gm21887','Synj2']
+
 start_time = time.time()
 
-for nOfGenesChecked,actGene in enumerate(testGeneList):
+for nOfGenesChecked,actGene in enumerate(listOfSigGenes220812):
     # geneToSearch = actGene
     
     # allSamplesDigitalNearestNeighbors = []
@@ -736,7 +739,7 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
             #  an uncomment below to limit search to only those genes with a certain number of expressed spots
             # spotMaskedTissuePoints = np.array(spotMaskedTissuePoints)
             # spotMaskedFeatureMatrix = np.array(spotMaskedFeatureMatrix)
-            if spotCheck < 15:
+            if spotCheck < 30:
                 continue
             # print(f"Checking {actGene}")
     
@@ -749,7 +752,7 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
                 if ~np.all(spots[1]):
                     geneCount[spots[0]] = 0
                 else:
-                    geneCount[spots[0]] = allSamplesToAllen[actSample]['zScoredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
+                    geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
                     
             spotCount = np.nanmean(geneCount, axis=1)
             # digitalSamples.append(spotCount)
@@ -775,7 +778,7 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         except:
             continue
         
-    if spotCheck < 15:
+    if spotCheck < 30:
         continue    
     
     digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
@@ -789,7 +792,11 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         continue
     else:
         for actDigitalSpot in range(nDigitalSpots):
-    
+
+            if (digitalSamplesControl.size <= nDigitalSpots) or (digitalSamplesExperimental.size <= nDigitalSpots):
+                allTstats.append(np.nan)
+                allPvals.append(np.nan)
+                continue
             if (np.sum(np.isnan(digitalSamplesControl[:,actDigitalSpot]) > 3) or (np.sum(np.isnan(digitalSamplesExperimental[:,actDigitalSpot])) > 3)):
                 allTstats.append(np.nan)
                 allPvals.append(np.nan)
@@ -861,23 +868,26 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
             # plt.colorbar()
             # plt.show()
             
-            plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+            plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
+            plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalControls), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds')
             # plt.title(f'Mean gene count for {actGene}, control')
             plt.title(f'Mean gene count for {actGene}, non sleep deprived')
             plt.colorbar()
+            plt.savefig(os.path.join(derivatives,f'meanGeneCount{actGene}Control.png'), bbox_inches='tight')
             plt.show()
             
-            plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+            plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
+            plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedMeanDigitalExperimentals), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds')
             plt.title(f'Mean gene count for {actGene}, sleep deprived')
             plt.colorbar()
+            plt.savefig(os.path.join(derivatives,f'meanGeneCount{actGene}SleepDep.png'), bbox_inches='tight')
             plt.show()
             
-            plt.imshow(bestSampleToTemplate['visiumTransformed'])
+            plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
             plt.scatter(maskedDigitalCoordinates[:,0],maskedDigitalCoordinates[:,1], c=np.array(maskedFdrTests), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
             plt.title(f't-statistic FDR corrected for {actGene}, p < 0.05')
             plt.colorbar()
+            plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep.png'), bbox_inches='tight')
             plt.show()
         
 print("--- %s seconds ---" % (time.time() - start_time))
@@ -953,7 +963,7 @@ for nOfGenesChecked,actGene in enumerate(geneListFromTxt):
                 if ~np.all(spots[1]):
                     geneCount[spots[0]] = 0
                 else:
-                    geneCount[spots[0]] = allSamplesToAllen[actSample]['zScoredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
+                    geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
                     
             spotCount = np.nanmean(geneCount, axis=1)
             meanSpotCount = np.nanmean(geneCount)
@@ -1239,7 +1249,8 @@ plt.show()
 # should be able to use original spots when searching roi
 # run through entire gene list looking for a change in expression between conditions
 nSigGenes = 0
-for nOfGenesChecked,actGene in enumerate(testGeneList):
+partialGeneList = list(allSampleGeneList)[0:500]
+for nOfGenesChecked,actGene in enumerate(partialGeneList):
     # geneToSearch = actGene
     
     # allSamplesDigitalNearestNeighbors = []
@@ -1247,8 +1258,8 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
     digitalSamplesControl = []
     digitalSamplesExperimental = []
     # meanDigitalSample = np.zeros([nDigitalSpots,1])
-    digitalControls = np.zeros([hippocampalDigitalTemplateSpots.shape[0]])
-    digitalExperimentals = np.zeros([hippocampalDigitalTemplateSpots.shape[0]])
+    # digitalControls = np.zeros([hippocampalDigitalTemplateSpots.shape[0]])
+    # digitalExperimentals = np.zeros([hippocampalDigitalTemplateSpots.shape[0]])
     nTestedSamples = 0
     nControls = 0
     nExperimentals = 0
@@ -1281,7 +1292,7 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
             # digitalSpotGeneCount = []
             for spots in enumerate(actNN):
                 if ~np.all(spots[1]):
-                    geneCount[spots[0]] = 0
+                    geneCount[spots[0]] = np.nan
                 else:
                     geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,actNN[spots[0]]]
                     
@@ -1312,9 +1323,13 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
         
     if spotCheck < 15:
         continue    
+    digitalSamplesControl = np.array(digitalSamplesControl)
+    # digitalSamplesControl.reshape([-1])
+    digitalSamplesExperimental = np.array(digitalSamplesExperimental)
+    # digitalSamplesExperimental.reshape([-1])
     
-    digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
-    digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
+    # digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
+    # digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
     meanDigitalControls = digitalControls / nControls
     meanDigitalExperimentals = digitalExperimentals / nExperimentals
     maskedTtests = []
@@ -1352,9 +1367,14 @@ for nOfGenesChecked,actGene in enumerate(testGeneList):
             
             nSigGenes += 1
             maxGeneCount = np.max([meanDigitalControls,meanDigitalExperimentals])
-            tStatColor = np.full(hippocampalDigitalTemplateSpots.shape[0],meanDigitalControlHippocampalFormation)
+            tStatColor = np.full(hippocampalDigitalTemplateSpots.shape[0],actTtest[0])
             plt.imshow(bestSampleToTemplate['visiumTransformed'])
-            plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c=tStatColor, alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
+            if actTtest[0] < 0:
+                plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c='blue', alpha=0.8,plotnonfinite=False)
+            else:
+                plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c='red', alpha=0.8,plotnonfinite=False)
+
+            # plt.scatter(hippocampalDigitalTemplateSpots[:,0],hippocampalDigitalTemplateSpots[:,1], c=tStatColor, alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False)
             # plt.title(f'Mean gene count for {actGene}, control')
             plt.title(f'{actGene}, non sleep deprived, hippocampal expression p <= 0.05')
             plt.colorbar()
