@@ -245,6 +245,7 @@ def processVisiumData(visiumData, templateData, rotation):
         filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
     
     processedVisium['filteredFeatureMatrixOrdered'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
+    processedVisium['filteredFeatureMatrixLog2'] = np.log2(processedVisium['filteredFeatureMatrixOrdered'])
     sp_sparse.save_npz("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", sp_sparse.csc_matrix(processedVisium['filteredFeatureMatrixOrdered']))
     # np.savetxt("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.csv", processedVisium['filteredFeatureMatrixOrdered'], delimiter=",")
             
@@ -314,7 +315,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
 
     # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
-    registeredData['filteredFeatureMatrixMasked'] = processedVisium['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixMaskedIdx]
+    registeredData['filteredFeatureMatrixMasked'] = processedVisium['filteredFeatureMatrixLog2'][:,filteredFeatureMatrixMaskedIdx]
     # write re-ordered filtered feature matrix csv to match tissue spot order
     # csvFormat = []
     # rowFormat = []
@@ -367,7 +368,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
     registeredData['tissueSpotBarcodeList'] = processedVisium["tissueSpotBarcodeList"]
-    registeredData['filteredFeatureMatrixOrdered'] = processedVisium['filteredFeatureMatrixOrdered']
+    registeredData['filteredFeatureMatrixLog2'] = processedVisium['filteredFeatureMatrixLog2']
     plt.imshow(registeredData['visiumTransformed'])
     plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
@@ -438,7 +439,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     
     templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     
-    templateRegisteredData['filteredFeatureMatrixMasked'] = registeredVisium['filteredFeatureMatrixOrdered'][:,filteredFeatureMatrixMaskedIdx]
+    templateRegisteredData['filteredFeatureMatrixMasked'] = registeredVisium['filteredFeatureMatrixLog2'][:,filteredFeatureMatrixMaskedIdx]
     
     # transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
     # transformedTissuePositionListFinal = []
