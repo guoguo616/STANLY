@@ -238,7 +238,7 @@ def processVisiumData(visiumData, templateData, rotation):
     
     processedVisium['filteredFeatureMatrixOrdered'] = processedVisium['filteredFeatureMatrixDense'][:,filteredFeatureMatrixBarcodeReorder]
     processedVisium['filteredFeatureMatrixLog2'] = np.log2((processedVisium['filteredFeatureMatrixOrdered'] + 1))
-    sp_sparse.save_npz("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", sp_sparse.csc_matrix(processedVisium['filteredFeatureMatrixOrdered']))
+    sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", sp_sparse.csc_matrix(processedVisium['filteredFeatureMatrixOrdered']))
     # np.savetxt("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.csv", processedVisium['filteredFeatureMatrixOrdered'], delimiter=",")
             
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",processedVisium['tissue'])
