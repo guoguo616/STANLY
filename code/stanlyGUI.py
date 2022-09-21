@@ -26,7 +26,7 @@ import os
 # open window with set dimensions
 root = Tk()
 root.title('STANLy')
-root.geometry('300x300')
+root.geometry('500x500')
 
 # set directory for derivatives 
 # default is set to bids format starting from code folder
@@ -37,9 +37,10 @@ def setOutputDirectory():
 
 # choose template to use for registration
 templateSliceNumber = tkinter.StringVar(value=0)
-
+templateData = []
 def setTemplate():
     global templateSliceNumber
+    global templateData
     templateWindow = tkinter.Toplevel(root)
     templateWindow.geometry('300x300')
     # need to set max to actual maximum number of images
@@ -50,10 +51,10 @@ def setTemplate():
     # print(templateSliceNumber)
     # chooseTemplateSlice(templateSliceNumber)
     def selectAndQuit():
-        chooseTemplateSlice(int(templateSliceNumber.get()))
+        templateData = chooseTemplateSlice(int(templateSliceNumber.get()))
         templateWindow.destroy()
-    selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit).pack()
-
+    selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit)
+    selectTemplateSliceButton.pack()
 
 def runSingleRegistration():
     return
@@ -61,20 +62,23 @@ def runSingleRegistration():
 def runGroupRegistration():
     return
 
+# add rotate option to load sample window
 
 sampleData = []
 def loadSample():   
     samplePath = filedialog.askdirectory()
     global sampleData
+    global sampleImage
     sampleData = importVisiumData(samplePath)
-    sampleWindow = tkinter.Toplevel(root)
     sampleImage = ImageTk.PhotoImage(Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255)))
-    # canvas = tkinter.Canvas(sampleWindow,width=(rescale(sampleData['imageData'],0.4).shape[0] + 20),height=(rescale(sampleData['imageData'],0.4).shape[1] + 20))
-    # canvas.grid(row=1,column=1)
-    # canvas.create_image(20,20, anchor="nw", image=sampleImage).draw()
-    # canvas.draw()
-    sampleLabel = tkinter.Label(sampleWindow, image=sampleImage).grid(row=1,column=1)
-    processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = sampleWindow.destroy).grid(row=2,column=1)
+    sampleWindow = tkinter.Toplevel(root)
+    h = sampleImage.width() + 40
+    w = sampleImage.height() + 80
+    sampleWindow.geometry(f'{h}x{w}')
+    canvas = tkinter.Canvas(sampleWindow, width = sampleImage.width(), height = sampleImage.height())      
+    canvas.place(x=0,y=0)
+    canvas.create_image(20,20, image=sampleImage,anchor="nw") 
+    processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = sampleWindow.destroy).place(x= (sampleImage.width() + 40)/2,y= (sampleImage.height() + 40))
     return sampleData
 
 def loadSamplesFromTsv():
@@ -103,17 +107,17 @@ neFrame = tkinter.LabelFrame(root, text="Set output directory:").grid(row=0,rows
 swFrame = tkinter.LabelFrame(root, text="Registration:").grid(row=3,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
 seFrame = tkinter.LabelFrame(root, text="Exit").grid(row=4,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
 
-outputLabel = tkinter.Label(neFrame, text='Output directory').grid(row=1,column=1)
-outputEntry = tkinter.Entry(neFrame, textvariable=outputPath, bd = '5').grid(row=2,column=1)
+outputLabel = tkinter.Label(neFrame, text='Output directory').grid(row=0, column=2)
+outputEntry = tkinter.Entry(neFrame, textvariable=outputPath, bd = '5').grid(row=1,column=2)
 loadSampleButton = tkinter.Button(nwFrame, text = 'Load sample', bd = '5', command = loadSample).grid(row=0,column=0)
 # Create buttons for start screen
 loadSamplesFromTsvButton = tkinter.Button(nwFrame, text = 'Load samples from .tsv file', bd = '5', command = loadSamplesFromTsv).grid(row=1,column=0)
 
 loadExperimentButton = tkinter.Button(nwFrame, text = 'Load experiment', bd = '5', command = loadExperiment).grid(row=2,column=0)
-setDerivativesButton = tkinter.Button(neFrame, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=0,column=1)
-setTemplateImageButton = tkinter.Button(swFrame, text = 'Set template image', bd = '5', command = setTemplate).grid(row=1,column=1)
-startRegistrationButton = tkinter.Button(swFrame, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=2,column=1)
+setDerivativesButton = tkinter.Button(neFrame, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=2, column=2)
+setTemplateImageButton = tkinter.Button(swFrame, text = 'Set template image', bd = '5', command = setTemplate).grid(row=4, column=0)
+startRegistrationButton = tkinter.Button(swFrame, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=5, column=0)
 
-quitButton = tkinter.Button(seFrame, text="Quit", bd = '5', command=root.destroy).grid(row=5,column=1)
+quitButton = tkinter.Button(seFrame, text="Quit", bd = '5', command=root.destroy).grid(row=4, column=2)
 # currentTemplateLabel = tkinter.Label(root, text=f'Template slice: {templateSliceNumber.get()}').grid(row=5,column=1)
 root.mainloop()
