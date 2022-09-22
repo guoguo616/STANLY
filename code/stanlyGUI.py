@@ -14,7 +14,7 @@ Created on Wed Sep  7 16:23:32 2022
 import tkinter
 from tkinter import Tk, filedialog, ttk
 # import stanlyFunctions
-from stanly import importVisiumData, chooseTemplateSlice
+from stanly import importVisiumData, chooseTemplateSlice, processVisiumData
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
@@ -23,6 +23,7 @@ import numpy as np
 from skimage.transform import rescale
 import csv
 import os
+from glob import glob
 # open window with set dimensions
 root = Tk()
 root.title('STANLy')
@@ -35,27 +36,35 @@ def setOutputDirectory():
     global outputPath
     outputPath = filedialog.askdirectory()
 
+templateSlicePath = '../data/allen10umSlices'
+templateLeftSliceImages = sorted(glob(os.path.join(templateSlicePath,"*LH*.png")))
 # choose template to use for registration
 templateSliceNumber = tkinter.StringVar(value=0)
 templateData = []
+# need to consider RH and LH
 def setTemplate():
     global templateSliceNumber
     global templateData
     templateWindow = tkinter.Toplevel(root)
     templateWindow.geometry('300x300')
+    templateWindow.title('Select template slice')
     # need to set max to actual maximum number of images
-    templateSpinbox = ttk.Spinbox(templateWindow, textvariable = templateSliceNumber, from_=1, to=100)
+    templateSpinbox = ttk.Spinbox(templateWindow, textvariable = templateSliceNumber, from_=1, to=131)
     templateSpinbox.pack()
-    # print(templateSliceNumber.get())
-    # templateSliceNumber = templateSpinbox.get()
-    # print(templateSliceNumber)
-    # chooseTemplateSlice(templateSliceNumber)
+    
+    actTemplateImage = ImageTk.PhotoImage(
     def selectAndQuit():
         templateData = chooseTemplateSlice(int(templateSliceNumber.get()))
         templateWindow.destroy()
     selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit)
     selectTemplateSliceButton.pack()
 
+# thoughts for how to incorporate template selection
+'''
+can select images from every 10 slices of the ara_data and output as pngs
+let the user scroll through these images and select the best fit
+can also select the rotation needed to fit
+'''
 def runSingleRegistration():
     return
 
@@ -65,10 +74,12 @@ def runGroupRegistration():
 # add rotate option to load sample window
 
 sampleData = []
+processedSampleData = []
 def loadSample():   
     samplePath = filedialog.askdirectory()
     global sampleData
     global sampleImage
+    
     sampleData = importVisiumData(samplePath)
     sampleImage = ImageTk.PhotoImage(Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255)))
     sampleWindow = tkinter.Toplevel(root)
@@ -77,7 +88,11 @@ def loadSample():
     sampleWindow.geometry(f'{h}x{w}')
     canvas = tkinter.Canvas(sampleWindow, width = sampleImage.width(), height = sampleImage.height())      
     canvas.place(x=0,y=0)
-    canvas.create_image(20,20, image=sampleImage,anchor="nw") 
+    canvas.create_image(20,20, image=sampleImage,anchor="nw")
+    # def processSample():
+    #     global processedSampleData
+    #     processedSampleData = processVisiumData(sampleData, templateData, rotation)
+    sampleData = processVisiumData()
     processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = sampleWindow.destroy).place(x= (sampleImage.width() + 40)/2,y= (sampleImage.height() + 40))
     return sampleData
 
