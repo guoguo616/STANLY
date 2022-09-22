@@ -16,9 +16,9 @@ x = range(10,1321,10)
 # this outputs greyscaled versions of the allen slices, converted to 1:255 to use as pngs
 
 for i in x:
-    filename = f"allen10umLHSlice{str(i).rjust(4,'0')}.png"
+    filename = f"allen10umRHSlice{str(i).rjust(4,'0')}.png"
     tempImage = ara_data.slice_image(0,i)
-    tempImageLeft = tempImage[:,570:]
+    tempImageLeft = tempImage[:,:570]
     tempImageLeftScaled = (tempImageLeft - tempImageLeft.min())/(tempImageLeft.max() - tempImageLeft.min()) * 255
     # tempImageLeft = cv2.normalize(tempImageLeft, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     # plt.imshow(tempImageLeft)    

@@ -36,28 +36,94 @@ def setOutputDirectory():
     global outputPath
     outputPath = filedialog.askdirectory()
 
+
 templateSlicePath = '../data/allen10umSlices'
 templateLeftSliceImages = sorted(glob(os.path.join(templateSlicePath,"*LH*.png")))
+# templateWindow.geometry('300x300')
 # choose template to use for registration
-templateSliceNumber = tkinter.StringVar(value=0)
+# templateSliceNumber = tkinter.StringVar(value=0)
 templateData = []
 # need to consider RH and LH
-def setTemplate():
+def chooseTemplate():
     global templateSliceNumber
     global templateData
+    global templateLabel
+    global actTemplateImage
     templateWindow = tkinter.Toplevel(root)
-    templateWindow.geometry('300x300')
     templateWindow.title('Select template slice')
-    # need to set max to actual maximum number of images
-    templateSpinbox = ttk.Spinbox(templateWindow, textvariable = templateSliceNumber, from_=1, to=131)
-    templateSpinbox.pack()
+
+    templateSliceNumber = 70
+    actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+
+    templateWindow.geometry(f'{actTemplateImage.width() + 40}x{actTemplateImage.height() + 80}')
+    templateLabel = tkinter.Label(templateWindow, text=f'{templateSliceNumber}',image=actTemplateImage)
+    templateLabel.place(x=20,y=20)
+
+    # templateWindow = tkinter.Toplevel(root)
+    # templateWindow.geometry('300x300')
+    # templateWindow.title('Select template slice')
     
-    actTemplateImage = ImageTk.PhotoImage(
+    # need to set max to actual maximum number of images
+    # templateSpinbox = ttk.Spinbox(templateWindow, textvariable = templateSliceNumber, from_=1, to=131)
+    # templateSpinbox.pack()
+    
+    # actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+    # h = actTemplateImage.width() + 40
+    # w = actTemplateImage.height() + 80
+    # templateWindow.geometry(f'{h}x{w}')
+    # templateFrame = tkinter.Frame(templateWindow, width=250, height=250, bg='white').place(x=0,y=0)
+    
+    # templateLabel = tkinter.Label(templateWindow, image=actTemplateImage).place(x=0,y=0)
+    # templateLabel.config
+    # canvas = tkinter.Canvas(templateWindow, width = templateWindow.width(), height = templateWindow.height())      
+    # canvas.place(x=0,y=0)
+    # canvas.create_image(20,20, image=actTemplateImage,anchor="nw")
+    # def processSample():
+    #     global processedSampleData
+    #     processedSampleData = processVisiumData(sampleData, templateData, rotation)
+    # sampleData = processVisiumData()
+    # would be good to include calculated paxinos printed on window
+    def nextClick():
+        global templateSliceNumber
+        global templateLabel
+        
+        if templateSliceNumber < 131:
+            templateSliceNumber = templateSliceNumber + 1
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+        else:
+            templateSliceNumber = 0
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+        
+        templateLabel.config(image=actTemplateImage)
+        templateLabel.image = actTemplateImage
+        
+    def backClick():
+        global templateSliceNumber
+        global templateLabel
+        if templateSliceNumber > -1:
+            templateSliceNumber = templateSliceNumber - 1
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+            
+        else:
+            templateSliceNumber = 131
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+            
+        templateLabel.config(image=actTemplateImage)
+        templateLabel.image = actTemplateImage
+        
     def selectAndQuit():
-        templateData = chooseTemplateSlice(int(templateSliceNumber.get()))
+        templateData = chooseTemplateSlice(templateSliceNumber)
         templateWindow.destroy()
-    selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit)
-    selectTemplateSliceButton.pack()
+        
+    backButton = tkinter.Button(templateWindow, text = 'Back', bd = '5', command = backClick)
+    backButton.place(x= (actTemplateImage.width() + 40)/4,y= (actTemplateImage.height() + 40))
+    nextButton = tkinter.Button(templateWindow, text = 'Next', bd = '5', command = nextClick)
+    nextButton.place(x= 3*((actTemplateImage.width() + 40)/4),y= (actTemplateImage.height() + 40))
+    selectSliceButton = tkinter.Button(templateWindow, text = 'Select slice', bd = '5', command = selectAndQuit)
+    selectSliceButton.place(x= (actTemplateImage.width() + 40)/2, y = actTemplateImage.height() + 40)
+
+    # selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit)
+    # selectTemplateSliceButton.pack()
 
 # thoughts for how to incorporate template selection
 '''
@@ -130,7 +196,7 @@ loadSamplesFromTsvButton = tkinter.Button(nwFrame, text = 'Load samples from .ts
 
 loadExperimentButton = tkinter.Button(nwFrame, text = 'Load experiment', bd = '5', command = loadExperiment).grid(row=2,column=0)
 setDerivativesButton = tkinter.Button(neFrame, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=2, column=2)
-setTemplateImageButton = tkinter.Button(swFrame, text = 'Set template image', bd = '5', command = setTemplate).grid(row=4, column=0)
+setTemplateImageButton = tkinter.Button(swFrame, text = 'Set template image', bd = '5', command = chooseTemplate).grid(row=4, column=0)
 startRegistrationButton = tkinter.Button(swFrame, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=5, column=0)
 
 quitButton = tkinter.Button(seFrame, text="Quit", bd = '5', command=root.destroy).grid(row=4, column=2)
