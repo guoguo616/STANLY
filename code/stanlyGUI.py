@@ -14,7 +14,7 @@ Created on Wed Sep  7 16:23:32 2022
 import tkinter
 from tkinter import Tk, filedialog, ttk
 # import stanlyFunctions
-from stanly import importVisiumData, chooseTemplateSlice, processVisiumData
+from stanly import importVisiumData, chooseTemplateSlice, processVisiumData, rotateTissuePoints, runANTsToAllenRegistration
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
@@ -39,9 +39,7 @@ def setOutputDirectory():
 
 templateSlicePath = '../data/allen10umSlices'
 templateLeftSliceImages = sorted(glob(os.path.join(templateSlicePath,"*LH*.png")))
-# templateWindow.geometry('300x300')
-# choose template to use for registration
-# templateSliceNumber = tkinter.StringVar(value=0)
+
 templateData = []
 # need to consider RH and LH
 def chooseTemplate():
@@ -59,30 +57,6 @@ def chooseTemplate():
     templateLabel = tkinter.Label(templateWindow, text=f'{templateSliceNumber}',image=actTemplateImage)
     templateLabel.place(x=20,y=20)
 
-    # templateWindow = tkinter.Toplevel(root)
-    # templateWindow.geometry('300x300')
-    # templateWindow.title('Select template slice')
-    
-    # need to set max to actual maximum number of images
-    # templateSpinbox = ttk.Spinbox(templateWindow, textvariable = templateSliceNumber, from_=1, to=131)
-    # templateSpinbox.pack()
-    
-    # actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
-    # h = actTemplateImage.width() + 40
-    # w = actTemplateImage.height() + 80
-    # templateWindow.geometry(f'{h}x{w}')
-    # templateFrame = tkinter.Frame(templateWindow, width=250, height=250, bg='white').place(x=0,y=0)
-    
-    # templateLabel = tkinter.Label(templateWindow, image=actTemplateImage).place(x=0,y=0)
-    # templateLabel.config
-    # canvas = tkinter.Canvas(templateWindow, width = templateWindow.width(), height = templateWindow.height())      
-    # canvas.place(x=0,y=0)
-    # canvas.create_image(20,20, image=actTemplateImage,anchor="nw")
-    # def processSample():
-    #     global processedSampleData
-    #     processedSampleData = processVisiumData(sampleData, templateData, rotation)
-    # sampleData = processVisiumData()
-    # would be good to include calculated paxinos printed on window
     def nextClick():
         global templateSliceNumber
         global templateLabel
@@ -112,15 +86,19 @@ def chooseTemplate():
         templateLabel.image = actTemplateImage
         
     def selectAndQuit():
+        global templateData
+        global processButton
         templateData = chooseTemplateSlice(templateSliceNumber)
         templateWindow.destroy()
+        processButton.config(state=tkinter.NORMAL)
+        processButton.state = tkinter.NORMAL
         
     backButton = tkinter.Button(templateWindow, text = 'Back', bd = '5', command = backClick)
-    backButton.place(x= (actTemplateImage.width() + 40)/4,y= (actTemplateImage.height() + 40))
+    backButton.place(x= (actTemplateImage.width())/4,y= (actTemplateImage.height() + 40))
     nextButton = tkinter.Button(templateWindow, text = 'Next', bd = '5', command = nextClick)
-    nextButton.place(x= 3*((actTemplateImage.width() + 40)/4),y= (actTemplateImage.height() + 40))
+    nextButton.place(x= 3*((actTemplateImage.width())/4),y= (actTemplateImage.height() + 40))
     selectSliceButton = tkinter.Button(templateWindow, text = 'Select slice', bd = '5', command = selectAndQuit)
-    selectSliceButton.place(x= (actTemplateImage.width() + 40)/2, y = actTemplateImage.height() + 40)
+    selectSliceButton.place(x= (actTemplateImage.width())/2, y = actTemplateImage.height() + 40)
 
     # selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit)
     # selectTemplateSliceButton.pack()
@@ -131,36 +109,64 @@ can select images from every 10 slices of the ara_data and output as pngs
 let the user scroll through these images and select the best fit
 can also select the rotation needed to fit
 '''
-def runSingleRegistration():
-    return
-
-def runGroupRegistration():
-    return
-
-# add rotate option to load sample window
-
 sampleData = []
 processedSampleData = []
+rotation = 0
 def loadSample():   
     samplePath = filedialog.askdirectory()
     global sampleData
     global sampleImage
-    
+    global sampleImageMatrix
+    global processButton
     sampleData = importVisiumData(samplePath)
-    sampleImage = ImageTk.PhotoImage(Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255)))
+    sampleImageMatrix = Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255))
+    sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
     sampleWindow = tkinter.Toplevel(root)
     h = sampleImage.width() + 40
     w = sampleImage.height() + 80
     sampleWindow.geometry(f'{h}x{w}')
-    canvas = tkinter.Canvas(sampleWindow, width = sampleImage.width(), height = sampleImage.height())      
-    canvas.place(x=0,y=0)
-    canvas.create_image(20,20, image=sampleImage,anchor="nw")
+    # canvas = tkinter.Canvas(sampleWindow, width = sampleImage.width(), height = sampleImage.height())      
+    # canvas.place(x=0,y=0)
+    # canvas.create_image(20,20, image=sampleImage,anchor="nw")
+    sampleLabel = tkinter.Label(sampleWindow,image=sampleImage)
+    sampleLabel.place(x=20,y=20)
     # def processSample():
     #     global processedSampleData
     #     processedSampleData = processVisiumData(sampleData, templateData, rotation)
-    sampleData = processVisiumData()
-    processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = sampleWindow.destroy).place(x= (sampleImage.width() + 40)/2,y= (sampleImage.height() + 40))
-    return sampleData
+    def rotateClick():
+        global sampleImage
+        global rotation
+        global sampleImageMatrix
+        if rotation < 360:
+            rotation = rotation + 90
+        else:
+            rotation = 0
+        sampleImageMatrix = sampleImageMatrix.rotate(90)
+        sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
+        sampleLabel.config(image=sampleImage)
+        sampleLabel.image = sampleImage
+    def processClick():
+        global sampleImage
+        global sampleImageMatrix
+        global processedSampleData
+        processedSampleData = processVisiumData(sampleData, templateData, rotation)
+        sampleImageMatrix = Image.fromarray(np.asarray(processedSampleData['tissueRotated'] * 255))
+        sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
+        sampleLabel.config(image=sampleImage)
+        sampleLabel.image = sampleImage
+        rotateImageButton.destroy()
+        selectTemplateButton.destroy()
+        processButton.destroy()
+        beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = runSingleRegistration)
+        beginRegistrationButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
+        # sampleWindow.destroy()
+    rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick)
+    rotateImageButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
+    selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate)
+    selectTemplateButton.place(x= 2*((sampleImage.width())/4),y= (sampleImage.height() + 40))
+    processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = processClick, state=tkinter.DISABLED)
+    processButton.place(x= 3*((sampleImage.width())/4),y= (sampleImage.height() + 40))
+    return processedSampleData
 
 def loadSamplesFromTsv():
     participantsFile = tkinter.filedialog.askopenfilename()
@@ -182,23 +188,37 @@ def loadExperiment():
     experimentPath = filedialog.askdirectory()
     return experimentPath
 
+registeredData = []
+def runSingleRegistration():
+    global processedSampleData
+    global registeredData
+    registeredData = runANTsToAllenRegistration(processedSampleData, templateData)
+    return
+
+def runGroupRegistration():
+    return
+
+# add rotate option to load sample window
+
+
+
 # create frames of buttons for a cleaner look
-nwFrame = tkinter.LabelFrame(root, text="Load Visium samples:").grid(row=0,rowspan=4,column=0, columnspan=2, padx=5, pady=5)
-neFrame = tkinter.LabelFrame(root, text="Set output directory:").grid(row=0,rowspan=4, column=1, columnspan=2, padx=5, pady=5)
-swFrame = tkinter.LabelFrame(root, text="Registration:").grid(row=3,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
-seFrame = tkinter.LabelFrame(root, text="Exit").grid(row=4,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
+# nwFrame = tkinter.LabelFrame(root, text="Load Visium samples:").grid(row=0,rowspan=4,column=0, columnspan=2, padx=5, pady=5)
+# neFrame = tkinter.LabelFrame(root, text="Set output directory:").grid(row=0,rowspan=4, column=1, columnspan=2, padx=5, pady=5)
+# swFrame = tkinter.LabelFrame(root, text="Registration:").grid(row=3,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
+# seFrame = tkinter.LabelFrame(root, text="Exit").grid(row=4,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
 
-outputLabel = tkinter.Label(neFrame, text='Output directory').grid(row=0, column=2)
-outputEntry = tkinter.Entry(neFrame, textvariable=outputPath, bd = '5').grid(row=1,column=2)
-loadSampleButton = tkinter.Button(nwFrame, text = 'Load sample', bd = '5', command = loadSample).grid(row=0,column=0)
+# outputLabel = tkinter.Label(root, text='Output directory').grid(row=0, column=2)
+# outputEntry = tkinter.Entry(root, textvariable=outputPath, bd = '5').grid(row=1,column=2)
+loadSampleButton = tkinter.Button(root, text = 'Load sample', bd = '5', command = loadSample).grid(row=0,column=0)
 # Create buttons for start screen
-loadSamplesFromTsvButton = tkinter.Button(nwFrame, text = 'Load samples from .tsv file', bd = '5', command = loadSamplesFromTsv).grid(row=1,column=0)
+loadSamplesFromTsvButton = tkinter.Button(root, text = 'Load samples from .tsv file', bd = '5', command = loadSamplesFromTsv).grid(row=1,column=0)
 
-loadExperimentButton = tkinter.Button(nwFrame, text = 'Load experiment', bd = '5', command = loadExperiment).grid(row=2,column=0)
-setDerivativesButton = tkinter.Button(neFrame, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=2, column=2)
-setTemplateImageButton = tkinter.Button(swFrame, text = 'Set template image', bd = '5', command = chooseTemplate).grid(row=4, column=0)
-startRegistrationButton = tkinter.Button(swFrame, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=5, column=0)
+loadExperimentButton = tkinter.Button(root, text = 'Load experiment', bd = '5', command = loadExperiment).grid(row=2,column=0)
+setDerivativesButton = tkinter.Button(root, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=2, column=2)
+setTemplateImageButton = tkinter.Button(root, text = 'Set template image', bd = '5', command = chooseTemplate).grid(row=4, column=0)
+startRegistrationButton = tkinter.Button(root, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=5, column=0)
 
-quitButton = tkinter.Button(seFrame, text="Quit", bd = '5', command=root.destroy).grid(row=4, column=2)
+quitButton = tkinter.Button(root, text="Quit", bd = '5', command=root.destroy).grid(row=4, column=2)
 # currentTemplateLabel = tkinter.Label(root, text=f'Template slice: {templateSliceNumber.get()}').grid(row=5,column=1)
 root.mainloop()
