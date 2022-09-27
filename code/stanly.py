@@ -283,14 +283,14 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
 
-    plt.imshow(registeredData['visiumTransformed'])
-    plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
-    plt.show()
+    # plt.imshow(registeredData['visiumTransformed'])
+    # plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
+    # plt.show()
     
-    plt.imshow(registeredData['visiumTransformed'],cmap='gray')
-    plt.imshow(templateData['leftHem'], alpha=0.3)
-    plt.title(processedVisium['sampleID'])
-    plt.show()
+    # plt.imshow(registeredData['visiumTransformed'],cmap='gray')
+    # plt.imshow(templateData['leftHem'], alpha=0.3)
+    # plt.title(processedVisium['sampleID'])
+    # plt.show()
         
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
     transformedTissuePositionListFinal = []

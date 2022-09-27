@@ -157,9 +157,22 @@ def loadSample():
         rotateImageButton.destroy()
         selectTemplateButton.destroy()
         processButton.destroy()
-        beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = runSingleRegistration)
-        beginRegistrationButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
+        # sampleWindow.geometry(f"{processedSampleData['tissueRotated'].shape[0] + 40}x{processedSampleData['tissueRotated'].shape[1] + 80}")
+        beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = registerClick)
+        beginRegistrationButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
+
         # sampleWindow.destroy()
+    def registerClick():
+        global sampleImage
+        global beginRegistrationButton
+        global sampleImageMatrix
+        runSingleRegistration()
+        sampleImageMatrix = Image.fromarray(np.asarray(registeredData['visiumTransformed'] * 255))
+        sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
+        sampleLabel.config(image=sampleImage)
+        sampleLabel.image = sampleImage
+        beginRegistrationButton.destroy()
+
     rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick)
     rotateImageButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
     selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate)
@@ -192,7 +205,9 @@ registeredData = []
 def runSingleRegistration():
     global processedSampleData
     global registeredData
+
     registeredData = runANTsToAllenRegistration(processedSampleData, templateData)
+
     return
 
 def runGroupRegistration():
@@ -212,13 +227,13 @@ def runGroupRegistration():
 # outputEntry = tkinter.Entry(root, textvariable=outputPath, bd = '5').grid(row=1,column=2)
 loadSampleButton = tkinter.Button(root, text = 'Load sample', bd = '5', command = loadSample).grid(row=0,column=0)
 # Create buttons for start screen
-loadSamplesFromTsvButton = tkinter.Button(root, text = 'Load samples from .tsv file', bd = '5', command = loadSamplesFromTsv).grid(row=1,column=0)
+# loadSamplesFromTsvButton = tkinter.Button(root, text = 'Load samples from .tsv file', bd = '5', command = loadSamplesFromTsv).grid(row=1,column=0)
 
-loadExperimentButton = tkinter.Button(root, text = 'Load experiment', bd = '5', command = loadExperiment).grid(row=2,column=0)
-setDerivativesButton = tkinter.Button(root, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=2, column=2)
-setTemplateImageButton = tkinter.Button(root, text = 'Set template image', bd = '5', command = chooseTemplate).grid(row=4, column=0)
-startRegistrationButton = tkinter.Button(root, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=5, column=0)
+loadExperimentButton = tkinter.Button(root, text = 'Load experiment', bd = '5', command = loadExperiment).grid(row=1,column=0)
+setDerivativesButton = tkinter.Button(root, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=0, column=1)
+setTemplateImageButton = tkinter.Button(root, text = 'Set template image', bd = '5', command = chooseTemplate).grid(row=3, column=0)
+startRegistrationButton = tkinter.Button(root, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=1, column=1)
 
-quitButton = tkinter.Button(root, text="Quit", bd = '5', command=root.destroy).grid(row=4, column=2)
+quitButton = tkinter.Button(root, text="Quit", bd = '5', command=root.destroy).grid(row=3, column=1)
 # currentTemplateLabel = tkinter.Label(root, text=f'Template slice: {templateSliceNumber.get()}').grid(row=5,column=1)
 root.mainloop()
