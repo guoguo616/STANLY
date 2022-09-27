@@ -118,6 +118,7 @@ def loadSample():
     global sampleImage
     global sampleImageMatrix
     global processButton
+    global beginRegistrationButton
     sampleData = importVisiumData(samplePath)
     sampleImageMatrix = Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255))
     sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
@@ -149,6 +150,7 @@ def loadSample():
         global sampleImage
         global sampleImageMatrix
         global processedSampleData
+        global beginRegistrationButton
         processedSampleData = processVisiumData(sampleData, templateData, rotation)
         sampleImageMatrix = Image.fromarray(np.asarray(processedSampleData['tissueRotated'] * 255))
         sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
@@ -164,7 +166,6 @@ def loadSample():
         # sampleWindow.destroy()
     def registerClick():
         global sampleImage
-        global beginRegistrationButton
         global sampleImageMatrix
         runSingleRegistration()
         sampleImageMatrix = Image.fromarray(np.asarray(registeredData['visiumTransformed'] * 255))
@@ -213,16 +214,6 @@ def runSingleRegistration():
 def runGroupRegistration():
     return
 
-# add rotate option to load sample window
-
-
-
-# create frames of buttons for a cleaner look
-# nwFrame = tkinter.LabelFrame(root, text="Load Visium samples:").grid(row=0,rowspan=4,column=0, columnspan=2, padx=5, pady=5)
-# neFrame = tkinter.LabelFrame(root, text="Set output directory:").grid(row=0,rowspan=4, column=1, columnspan=2, padx=5, pady=5)
-# swFrame = tkinter.LabelFrame(root, text="Registration:").grid(row=3,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
-# seFrame = tkinter.LabelFrame(root, text="Exit").grid(row=4,rowspan=4, column=3, columnspan=2, padx=5, pady=5)
-
 # outputLabel = tkinter.Label(root, text='Output directory').grid(row=0, column=2)
 # outputEntry = tkinter.Entry(root, textvariable=outputPath, bd = '5').grid(row=1,column=2)
 loadSampleButton = tkinter.Button(root, text = 'Load sample', bd = '5', command = loadSample).grid(row=0,column=0)
@@ -235,5 +226,4 @@ setTemplateImageButton = tkinter.Button(root, text = 'Set template image', bd = 
 startRegistrationButton = tkinter.Button(root, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=1, column=1)
 
 quitButton = tkinter.Button(root, text="Quit", bd = '5', command=root.destroy).grid(row=3, column=1)
-# currentTemplateLabel = tkinter.Label(root, text=f'Template slice: {templateSliceNumber.get()}').grid(row=5,column=1)
 root.mainloop()
