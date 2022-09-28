@@ -102,115 +102,111 @@ def chooseTemplate():
 
     # selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit)
     # selectTemplateSliceButton.pack()
+def rotateClick():
+    global sampleImage
+    global rotation
+    global sampleImageMatrix
+    global sampleLabel
+    rotation = rotation + 90
+    if rotation == 360:
+        rotation = 0
+    sampleImageMatrix = sampleImageMatrix.rotate(90)
+    sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
+    sampleLabel.config(image=sampleImage)
+    sampleLabel.image = sampleImage
 
-# thoughts for how to incorporate template selection
-'''
-can select images from every 10 slices of the ara_data and output as pngs
-let the user scroll through these images and select the best fit
-can also select the rotation needed to fit
-'''
+def processClick():
+    global sampleImage
+    global sampleImageMatrix
+    global processedSampleData
+    global beginRegistrationButton
+    global rotateImageButton
+    # global selectTemplateButton
+    global registerClick
+    global sampleWindow
+    processedSampleData = processVisiumData(sampleData, templateData, rotation)
+    sampleImageMatrix = Image.fromarray(np.asarray(processedSampleData['tissueRotated'] * 255))
+    sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
+    sampleLabel.config(image=sampleImage)
+    sampleLabel.image = sampleImage
+    rotateImageButton.destroy()
+    selectTemplateButton.destroy()
+    processButton.destroy()
+    # sampleWindow.geometry(f"{processedSampleData['tissueRotated'].shape[0] + 40}x{processedSampleData['tissueRotated'].shape[1] + 80}")
+    beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = registerClick)
+    beginRegistrationButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
+
+def registerClick():
+    global sampleImage
+    global sampleImageMatrix
+    runSingleRegistration()
+    sampleImageMatrix = Image.fromarray(np.asarray(registeredData['visiumTransformed'] * 255))
+    sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
+    sampleLabel.config(image=sampleImage)
+    sampleLabel.image = sampleImage
+    beginRegistrationButton.destroy()
+    showSpotsButton = tkinter.Button(sampleWindow, text= 'Show spots?', bd = '5', command = showSpots)
+    showSpotsButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
+def showSpots():
+    # global sampleWindow
+    # figure size is defined in inches
+    fig = Figure(figsize = (5, 5), dpi = 150)
+    spotPlot = fig.add_subplot(1,1,1)
+    spotPlot.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
+    spotPlot.invert_yaxis()
+    canvas = FigureCanvasTkAgg(fig, master = sampleWindow)  
+    canvas.draw()
+    canvas.get_tk_widget().place(x=20,y=20)
+    return
 sampleData = []
 processedSampleData = []
 rotation = 0
 # load sample will take as input one folder containing the spatial folder and filtered feature matrix.h5 file
 # should probably separate load sample and process so that process can be used by experiment function
 def loadSample():   
-    samplePath = filedialog.askdirectory()
     global sampleData
     global sampleImage
     global sampleImageMatrix
     global processButton
     global beginRegistrationButton
+    global sampleLabel
+    global rotateImageButton
+    global selectTemplateButton
+    global sampleWindow
+    samplePath = filedialog.askdirectory()
+    sampleWindow = tkinter.Toplevel(root)
     sampleData = importVisiumData(samplePath)
     sampleImageMatrix = Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255))
     sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
-    sampleWindow = tkinter.Toplevel(root)
     h = sampleImage.width() + 40
     w = sampleImage.height() + 80
     sampleWindow.geometry(f'{h}x{w}')
-    # canvas = tkinter.Canvas(sampleWindow, width = sampleImage.width(), height = sampleImage.height())      
-    # canvas.place(x=0,y=0)
-    # canvas.create_image(20,20, image=sampleImage,anchor="nw")
     sampleLabel = tkinter.Label(sampleWindow,image=sampleImage)
     sampleLabel.place(x=20,y=20)
-    # def processSample():
-    #     global processedSampleData
-    #     processedSampleData = processVisiumData(sampleData, templateData, rotation)
-    def rotateClick():
-        global sampleImage
-        global rotation
-        global sampleImageMatrix
-        rotation = rotation + 90
-        if rotation == 360:
-            rotation = 0
-        sampleImageMatrix = sampleImageMatrix.rotate(90)
-        sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
-        sampleLabel.config(image=sampleImage)
-        sampleLabel.image = sampleImage
-    def processClick():
-        global sampleImage
-        global sampleImageMatrix
-        global processedSampleData
-        global beginRegistrationButton
-        processedSampleData = processVisiumData(sampleData, templateData, rotation)
-        sampleImageMatrix = Image.fromarray(np.asarray(processedSampleData['tissueRotated'] * 255))
-        sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
-        sampleLabel.config(image=sampleImage)
-        sampleLabel.image = sampleImage
-        rotateImageButton.destroy()
-        selectTemplateButton.destroy()
-        processButton.destroy()
-        # sampleWindow.geometry(f"{processedSampleData['tissueRotated'].shape[0] + 40}x{processedSampleData['tissueRotated'].shape[1] + 80}")
-        beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = registerClick)
-        beginRegistrationButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
-
-        # sampleWindow.destroy()
-    def registerClick():
-        global sampleImage
-        global sampleImageMatrix
-        runSingleRegistration()
-        sampleImageMatrix = Image.fromarray(np.asarray(registeredData['visiumTransformed'] * 255))
-        sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
-        sampleLabel.config(image=sampleImage)
-        sampleLabel.image = sampleImage
-        beginRegistrationButton.destroy()
-        showSpotsButton = tkinter.Button(sampleWindow, text= 'Show spots?', bd = '5', command = showSpots)
-        showSpotsButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
-    def showSpots():
-        # global sampleWindow
-        # figure size is defined in inches
-        fig = Figure(figsize = (5, 5), dpi = 150)
-        spotPlot = fig.add_subplot(1,1,1)
-        spotPlot.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
-        spotPlot.invert_yaxis()
-        canvas = FigureCanvasTkAgg(fig, master = sampleWindow)  
-        canvas.draw()
-        canvas.get_tk_widget().place(x=20,y=20)
-        return
-
     rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick)
     rotateImageButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
     selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate)
     selectTemplateButton.place(x= 2*((sampleImage.width())/4),y= (sampleImage.height() + 40))
     processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = processClick, state=tkinter.DISABLED)
     processButton.place(x= 3*((sampleImage.width())/4),y= (sampleImage.height() + 40))
+
     return processedSampleData
 
-def loadSamplesFromTsv():
-    participantsFile = tkinter.filedialog.askopenfilename()
-    # sampleList = []
-    print(participantsFile)
-    with open(os.path.join(participantsFile), newline='') as tsvfile:
-        tsvreader = csv.reader(tsvfile, delimiter='\t')
-        next(tsvreader)
-        sampleListWindow = tkinter.Toplevel()
-        t = tkinter.Listbox(sampleListWindow)
-        n = 1
-        for row in tsvreader:
-            t.insert(n, row[0])
-            n += 1
-            # templateList.append(row[1:])
-        t.pack()
+# def loadSamplesFromTsv():
+#     participantsFile = tkinter.filedialog.askopenfilename()
+#     # sampleList = []
+#     print(participantsFile)
+#     with open(os.path.join(participantsFile), newline='') as tsvfile:
+#         tsvreader = csv.reader(tsvfile, delimiter='\t')
+#         next(tsvreader)
+#         sampleListWindow = tkinter.Toplevel()
+#         t = tkinter.Listbox(sampleListWindow)
+#         n = 1
+#         for row in tsvreader:
+#             t.insert(n, row[0])
+#             n += 1
+#             # templateList.append(row[1:])
+#         t.pack()
 # maybe change from loadExperiment to loadMultipleSamples
 # load experiment will take as input one folder containing multiple sample folders as described for load sample
 sampleList = []
@@ -219,13 +215,39 @@ experimentalGroupList = []
 experiment = {'sample-id': sampleList,
               'rotation': rotationList,
               'experimental-group': experimentalGroupList}
-actSampleData = []
+# actSampleData = []
+nOfSamples = 0
 def loadExperiment():
-    global actSampleData
+    global sampleData
+    global sampleImage
+    global sampleImageMatrix
+    global processButton
+    global beginRegistrationButton
+    global sampleLabel
+    global rotateImageButton
+    global selectTemplateButton
+    global sampleWindow
+    global rotation
+    sampleWindow = tkinter.Toplevel(root)
     experimentPath = filedialog.askdirectory()
-    for i in os.listdir(experimentPath):
-        if os.path.isdir(os.path.join(experimentPath, i)):
-            actSampleData = importVisiumData(os.path.join(experimentPath, i))
+    for sampleDir in os.listdir(experimentPath):
+        if os.path.isdir(os.path.join(experimentPath, sampleDir)):
+            rotation = 0
+            sampleData = importVisiumData(os.path.join(experimentPath, sampleDir))
+            sampleImageMatrix = Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255))
+            sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
+            h = sampleImage.width() + 40
+            w = sampleImage.height() + 80
+            sampleWindow.geometry(f'{h}x{w}')
+            sampleLabel = tkinter.Label(sampleWindow,image=sampleImage)
+            sampleLabel.place(x=20,y=20)
+            rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick)
+            rotateImageButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
+            selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate)
+            selectTemplateButton.place(x= 2*((sampleImage.width())/4),y= (sampleImage.height() + 40))
+            processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = processClick, state=tkinter.DISABLED)
+            processButton.place(x= 3*((sampleImage.width())/4),y= (sampleImage.height() + 40))
+
     return experimentPath
 
 registeredData = []
@@ -239,17 +261,6 @@ def runSingleRegistration():
 
 def runGroupRegistration():
     return
-
-# def showSpots():
-#     global sampleWindow
-#     # figure size is defined in inches
-#     fig = Figure(figsize = (5, 5), dpi = 100)
-#     spotPlot = fig.add_subplot(1,1,1)
-#     spotPlot.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
-#     canvas = FigureCanvasTkAgg(fig, master = sampleWindow)  
-#     canvas.draw()
-#     canvas.get_tk_widget().place(x=20,y=20)
-#     return
 
 # outputLabel = tkinter.Label(root, text='Output directory').grid(row=0, column=2)
 # outputEntry = tkinter.Entry(root, textvariable=outputPath, bd = '5').grid(row=1,column=2)
