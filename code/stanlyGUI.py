@@ -27,7 +27,7 @@ from glob import glob
 # open window with set dimensions
 root = Tk()
 root.title('STANLy')
-root.geometry('500x500')
+root.geometry('300x300')
 
 # set directory for derivatives 
 # default is set to bids format starting from code folder
@@ -35,7 +35,6 @@ outputPath = '../derivatives'
 def setOutputDirectory():
     global outputPath
     outputPath = filedialog.askdirectory()
-
 
 templateSlicePath = '../data/allen10umSlices'
 templateLeftSliceImages = sorted(glob(os.path.join(templateSlicePath,"*LH*.png")))
@@ -135,6 +134,10 @@ def processClick():
     # sampleWindow.geometry(f"{processedSampleData['tissueRotated'].shape[0] + 40}x{processedSampleData['tissueRotated'].shape[1] + 80}")
     beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = registerClick)
     beginRegistrationButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
+def resetRotationButtonClick():
+    global rotation
+    rotation = 0
+    
 
 def registerClick():
     global sampleImage
@@ -146,7 +149,9 @@ def registerClick():
     sampleLabel.image = sampleImage
     beginRegistrationButton.destroy()
     showSpotsButton = tkinter.Button(sampleWindow, text= 'Show spots?', bd = '5', command = showSpots)
-    showSpotsButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
+    showSpotsButton.place(x= 3*(sampleImage.width())/4,y= (sampleImage.height() + 40))
+    resetRotationButton = tkinter.Button(sampleWindow, text='Reset rotation?', bd = '5', command = resetRotationButtonClick)
+    resetRotationButton.place(x = (sampleImage.width())/4,y= (sampleImage.height() + 40))
 def showSpots():
     # global sampleWindow
     # figure size is defined in inches
@@ -154,9 +159,13 @@ def showSpots():
     spotPlot = fig.add_subplot(1,1,1)
     spotPlot.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     spotPlot.invert_yaxis()
+    spotPlot.set_aspect('equal', 'box')
     canvas = FigureCanvasTkAgg(fig, master = sampleWindow)  
     canvas.draw()
     canvas.get_tk_widget().place(x=20,y=20)
+    return
+
+def displayGene():
     return
 sampleData = []
 processedSampleData = []
@@ -212,9 +221,19 @@ def loadSample():
 sampleList = []
 rotationList = []
 experimentalGroupList = []
-experiment = {'sample-id': sampleList,
-              'rotation': rotationList,
-              'experimental-group': experimentalGroupList}
+# experiment = {'sample-id': sampleList,
+              # 'rotation': rotationList,
+              # 'experimental-group': experimentalGroupList}
+class sampleClass:
+  def __init__(self, sampleID, rotation, experimentalGroup):
+    self.sampleID = sampleID
+    self.rotation = rotation
+    self.experimentalGroup = experimentalGroup
+    
+
+def addToExperiment():
+    sampleList.append()
+    return
 # actSampleData = []
 nOfSamples = 0
 def loadExperiment():
