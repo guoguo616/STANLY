@@ -5,7 +5,7 @@ Created on Sep 7 2022
 
 @author: zjpeters.
 """
-
+# %%
 # data being read in includes: json, h5, csv, nrrd, jpg, and svg
 from skimage import io, filters, color
 from skimage.transform import rescale, rotate
