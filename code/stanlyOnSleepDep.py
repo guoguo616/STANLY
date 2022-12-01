@@ -429,7 +429,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
             filteredFeatureMatrixMaskedIdx.append(i)
             transformedTissuePositionListFinal.append(templateRegisteredData['transformedTissuePositionList'][i])
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
-
+    templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     templateRegisteredData['filteredFeatureMatrixMasked'] = registeredVisium['filteredFeatureMatrixLog2'][:,filteredFeatureMatrixMaskedIdx]
     #sp_sparse.save_npz(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_OrderedLog2FeatureMatrixAllenTemplateMasked.npz", sp_sparse.csc_matrix(templateRegisteredData['filteredFeatureMatrixMasked']))
     cv2.imwrite(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png",templateRegisteredData['visiumTransformed'])
@@ -620,11 +620,12 @@ for i, regSample in enumerate(allSamplesToAllen):
     allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
         
 #%% read gene list from txt file
-geneListFromTxt = []
-with open('../seqdata/genesInSpatialTranscriptomicsStrooperPaperNoDescription.txt') as f:
-    for gene in f:
-        geneListFromTxt.append(gene.strip('\n'))
-        
+def loadGeneListFromTxt(locOfTextFile):
+    geneListFromTxt = []
+    with open(locOfTextFile) as f:
+        for gene in f:
+            geneListFromTxt.append(gene.strip('\n'))
+    return geneListFromTxt
 #### everything from here on out including experimental or control in variables needs to be reworked into functions
 #%% can now use this gene list to loop over expressed genes 
 import scipy
