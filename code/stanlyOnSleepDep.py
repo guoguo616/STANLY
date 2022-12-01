@@ -89,7 +89,8 @@ def importVisiumData(sampleFolder):
     # filtered_feature_bc_matrix.h5 output from space ranger
     visiumData = {}
     visiumData['imageData'] = io.imread(os.path.join(sampleFolder,"spatial","tissue_hires_image.png"))
-    visiumData['imageDataGray'] = color.rgb2gray(visiumData['imageData'])
+    # visiumData['imageDataGray'] = 1 - visiumData['imageData'][:,:,2]
+    visiumData['imageDataGray'] = 1 - color.rgb2gray(visiumData['imageData'])
     visiumData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
     tissuePositionsList = []
     tissueSpotBarcodes = []
@@ -183,7 +184,8 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['degreesOfRotation'] = rotation
     processedVisium['visiumGauss'] = filters.gaussian(visiumData['imageDataGray'], sigma=20)
     processedVisium['otsuThreshold'] = filters.threshold_otsu(processedVisium['visiumGauss'])
-    processedVisium['visiumOtsu'] = processedVisium['visiumGauss'] < processedVisium['otsuThreshold']
+    # changed to > for inv green channel, originally < below
+    processedVisium['visiumOtsu'] = processedVisium['visiumGauss'] > processedVisium['otsuThreshold']
     processedVisium['tissue'] = np.zeros(processedVisium['visiumGauss'].shape)
     processedVisium['tissue'][processedVisium['visiumOtsu']==True] = visiumData['imageDataGray'][processedVisium['visiumOtsu']==True]
     # why do i have the gaussian level switch here? should be consistent
