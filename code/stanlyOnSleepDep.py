@@ -261,7 +261,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
     type_of_transform='SyNBoldAff', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
-    syn_sampling=2.5, flow_sigma=1.5,syn_metric='meansquares', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
+    syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -336,8 +336,8 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     # mattes seems to be most conservative syn_metric
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNBoldAff', grad_step=0.1, reg_iterations=(140,120,100,80,60,40,20,0), \
-    syn_sampling=1.5, flow_sigma=1.5, syn_metric='meansquares', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
+    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
+    syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
@@ -437,6 +437,22 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     cv2.imwrite(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png",templateRegisteredData['visiumTransformed'])
 
     return templateRegisteredData
+
+#%% read gene list from txt file
+def loadGeneListFromTxt(locOfTextFile):
+    geneListFromTxt = []
+    with open(locOfTextFile) as f:
+        for gene in f:
+            geneListFromTxt.append(gene.strip('\n'))
+    return geneListFromTxt
+
+def loadGeneListFromCsv(locOfCsvFile):
+    geneListFromCsv = []
+    with open(locOfCsvFile, 'r', encoding='UTF8') as f:
+        sigGeneReader = csv.reader(f, delimiter=',')
+        for row in sigGeneReader:
+            geneListFromCsv.append(row[0])
+    return geneListFromCsv
 
 #%% import sample list, location, and degrees of rotation from participants.tsv
 #sampleList contains sample ids, templateList contains template slices and degrees of rotation to match
@@ -555,7 +571,7 @@ for row in range(len(roundedTemplateSpots)):
         inTissueTemplateSpots.append(templateSpots[row])
         
 inTissueTemplateSpots = np.array(inTissueTemplateSpots)
-plt.imshow(template['leftHem'])
+plt.imshow(bestSampleToTemplate['visiumTransformed'])
 plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], alpha=0.3)
 plt.show()
 
@@ -600,6 +616,14 @@ for i, regSample in enumerate(allSamplesToAllen):
     # removes any spots with fewer than 5000 total gene counts
     countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
     spotMask = countsPerSpot > 5000
+    spotCountMean = np.mean(countsPerSpot)
+    spotCountStD = np.std(countsPerSpot)
+    spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
+    plt.imshow(allSamplesToAllen[i]['visiumTransformed'],cmap='gray')
+    plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(spotCountZscore), alpha=0.8,plotnonfinite=False)
+    plt.title(f"Z-score of overall gene count per spot for {allSamplesToAllen[i]['sampleID']}")
+    plt.colorbar()
+    plt.show()
     allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
     allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
     # remove genes with no counts
@@ -621,13 +645,9 @@ for i, regSample in enumerate(allSamplesToAllen):
         continue
     allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
         
-#%% read gene list from txt file
-def loadGeneListFromTxt(locOfTextFile):
-    geneListFromTxt = []
-    with open(locOfTextFile) as f:
-        for gene in f:
-            geneListFromTxt.append(gene.strip('\n'))
-    return geneListFromTxt
+
+
+
 #### everything from here on out including experimental or control in variables needs to be reworked into functions
 #%% can now use this gene list to loop over expressed genes 
 import scipy
