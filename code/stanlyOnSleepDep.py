@@ -517,63 +517,6 @@ for actSample in range(len(experimentalResults)):
     allSamplesToAllen[actSample] = regSampleToTemplate
     
 #%% create digital spots for allen template
-# can probably incorporate into import template function
-# working on orange crate packing, currently giving roughly 103 spots/mm2 compared to ~118spots/mm2 in original visium slice
-
-# currently working in 10 space, requiring spot coordinates to be divided by 10 at end of calculation
-# this is mostly to allow modulo calculation
-# templateSpots = []
-# # need to work out the proper scaline, but this is roughly the number of spots/sample as visium slices
-# ################
-# # tested at 18 #
-# ################
-# spotDiameter = 18
-# w = np.sqrt(3) * (spotDiameter/2)   # width of pointy up hexagon
-# h = spotDiameter    # height of pointy up hexagon
-# # startingEvenX = spotDiameter/2
-# # 54.5 is adjusted to make the modulo % work corectly below
-# # startingOddX = startingEvenX + spotDiameter
-# # startingEvenY = spotDiameter/2
-# # startingOddY = startingEvenY + spotDiameter
-# # templateSpots = [[0], [0]]
-# currentX = 0
-# currentY = 0
-# rowCount = 0
-
-# while currentY < template['leftHem'].shape[0]:
-    
-#     if currentX < template['leftHem'].shape[1]:
-#         templateSpots.append([currentX, currentY])
-#         currentX += w
-#     elif (currentX > template['leftHem'].shape[1]):
-#         # templateSpots.append([currentX, currentY])
-#         rowCount += 1
-#         currentY += h * (3/4)
-#         if ((currentY < template['leftHem'].shape[0]) and (rowCount % 2)):
-#             currentX = w/2
-#         else:
-#             currentX = 0
-#     elif ((currentX > template['leftHem'].shape[1] * 10) and (currentY > template['leftHem'].shape[0] * 10)):
-#         print("something is wrong")
-
-# templateSpots = np.array(templateSpots)
-
-# # now to remove non-tissue spots
-# roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
-
-# inTissueTemplateSpots = []
-# for row in range(len(roundedTemplateSpots)):
-#     # 15 in the following is to erode around the edge of the brain
-#     # if template['leftHem'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 15:
-#     #     inTissueTemplateSpots.append(templateSpots[row])
-        
-#     if bestSampleToTemplate['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
-#         inTissueTemplateSpots.append(templateSpots[row])
-        
-# inTissueTemplateSpots = np.array(inTissueTemplateSpots)
-# plt.imshow(bestSampleToTemplate['visiumTransformed'])
-# plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], alpha=0.3)
-# plt.show()
 
 def createDigitalSpots(inputTemplate, desiredSpotSize):
     w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
@@ -608,16 +551,17 @@ def createDigitalSpots(inputTemplate, desiredSpotSize):
             maskedTemplateSpots.append(templateSpots[row])
             
     maskedTemplateSpots = np.array(maskedTemplateSpots)
-    plt.imshow(inputTemplate['leftHem'])
-    plt.scatter(maskedTemplateSpots[:,0],maskedTemplateSpots[:,1], alpha=0.3)
-    plt.show()
+    # uncomment following 3 lines to see the digital template spots
+    # plt.imshow(inputTemplate['leftHem'])
+    # plt.scatter(maskedTemplateSpots[:,0],maskedTemplateSpots[:,1], alpha=0.3)
+    # plt.show()
     return maskedTemplateSpots
 
+# so far testing has been done at a spot diameter of 18 pixels
 spotDiameter = 18
 
 inTissueTemplateSpots = createDigitalSpots(template, spotDiameter)
 #%% next find nearest neighbor in digital allen spots for each sample spot
-# import math # might need math.sqrt
 # assuming 1 spot with 6 neighbors
 
 def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots, kNN):
@@ -647,7 +591,7 @@ def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots, 
     # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
 
-#%% this line needs to be incorporated into one of the functions, so only run once
+#%% this cell needs to be incorporated into one of the functions, so only run once
 
 kSpots = 7
 nDigitalSpots = len(inTissueTemplateSpots)
@@ -677,7 +621,11 @@ for i, regSample in enumerate(allSamplesToAllen):
     allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
     allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
     allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[i]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
+
+# limiting factors to consider: minimum # of reads per spot
+def experimentCleanup(visiumExperiment, spotMin=5000, ):
     
+    return
 #%% compare gene lists and find genes present in all samples
 # create list of genes present to all slices
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
@@ -685,9 +633,6 @@ for i, regSample in enumerate(allSamplesToAllen):
     if i == 0:
         continue
     allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
-        
-
-
 
 #### everything from here on out including experimental or control in variables needs to be reworked into functions
 #%% can now use this gene list to loop over expressed genes 
