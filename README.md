@@ -3,6 +3,7 @@ STANLy (**S**patial **T**ranscriptomic **A**lignment **N**on**L**inearl**y**) is
 
 # Data Structure
 Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)](bids.neuroimaging.io/), so that within an experimental folder there is a code folder for any code used to analyze the experiment, a derivatives folder which will contain all processed images and data, and a rawdata folder which contains the output data from [SpaceRanger](https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/what-is-space-ranger) for each sample, i.e.:
+
     rawdata ->
         sample-01 ->
             spatial
