@@ -25,7 +25,7 @@ import tables
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
 derivatives = "../derivatives"
-rawdata = "../rawdata/sleepDepBothBatches"
+rawdata = "../rawdata"
 
 # need to think about best way to load allen data given the size
 # ara_nissl_10 is 10 um, ara_nissl_100 is 100um
