@@ -2,7 +2,7 @@
 
 close all; clear; clc
 rawdata=fullfile('/','home','zjpeters','Documents','visiumalignment','rawdata');
-
+derivatives = fullfile('/','home','zjpeters','Documents','visiumalignment','derivatives');
 datafolder=fullfile('/','home','zjpeters','Documents','visiumalignment','data');
 imageSlice = imread(fullfile(datafolder,'allen10umSlices','allen10umLHSlice0700.png'));
 tissue = imread(fullfile(rawdata,'sample-01','spatial','tissue_hires_image.png'));
@@ -41,3 +41,9 @@ figure; histogram(1 - minMaxGrey); title('Histogram of [1 - Visium]');
 
 greyHistMatched = 1 - minMaxGrey;
 figure; imshow(greyHistMatched)
+
+
+%% view tissue slice from stanly
+
+sample01tissueSlice = imread(fullfile(derivatives,'sample-01','sample-01_tissue.png'));
+imshow(sample01tissueSlice,[])

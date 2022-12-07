@@ -7,21 +7,24 @@ Created on Sep 7 2022
 """
 # %%
 # data being read in includes: json, h5, csv, nrrd, jpg, and svg
+import os
 from skimage import io, filters, color
 from skimage.transform import rescale, rotate
 from skimage.exposure import match_histograms
 from matplotlib import pyplot as plt
-import os
+import matplotlib.colors as mcolors
 import numpy as np
 import json
 import csv
 import cv2
 from glob import glob
 import ants
+import scipy
 import scipy.spatial as sp_spatial
 import scipy.sparse as sp_sparse
 import collections
 import tables
+import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
 derivatives = "../derivatives"
@@ -186,7 +189,7 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['otsuThreshold'] = filters.threshold_otsu(processedVisium['visiumGauss'])
     # changed to > for inv green channel, originally < below
     processedVisium['visiumOtsu'] = processedVisium['visiumGauss'] > processedVisium['otsuThreshold']
-    processedVisium['tissue'] = np.zeros(processedVisium['visiumGauss'].shape)
+    processedVisium['tissue'] = np.zeros(processedVisium['visiumGauss'].shape, dtype='float32')
     processedVisium['tissue'][processedVisium['visiumOtsu']==True] = visiumData['imageDataGray'][processedVisium['visiumOtsu']==True]
     # why do i have the gaussian level switch here? should be consistent
     processedVisium['visiumGauss'] = filters.gaussian(visiumData['imageDataGray'], sigma=5)
@@ -213,20 +216,12 @@ def processVisiumData(visiumData, templateData, rotation):
     # plt.plot(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1],marker='.', c='red', alpha=0.2)
     # plt.show()
     
-    # no need to keep the dense version in the processedVisium dictionary since the necessary information is in the ordered matrix
-    denseMatrix = visiumData["filteredFeatureMatrix"][2]
-    denseMatrix = denseMatrix.todense()
-    filteredFeatureMatrixString = []
-    for bytebarcode in visiumData['filteredFeatureMatrix'][1]:
-        filteredFeatureMatrixString.append(bytebarcode.decode())
-    processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixString 
-
+    
     filteredFeatureMatrixGeneString = []
     for bytegene in visiumData['filteredFeatureMatrix'][0]['name']:
         filteredFeatureMatrixGeneString.append(bytegene.decode())
     processedVisium['filteredFeatureMatrixGeneList'] = filteredFeatureMatrixGeneString
     header=['x','y','z','t','label','comment']
-    # csvFormat = []
     rowFormat = []
     with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv", 'w', encoding='UTF8') as f:
         writer = csv.writer(f)
@@ -239,12 +234,34 @@ def processVisiumData(visiumData, templateData, rotation):
     # processedVisium['tissuePointsForTransform'] = np.array(csvFormat)
     
     # this orders the filtered feature matrix so that the columns are in the order of the coordinate list, so barcodes no longer necessary
+    filteredFeatureMatrixString = []
+    for bytebarcode in visiumData['filteredFeatureMatrix'][1]:
+        filteredFeatureMatrixString.append(bytebarcode.decode())
+    processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixString 
+
     filteredFeatureMatrixBarcodeReorder = []
     for actbarcode in processedVisium['tissueSpotBarcodeList']:
         filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
-    
+    # no need to keep the dense version in the processedVisium dictionary since the necessary information is in the ordered matrix and coordinates
+    denseMatrix = visiumData["filteredFeatureMatrix"][2]
+    denseMatrix = denseMatrix.todense()
+
     processedVisium['filteredFeatureMatrixOrdered'] = denseMatrix[:,filteredFeatureMatrixBarcodeReorder]
     processedVisium['filteredFeatureMatrixLog2'] = np.log2((processedVisium['filteredFeatureMatrixOrdered'] + 1))
+    
+    countsPerSpot = np.sum(processedVisium['filteredFeatureMatrixOrdered'],axis=0)
+    spotMask = countsPerSpot > 5000
+    spotCountMean = np.mean(countsPerSpot)
+    spotCountStD = np.std(countsPerSpot)
+    spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
+    # plt.imshow(allSamplesToAllen[i]['visiumTransformed'],cmap='gray')
+    # plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(spotCountZscore), alpha=0.8,plotnonfinite=False)
+    plt.imshow( processedVisium['tissueRotated'])
+    plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(spotCountZscore), alpha=0.8)
+    plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
+    plt.colorbar()
+    plt.show()
+    
     sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", sp_sparse.csc_matrix(processedVisium['filteredFeatureMatrixOrdered']))
     # np.savetxt("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.csv", processedVisium['filteredFeatureMatrixOrdered'], delimiter=",")
             
@@ -488,9 +505,9 @@ truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
 
 processedSamples = {}
 
-for actSample in range(len(truncExperiment['sample-id'])):
-    sample = importVisiumData(os.path.join(rawdata, truncExperiment['sample-id'][actSample]))
-    sampleProcessed = processVisiumData(sample, template, truncExperiment['rotation'][actSample])
+for actSample in range(len(experiment['sample-id'])):
+    sample = importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+    sampleProcessed = processVisiumData(sample, template, experiment['rotation'][actSample])
     processedSamples[actSample] = sampleProcessed
 
 #%% register to "best" sample
@@ -544,7 +561,7 @@ def createDigitalSpots(inputTemplate, desiredSpotSize):
 
     # remove non-tissue spots
     roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
-
+    ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
     maskedTemplateSpots = []
     for row in range(len(roundedTemplateSpots)):
         if bestSampleToTemplate['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
@@ -636,12 +653,6 @@ for i, regSample in enumerate(allSamplesToAllen):
 
 #### everything from here on out including experimental or control in variables needs to be reworked into functions
 #%% can now use this gene list to loop over expressed genes 
-import scipy
-# from statsmodels.stats.multitest import multipletests
-import matplotlib.colors as mcolors
-import time
-
-
 # 'Arc','Egr1','Lars2','Ccl4'
 testGeneList = ['Arc','Egr1']
 caudoputamenGeneList = ['Adora2a','Drd2','Pde10a','Drd1','Scn4b','Gpr6','Ido1','Adcy5','Rasd2','Meis2','Lars2','Ccl4']

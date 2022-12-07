@@ -2,7 +2,7 @@
 STANLy (**S**patial **T**ranscriptomic **A**lignment **N**on**L**inearl**y**) is a set of tools that utilizes the imaging data from spatial transcriptomic experiments such as Visium to register multiple images from into a common coordinate space to allow a truly spatial analysis of transcriptomic data. This toolbox is built in Python using tools from [Advanced Normalization Tools (ANTs)](http://stnava.github.io/ANTs/) and [The Allen Software Development Kit (SDK)](https://allensdk.readthedocs.io/en/latest/). Once aligned into a common space, we create 'digital' spots for each sample based on a selection of nearest neighbors and use these spots to run differential statistics on the experiment.
 
 # Data Structure
-Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)](bids.neuroimaging.io/), so that within an experimental folder there is a code folder for any code used to analyze the experiment, a derivatives folder which will contain all processed images and data, and a rawdata folder which contains the output data from [SpaceRanger](https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/what-is-space-ranger) for each sample, i.e.:
+Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)](bids.neuroimaging.io/), so that within an experimental folder there is a code folder for any code used to analyze the experiment, a derivatives folder which will contain all processed images and data, and a rawdata folder which contains the spatial folder and .h5 file from [SpaceRanger](https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/what-is-space-ranger) for each sample, i.e.:
 
     rawdata ->
         sample-01 ->
