@@ -488,18 +488,22 @@ with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
 templateList = np.array(templateList, dtype='int')
         
 # list of good images
-imageList = [0,1, 2, 3, 4, 5, 6, 7, 8, 10, 13]
+imageList = [0,1,2,3,4,5,6,7,8,9,10,11,13]
 
-experiment = {'sample-id': sampleList,
-              'template-slice': templateList[:,0],
-              'rotation': templateList[:,1],
-              'experimental-group': templateList[:,2]}
-
-truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
+experiment = {'sample-id': np.asarray(sampleList)[imageList],
                     'template-slice': templateList[imageList,0],
                     'rotation': templateList[imageList,1],
                     'experimental-group': templateList[imageList,2]}
+# original experiment/truncExperiment before 12/7/22 
+# experiment = {'sample-id': sampleList,
+#               'template-slice': templateList[:,0],
+#               'rotation': templateList[:,1],
+#               'experimental-group': templateList[:,2]}
 
+# truncExperiment = {'sample-id': np.asarray(sampleList)[imageList],
+#                     'template-slice': templateList[imageList,0],
+#                     'rotation': templateList[imageList,1],
+#                     'experimental-group': templateList[imageList,2]}
 #%% import sample data
 # working on below bit
 
@@ -670,8 +674,8 @@ listOfSigGenes220812 = ['Tdp1','Oxsm','Homer1','Katna1','Slc52a3','Btaf1','Aff3'
 
 start_time = time.time()
 
-nSampleExperimental = sum(truncExperiment['experimental-group'])
-nSampleControl = len(truncExperiment['experimental-group']) - nSampleExperimental
+nSampleExperimental = sum(experiment['experimental-group'])
+nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 
 alphaSidak = 1 - np.power((1 - 0.05),(1/nDigitalSpots))
 # alphaSidak = 5e-8
@@ -702,12 +706,12 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
                 
         spotCount = np.nanmean(geneCount, axis=1)
         nTestedSamples += 1
-        if truncExperiment['experimental-group'][actSample] == 0:
+        if experiment['experimental-group'][actSample] == 0:
             digitalSamplesControl[:,startControl:stopControl] = geneCount
             startControl += kSpots
             stopControl += kSpots
             nControls += 1
-        elif truncExperiment['experimental-group'][actSample] == 1:
+        elif experiment['experimental-group'][actSample] == 1:
             digitalSamplesExperimental[:,startExperimental:stopExperimental] = geneCount
             startExperimental += kSpots
             stopExperimental += kSpots

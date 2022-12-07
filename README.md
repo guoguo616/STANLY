@@ -15,5 +15,3 @@ Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)
 
 # Registration
 Images are prepared for analysis by first creating rotating the images into the same orientation as the template. Whenever a change is performed to the image we must also transform the corresponding spots, which we can do by applying the transformation acquired from the image registration to the XY coordinates of the spots. We use the Allen Common Coordinate Framework for our analysis, and in doing so aligned our images to the corresponding Nissl stained CCF image. Since the images collected by Visium are hematoxylin and eosin (H&E) stained we have used the inverted greyscale image in our registration, as this better matched the intensity distribution of the CCF Nissl Stains.
-
-# Analysis
