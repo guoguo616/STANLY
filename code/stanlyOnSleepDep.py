@@ -26,8 +26,8 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "/home/zjpeters/rdss_tnj/visiumalignment/derivatives"
-rawdata = "/home/zjpeters/rdss_tnj/visiumalignment/rawdata"
+derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
+rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -80,8 +80,6 @@ def get_matrix_from_h5(filename):
 end of code from 10x
 """
 
-#%%
-# imports the "tissue_hires_image.png" output from spaceranger to register to allen ccf
 """ the general workflow should go as follows:
     1. import visium data that has been run through spaceranger pipeline
     2. import relevant atlas images and annotations from allen atlas
@@ -197,7 +195,6 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['tissue'][processedVisium['visiumOtsu']==True] = visiumData['imageDataGray'][processedVisium['visiumOtsu']==True]
     # why do i have the gaussian level switch here? should be consistent
     processedVisium['visiumGauss'] = filters.gaussian(visiumData['imageDataGray'], sigma=5)
-    # removed following line, seems to clear when it shouldn't
     processedVisium['tissueGauss'] = np.zeros(processedVisium['visiumGauss'].shape)
     processedVisium['tissueGauss'][processedVisium['visiumOtsu']==True] = processedVisium['visiumGauss'][processedVisium['visiumOtsu']==True]
 
@@ -215,55 +212,61 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['tissueHistMatched'] = processedVisium['tissueHistMatched'] - processedVisium['tissueHistMatched'].min()
     processedVisium['tissuePointsRotated'] = rotateTissuePoints(visiumData, rotation)
     processedVisium['tissuePointsResized'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
-    processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
-    processedVisium['tissuePointsResizedForTransform'][:,[0,1]] = processedVisium['tissuePointsResizedForTransform'][:,[1,0]]
+    # processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
+    # processedVisium['tissuePointsResizedForTransform'][:,[0,1]] = processedVisium['tissuePointsResizedForTransform'][:,[1,0]]
     
-    filteredFeatureMatrixGeneString = []
-    for bytegene in visiumData['filteredFeatureMatrix'][0]['name']:
-        filteredFeatureMatrixGeneString.append(bytegene.decode())
-    processedVisium['filteredFeatureMatrixGeneList'] = filteredFeatureMatrixGeneString
-    header=['x','y','z','t','label','comment']
-    rowFormat = []
-    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv", 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        for i in range(len(processedVisium['tissuePointsResizedForTransform'])):
-            rowFormat = [processedVisium['tissuePointsResizedForTransform'][i,0]] + [processedVisium['tissuePointsResizedForTransform'][i,1]] + [0] + [0] + [0] + [0]
-            writer.writerow(rowFormat)
-            # csvFormat.append(rowFormat)
-            
-    # this orders the filtered feature matrix so that the columns are in the order of the coordinate list, so barcodes no longer necessary
-    filteredFeatureMatrixString = []
-    for bytebarcode in visiumData['filteredFeatureMatrix'][1]:
-        filteredFeatureMatrixString.append(bytebarcode.decode())
-    processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixString 
+    filteredFeatureMatrixGeneList = []
+    for geneName in visiumData['filteredFeatureMatrix'][0]['name']:
+        filteredFeatureMatrixGeneList.append(geneName.decode())
+    processedVisium['filteredFeatureMatrixGeneList'] = filteredFeatureMatrixGeneList
 
-    filteredFeatureMatrixBarcodeReorder = []
+    # this orders the filtered feature matrix so that the columns are in the order of the coordinate list, so barcodes no longer necessary
+    filteredFeatureMatrixBarcodeList = []
+    for barcodeID in visiumData['filteredFeatureMatrix'][1]:
+        filteredFeatureMatrixBarcodeList.append(barcodeID.decode())
+    processedVisium['filteredFeatureMatrixBarcodeList'] = filteredFeatureMatrixBarcodeList 
+
+    tissueSpotBarcodeListSorted = []
     for actbarcode in processedVisium['tissueSpotBarcodeList']:
-        filteredFeatureMatrixBarcodeReorder.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
+        tissueSpotBarcodeListSorted.append(processedVisium['filteredFeatureMatrixBarcodeList'].index(actbarcode))
     # no need to keep the dense version in the processedVisium dictionary since the necessary information is in the ordered matrix and coordinates
+    processedVisium['tissueSpotBarcodeListSorted'] = tissueSpotBarcodeListSorted
     denseMatrix = visiumData["filteredFeatureMatrix"][2]
     denseMatrix = denseMatrix.todense()
-    orderedDenseMatrix = denseMatrix[:,filteredFeatureMatrixBarcodeReorder]
+    orderedDenseMatrix = denseMatrix[:,tissueSpotBarcodeListSorted]
     countsPerSpot = np.sum(orderedDenseMatrix,axis=0)
-    spotMask = countsPerSpot > 5000
     spotCountMean = np.mean(countsPerSpot)
     spotCountStD = np.std(countsPerSpot)
     spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
-    orderedDenseMatrixSpotMasked = orderedDenseMatrix[:,np.squeeze(np.array(spotMask))]
-    allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
-    processedVisium['filteredFeatureMatrixOrdered'] = sp_sparse.coo_matrix(orderedDenseMatrix)
-    processedVisium['filteredFeatureMatrixLog2'] = np.log2((orderedDenseMatrix + 1))
+    spotMask = countsPerSpot > 5000
+    spotMask = np.squeeze(np.array(spotMask))
+    countsPerGene = np.count_nonzero(np.array(orderedDenseMatrix),axis=1, keepdims=True)
+    geneMask = countsPerGene > 30
+    geneMask = np.squeeze(np.array(geneMask))
+    orderedDenseMatrixSpotMasked = orderedDenseMatrix[:,spotMask]
+    orderedDenseMatrixSpotMasked = orderedDenseMatrix[geneMask,:]
+    processedVisium['countMaskedTissuePositionList'] = processedVisium['tissuePointsResized'][spotMask,:]
+    processedVisium['filteredFeatureMatrixOrdered'] = sp_sparse.csc_matrix(orderedDenseMatrixSpotMasked)
+    processedVisium['filteredFeatureMatrixLog2'] = sp_sparse.csc_matrix(np.log2((orderedDenseMatrixSpotMasked + 1)))
     plt.imshow( processedVisium['tissueRotated'], cmap='gray')
     plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(spotCountZscore), alpha=0.8)
     plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
     plt.colorbar()
     plt.show()
     
-    sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", sp_sparse.csc_matrix(processedVisium['filteredFeatureMatrixOrdered']))
-    # np.savetxt("f{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.csv", processedVisium['filteredFeatureMatrixOrdered'], delimiter=",")
+    # write outputs
+    sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", processedVisium['filteredFeatureMatrixOrdered'])
             
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",processedVisium['tissue'])
+    
+    header=['x','y','z','t','label','comment']
+    rowFormat = []
+    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for i in range(len(processedVisium['countMaskedTissuePositionList'])):
+            rowFormat = [processedVisium['countMaskedTissuePositionList'][i,1]] + [processedVisium['countMaskedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
+            writer.writerow(rowFormat)
     return processedVisium
 
 # think about replacing processedVisium with visiumExperiment that would be like the experiment option below
@@ -295,6 +298,10 @@ def runANTsToAllenRegistration(processedVisium, templateData):
             csvreader = csv.reader(csvfile, delimiter=',')
             next(csvreader)
             for row in csvreader:
+                #####################
+                # should be able to fix with:
+                # transformedTissuePositionList.append(row[1,0])
+                # then remove the two rows for transformedTissuePositionList
                 transformedTissuePositionList.append(row)
                 
     registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
@@ -453,7 +460,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
 
     return templateRegisteredData
 
-#%% read gene list from txt file
+# read gene list from txt or csv file
 def loadGeneListFromTxt(locOfTextFile):
     geneListFromTxt = []
     with open(locOfTextFile) as f:
@@ -618,18 +625,18 @@ nTotalSamples = len(allSamplesToAllen)
 for i, regSample in enumerate(allSamplesToAllen):
         
     # removes any spots with fewer than 5000 total gene counts
-    countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
-    spotMask = countsPerSpot > 5000
-    spotCountMean = np.mean(countsPerSpot)
-    spotCountStD = np.std(countsPerSpot)
-    spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
-    plt.imshow(allSamplesToAllen[i]['visiumTransformed'],cmap='gray')
-    plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(spotCountZscore), alpha=0.8,plotnonfinite=False)
-    plt.title(f"Z-score of overall gene count per spot for {allSamplesToAllen[i]['sampleID']}")
-    plt.colorbar()
-    plt.show()
-    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
-    allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
+    # countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
+    # spotMask = countsPerSpot > 5000
+    # spotCountMean = np.mean(countsPerSpot)
+    # spotCountStD = np.std(countsPerSpot)
+    # spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
+    # plt.imshow(allSamplesToAllen[i]['visiumTransformed'],cmap='gray')
+    # plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(spotCountZscore), alpha=0.8,plotnonfinite=False)
+    # plt.title(f"Z-score of overall gene count per spot for {allSamplesToAllen[i]['sampleID']}")
+    # plt.colorbar()
+    # plt.show()
+    # allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
+    # allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
     # remove genes with no counts
     countsPerGene = np.count_nonzero(np.array(allSamplesToAllen[i]['filteredFeatureMatrixMasked']),axis=1, keepdims=True)
     geneMask = countsPerGene > 30
