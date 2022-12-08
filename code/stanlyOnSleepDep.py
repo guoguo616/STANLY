@@ -5,7 +5,6 @@ Created on Sep 7 2022
 
 @author: zjpeters.
 """
-# %%
 # data being read in includes: json, h5, csv, nrrd, jpg, and svg
 import os
 from skimage import io, filters, color
@@ -27,9 +26,13 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "../derivatives"
-rawdata = "../rawdata"
-
+derivatives = "/home/zjpeters/rdss_tnj/visiumalignment/derivatives"
+rawdata = "/home/zjpeters/rdss_tnj/visiumalignment/rawdata"
+# next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
+codePath = os.path.realpath(os.path.dirname(__file__))
+refDataPath = codePath.split('/')
+del refDataPath[-1]
+refDataPath = os.path.join('/',*refDataPath)
 # need to think about best way to load allen data given the size
 # ara_nissl_10 is 10 um, ara_nissl_100 is 100um
 
@@ -87,6 +90,7 @@ end of code from 10x
     5. bring remaining visium data, such as spot coordinates, into allen space using above transformations
     6. measure for nearest neighbor similarity among spots in new space and create a vector that represents the nearest neighbors from each slice
 """
+
 def importVisiumData(sampleFolder):
     # this currently assumes that sampleFolder contains spatial folder and the
     # filtered_feature_bc_matrix.h5 output from space ranger
@@ -120,8 +124,8 @@ def importVisiumData(sampleFolder):
 
 # use to select which allen slice to align visium data to and import relevant data
 def chooseTemplateSlice(sliceLocation):
-    ara_data = ants.image_read("../data/ccf/ara_nissl_10.nrrd")
-    annotation_data = ants.image_read("../data/ccf/annotation_10.nrrd")
+    ara_data = ants.image_read(os.path.join(refDataPath,'data','ccf','ara_nissl_10.nrrd'))
+    annotation_data = ants.image_read(os.path.join(refDataPath,'data','ccf','annotation_10.nrrd'))
     templateData = {}
     bestSlice = sliceLocation * 10
     templateSlice = ara_data.slice_image(0,(bestSlice))
@@ -193,6 +197,7 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['tissue'][processedVisium['visiumOtsu']==True] = visiumData['imageDataGray'][processedVisium['visiumOtsu']==True]
     # why do i have the gaussian level switch here? should be consistent
     processedVisium['visiumGauss'] = filters.gaussian(visiumData['imageDataGray'], sigma=5)
+    # removed following line, seems to clear when it shouldn't
     processedVisium['tissueGauss'] = np.zeros(processedVisium['visiumGauss'].shape)
     processedVisium['tissueGauss'][processedVisium['visiumOtsu']==True] = processedVisium['visiumGauss'][processedVisium['visiumOtsu']==True]
 
@@ -212,10 +217,6 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['tissuePointsResized'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     processedVisium['tissuePointsResizedForTransform'][:,[0,1]] = processedVisium['tissuePointsResizedForTransform'][:,[1,0]]
-    # plt.imshow( processedVisium['tissueRotated'])
-    # plt.plot(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1],marker='.', c='red', alpha=0.2)
-    # plt.show()
-    
     
     filteredFeatureMatrixGeneString = []
     for bytegene in visiumData['filteredFeatureMatrix'][0]['name']:
@@ -231,8 +232,6 @@ def processVisiumData(visiumData, templateData, rotation):
             writer.writerow(rowFormat)
             # csvFormat.append(rowFormat)
             
-    # processedVisium['tissuePointsForTransform'] = np.array(csvFormat)
-    
     # this orders the filtered feature matrix so that the columns are in the order of the coordinate list, so barcodes no longer necessary
     filteredFeatureMatrixString = []
     for bytebarcode in visiumData['filteredFeatureMatrix'][1]:
@@ -245,17 +244,16 @@ def processVisiumData(visiumData, templateData, rotation):
     # no need to keep the dense version in the processedVisium dictionary since the necessary information is in the ordered matrix and coordinates
     denseMatrix = visiumData["filteredFeatureMatrix"][2]
     denseMatrix = denseMatrix.todense()
-
-    processedVisium['filteredFeatureMatrixOrdered'] = denseMatrix[:,filteredFeatureMatrixBarcodeReorder]
-    processedVisium['filteredFeatureMatrixLog2'] = np.log2((processedVisium['filteredFeatureMatrixOrdered'] + 1))
-    
-    countsPerSpot = np.sum(processedVisium['filteredFeatureMatrixOrdered'],axis=0)
+    orderedDenseMatrix = denseMatrix[:,filteredFeatureMatrixBarcodeReorder]
+    countsPerSpot = np.sum(orderedDenseMatrix,axis=0)
     spotMask = countsPerSpot > 5000
     spotCountMean = np.mean(countsPerSpot)
     spotCountStD = np.std(countsPerSpot)
     spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
-    # plt.imshow(allSamplesToAllen[i]['visiumTransformed'],cmap='gray')
-    # plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(spotCountZscore), alpha=0.8,plotnonfinite=False)
+    orderedDenseMatrixSpotMasked = orderedDenseMatrix[:,np.squeeze(np.array(spotMask))]
+    allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
+    processedVisium['filteredFeatureMatrixOrdered'] = sp_sparse.coo_matrix(orderedDenseMatrix)
+    processedVisium['filteredFeatureMatrixLog2'] = np.log2((orderedDenseMatrix + 1))
     plt.imshow( processedVisium['tissueRotated'], cmap='gray')
     plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(spotCountZscore), alpha=0.8)
     plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
@@ -353,7 +351,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     # mattes seems to be most conservative syn_metric
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.2, reg_iterations=(120, 100,80,60,40,20,0), \
+    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
     syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
