@@ -256,7 +256,7 @@ def processVisiumData(visiumData, templateData, rotation):
     spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
     # plt.imshow(allSamplesToAllen[i]['visiumTransformed'],cmap='gray')
     # plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(spotCountZscore), alpha=0.8,plotnonfinite=False)
-    plt.imshow( processedVisium['tissueRotated'])
+    plt.imshow( processedVisium['tissueRotated'], cmap='gray')
     plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(spotCountZscore), alpha=0.8)
     plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
     plt.colorbar()
@@ -353,7 +353,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     sampleAntsImage = ants.from_numpy(processedVisium['tissueHistMatched'])
     # mattes seems to be most conservative syn_metric
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
+    type_of_transform='SyNAggro', grad_step=0.2, reg_iterations=(120, 100,80,60,40,20,0), \
     syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
     registeredData['antsOutput'] = synXfm
     registeredData['sampleID'] = processedVisium['sampleID']
