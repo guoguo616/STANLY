@@ -26,8 +26,8 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
-rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
+derivatives = "/home/zjpeters/rdss_tnj/visiumalignment/derivatives"
+rawdata = "/home/zjpeters/rdss_tnj/visiumalignment/rawdata"
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -242,7 +242,9 @@ def processVisiumData(visiumData, templateData, rotation):
     spotMask = np.squeeze(np.array(spotMask))
     countsPerGene = np.count_nonzero(np.array(orderedDenseMatrix),axis=1, keepdims=True)
     geneMask = countsPerGene > 30
-    geneMask = np.squeeze(np.array(geneMask))
+    geneMask = np.squeeze(np.array(geneMask))    
+    wholeGeneList = np.array(processedVisium['filteredFeatureMatrixGeneList'])
+    processedVisium['geneListMasked'] = wholeGeneList[geneMask].tolist()
     orderedDenseMatrixSpotMasked = orderedDenseMatrix[:,spotMask]
     orderedDenseMatrixSpotMasked = orderedDenseMatrix[geneMask,:]
     processedVisium['countMaskedTissuePositionList'] = processedVisium['tissuePointsResized'][spotMask,:]
@@ -306,6 +308,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
                 
     registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
     registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
+    registeredData['geneListMasked'] = processedVisium['geneListMasked']
     registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype=float)
     # switching x,y columns back to python compatible and deleting empty columns
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
@@ -385,6 +388,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
                 
     registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
     registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
+    registeredData['geneListMasked'] = processedVisium['geneListMasked']
 
     registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype=float)
     # switching x,y columns back to python compatible and deleting empty columns
@@ -433,6 +437,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     templateRegisteredData['transformedTissuePositionList'] = np.delete(templateRegisteredData['transformedTissuePositionList'], [2,3,4,5],1)
     templateRegisteredData["tissueSpotBarcodeList"] = registeredVisium['tissueSpotBarcodeList']
     templateRegisteredData['filteredFeatureMatrixGeneList'] = registeredVisium['filteredFeatureMatrixGeneList']
+    templateRegisteredData['geneListMasked'] = registeredVisium['geneListMasked']
 
     plt.imshow(templateRegisteredData['visiumTransformed'])
     plt.scatter(templateRegisteredData['transformedTissuePositionList'][0:,0],templateRegisteredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
@@ -642,15 +647,15 @@ for i, regSample in enumerate(allSamplesToAllen):
     # allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
     # allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
     # remove genes with no counts
-    countsPerGene = np.count_nonzero(np.array(allSamplesToAllen[i]['filteredFeatureMatrixMasked']),axis=1, keepdims=True)
-    geneMask = countsPerGene > 30
+    # countsPerGene = np.count_nonzero(np.array(allSamplesToAllen[i]['filteredFeatureMatrixMasked']),axis=1, keepdims=True)
+    # geneMask = countsPerGene > 30
     # np.count_nonzero(allSamplesToAllen[i]['filteredFeatureMatrixMasked'][geneIndex,:])
-    allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
-    geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
+    # allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
+    # geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
     actNN, actCDist = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots)
-    allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
+    # allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
     allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
-    allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[i]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
+    # allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[i]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
 
 # limiting factors to consider: minimum # of reads per spot
 def experimentCleanup(visiumExperiment, spotMin=5000, ):
