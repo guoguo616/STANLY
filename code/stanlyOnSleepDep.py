@@ -336,7 +336,8 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
 
     # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
-    registeredData['filteredFeatureMatrixMasked'] = processedVisium['filteredFeatureMatrixLog2'][:,filteredFeatureMatrixMaskedIdx]
+    tempDenseMatrix = processedVisium['filteredFeatureMatrixLog2'].todense()
+    registeredData['filteredFeatureMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # write re-ordered filtered feature matrix csv to match tissue spot order
     # csvFormat = []
     # rowFormat = []
@@ -454,11 +455,81 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
             transformedTissuePositionListFinal.append(templateRegisteredData['transformedTissuePositionList'][i])
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
     templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
-    templateRegisteredData['filteredFeatureMatrixMasked'] = registeredVisium['filteredFeatureMatrixLog2'][:,filteredFeatureMatrixMaskedIdx]
+    tempDenseMatrix = registeredVisium['filteredFeatureMatrixLog2'].todense()
+    templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     #sp_sparse.save_npz(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_OrderedLog2FeatureMatrixAllenTemplateMasked.npz", sp_sparse.csc_matrix(templateRegisteredData['filteredFeatureMatrixMasked']))
     cv2.imwrite(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png",templateRegisteredData['visiumTransformed'])
 
     return templateRegisteredData
+
+# create digital spots for an allen template slice
+def createDigitalSpots(templateData, desiredSpotSize):
+    w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
+    h = desiredSpotSize    # height of pointy up hexagon
+    currentX = 0
+    currentY = 0
+    rowCount = 0
+    templateSpots = []
+    while currentY < templateData['leftHem'].shape[0]:
+        if currentX < templateData['leftHem'].shape[1]:
+            templateSpots.append([currentX, currentY])
+            currentX += w
+        elif (currentX > templateData['leftHem'].shape[1]):
+            # templateSpots.append([currentX, currentY])
+            rowCount += 1
+            currentY += h * (3/4)
+            if ((currentY < templateData['leftHem'].shape[0]) and (rowCount % 2)):
+                currentX = w/2
+            else:
+                currentX = 0
+        elif ((currentX > templateData['leftHem'].shape[1] * 10) and (currentY > templateData['leftHem'].shape[0] * 10)):
+            print("something is wrong")
+
+    templateSpots = np.array(templateSpots)
+
+    # remove non-tissue spots
+    roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
+    ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
+    maskedTemplateSpots = []
+    for row in range(len(roundedTemplateSpots)):
+        if bestSampleToTemplate['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
+            maskedTemplateSpots.append(templateSpots[row])
+            
+    maskedTemplateSpots = np.array(maskedTemplateSpots)
+    # uncomment following 3 lines to see the digital template spots
+    plt.imshow(templateData['leftHem'])
+    plt.scatter(maskedTemplateSpots[:,0],maskedTemplateSpots[:,1], alpha=0.3)
+    plt.show()
+    return maskedTemplateSpots
+
+# find nearest neighbor in digital allen spots for each sample spot
+# kNN assuming 1 spot with 6 neighbors
+def findDigitalNearestNeighbors(maskedTemplateSpots, templateRegisteredSpots, kNN):
+    # finds distance between current spot and list
+    allSpotNN = []
+    allMeanCdists = []
+    for actSpot in maskedTemplateSpots:
+        spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
+        sortedSpotCdist = np.sort(spotCdist, axis=0)
+        actSpotCdist = sortedSpotCdist[0:kNN]
+        # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
+        spotMeanCdist = np.mean(actSpotCdist)
+        blankIdx = np.zeros([kNN,1], dtype=int)
+        spotNNIdx = []
+        for i in actSpotCdist:
+            if spotMeanCdist < 30:
+                actNNIdx = np.where(spotCdist == i)[0]
+                spotNNIdx.append(actNNIdx[:])
+            else:
+                # should probably change this from 0s to something like -1
+                spotNNIdx = blankIdx
+            
+        allMeanCdists.append(spotMeanCdist)
+        allSpotNN.append(np.array(spotNNIdx))
+        
+    allSpotNN = np.squeeze(np.array(allSpotNN))
+    # should be able to add threshold that removes any spots with a mean cdist > some value
+    return allSpotNN, allMeanCdists
 
 # read gene list from txt or csv file
 def loadGeneListFromTxt(locOfTextFile):
@@ -542,80 +613,13 @@ for actSample in range(len(experimentalResults)):
     regSampleToTemplate = applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template)
     allSamplesToAllen[actSample] = regSampleToTemplate
     
-#%% create digital spots for allen template
 
-def createDigitalSpots(inputTemplate, desiredSpotSize):
-    w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
-    h = desiredSpotSize    # height of pointy up hexagon
-    currentX = 0
-    currentY = 0
-    rowCount = 0
-    templateSpots = []
-    while currentY < inputTemplate['leftHem'].shape[0]:
-        if currentX < inputTemplate['leftHem'].shape[1]:
-            templateSpots.append([currentX, currentY])
-            currentX += w
-        elif (currentX > inputTemplate['leftHem'].shape[1]):
-            # templateSpots.append([currentX, currentY])
-            rowCount += 1
-            currentY += h * (3/4)
-            if ((currentY < inputTemplate['leftHem'].shape[0]) and (rowCount % 2)):
-                currentX = w/2
-            else:
-                currentX = 0
-        elif ((currentX > inputTemplate['leftHem'].shape[1] * 10) and (currentY > inputTemplate['leftHem'].shape[0] * 10)):
-            print("something is wrong")
-
-    templateSpots = np.array(templateSpots)
-
-    # remove non-tissue spots
-    roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
-    ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
-    maskedTemplateSpots = []
-    for row in range(len(roundedTemplateSpots)):
-        if bestSampleToTemplate['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
-            maskedTemplateSpots.append(templateSpots[row])
-            
-    maskedTemplateSpots = np.array(maskedTemplateSpots)
-    # uncomment following 3 lines to see the digital template spots
-    # plt.imshow(inputTemplate['leftHem'])
-    # plt.scatter(maskedTemplateSpots[:,0],maskedTemplateSpots[:,1], alpha=0.3)
-    # plt.show()
-    return maskedTemplateSpots
 
 # so far testing has been done at a spot diameter of 18 pixels
 spotDiameter = 18
 
 inTissueTemplateSpots = createDigitalSpots(template, spotDiameter)
-#%% next find nearest neighbor in digital allen spots for each sample spot
-# assuming 1 spot with 6 neighbors
 
-def findDigitalNearestNeighbors(templateSpotsToSearch, templateRegisteredSpots, kNN):
-    # finds distance between current spot and list
-    allSpotNN = []
-    allMeanCdists = []
-    for actSpot in templateSpotsToSearch:
-        spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
-        sortedSpotCdist = np.sort(spotCdist, axis=0)
-        actSpotCdist = sortedSpotCdist[0:kNN]
-        # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
-        spotMeanCdist = np.mean(actSpotCdist)
-        blankIdx = np.zeros([kNN,1], dtype=int)
-        spotNNIdx = []
-        for i in actSpotCdist:
-            if spotMeanCdist < 30:
-                actNNIdx = np.where(spotCdist == i)[0]
-                spotNNIdx.append(actNNIdx[:])
-            else:
-                # should probably change this from 0s to something like -1
-                spotNNIdx = blankIdx
-            
-        allMeanCdists.append(spotMeanCdist)
-        allSpotNN.append(np.array(spotNNIdx))
-        
-    allSpotNN = np.squeeze(np.array(allSpotNN))
-    # should be able to add threshold that removes any spots with a mean cdist > some value
-    return allSpotNN, allMeanCdists
 
 #%% this cell needs to be incorporated into one of the functions, so only run once
 
