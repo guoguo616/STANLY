@@ -26,8 +26,8 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
-rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
+derivatives = "/home/zjpeters/rdss_tnj/visiumalignment/derivatives"
+rawdata = "/home/zjpeters/rdss_tnj/visiumalignment/rawdata"
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
