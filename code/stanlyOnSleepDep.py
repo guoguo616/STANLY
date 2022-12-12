@@ -26,8 +26,8 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "/home/zjpeters/rdss_tnj/visiumalignment/derivatives"
-rawdata = "/home/zjpeters/rdss_tnj/visiumalignment/rawdata"
+derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
+rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -461,7 +461,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
     templateRegisteredData['maskedTissuePositionList'] = np.array(transformedTissuePositionListFinal, dtype=float)
     tempDenseMatrix = registeredVisium['filteredFeatureMatrixLog2'].todense()
-    templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
+    templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     #sp_sparse.save_npz(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_OrderedLog2FeatureMatrixAllenTemplateMasked.npz", sp_sparse.csc_matrix(templateRegisteredData['filteredFeatureMatrixMasked']))
     cv2.imwrite(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png",templateRegisteredData['visiumTransformed'])
 
@@ -495,25 +495,25 @@ def createDigitalSpots(templateData, desiredSpotSize):
     # remove non-tissue spots
     roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
     ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
-    maskedTemplateSpots = []
+    digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
         if bestSampleToTemplate['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
-            maskedTemplateSpots.append(templateSpots[row])
+            digitalSpots.append(templateSpots[row])
             
-    maskedTemplateSpots = np.array(maskedTemplateSpots)
+    digitalSpots = np.array(digitalSpots)
     # uncomment following 3 lines to see the digital template spots
     plt.imshow(templateData['leftHem'])
-    plt.scatter(maskedTemplateSpots[:,0],maskedTemplateSpots[:,1], alpha=0.3)
+    plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
     plt.show()
-    return maskedTemplateSpots
+    return digitalSpots
 
 # find nearest neighbor in digital allen spots for each sample spot
 # kNN assuming 1 spot with 6 neighbors
-def findDigitalNearestNeighbors(maskedTemplateSpots, templateRegisteredSpots, kNN):
+def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN):
     # finds distance between current spot and list
     allSpotNN = []
     allMeanCdists = []
-    for actSpot in maskedTemplateSpots:
+    for actSpot in digitalSpots:
         spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
         sortedSpotCdist = np.sort(spotCdist, axis=0)
         actSpotCdist = sortedSpotCdist[0:kNN]
@@ -586,7 +586,6 @@ experiment = {'sample-id': np.asarray(sampleList)[imageList],
 #                     'rotation': templateList[imageList,1],
 #                     'experimental-group': templateList[imageList,2]}
 #%% import sample data
-# working on below bit
 
 processedSamples = {}
 
@@ -606,85 +605,51 @@ for actSample in range(len(processedSamples)):
     sampleRegistered = runANTsInterSampleRegistration(processedSamples[actSample], bestSample)
     experimentalResults[actSample] = sampleRegistered
 
-
 #%%##########################################
 # CHECK FOR ACCURACY OF ABOVE REGISTRATIONS #
 #############################################
 
 del(processedSamples)
-#%% 
+#%% register all samples to CCF
 allSamplesToAllen = {}
 for actSample in range(len(experimentalResults)):
     regSampleToTemplate = applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template)
     allSamplesToAllen[actSample] = regSampleToTemplate
     
-
-
+#%% digital spot creation
 # so far testing has been done at a spot diameter of 18 pixels
 spotDiameter = 18
 
-inTissueTemplateSpots = createDigitalSpots(template, spotDiameter)
-
-
-#%% this cell needs to be incorporated into one of the functions, so only run once
+templateDigitalSpots = createDigitalSpots(template, spotDiameter)
 
 kSpots = 7
-nDigitalSpots = len(inTissueTemplateSpots)
+nDigitalSpots = len(templateDigitalSpots)
 nTotalSamples = len(allSamplesToAllen)
-for i, regSample in enumerate(allSamplesToAllen):
-        
-    # removes any spots with fewer than 5000 total gene counts
-    # countsPerSpot = np.sum(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=0)
-    # spotMask = countsPerSpot > 5000
-    # spotCountMean = np.mean(countsPerSpot)
-    # spotCountStD = np.std(countsPerSpot)
-    # spotCountZscore = (countsPerSpot - spotCountMean) / spotCountStD
-    # plt.imshow(allSamplesToAllen[i]['visiumTransformed'],cmap='gray')
-    # plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(spotCountZscore), alpha=0.8,plotnonfinite=False)
-    # plt.title(f"Z-score of overall gene count per spot for {allSamplesToAllen[i]['sampleID']}")
-    # plt.colorbar()
-    # plt.show()
-    # allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][:,np.squeeze(np.array(spotMask))]
-    # allSamplesToAllen[i]['maskedTissuePositionList'] = allSamplesToAllen[i]['maskedTissuePositionList'][np.squeeze(np.array(spotMask)),:]
-    # remove genes with no counts
-    # countsPerGene = np.count_nonzero(np.array(allSamplesToAllen[i]['filteredFeatureMatrixMasked']),axis=1, keepdims=True)
-    # geneMask = countsPerGene > 30
-    # np.count_nonzero(allSamplesToAllen[i]['filteredFeatureMatrixMasked'][geneIndex,:])
-    # allSamplesToAllen[i]['filteredFeatureMatrixMasked'] = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][np.squeeze(np.array(geneMask)),:]
-    # geneMaskedGeneList = np.array(allSamplesToAllen[i]['filteredFeatureMatrixGeneList'])[np.squeeze(np.array(geneMask))]
-    actNN, actCDist = findDigitalNearestNeighbors(inTissueTemplateSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots)
-    # allSamplesToAllen[i]['geneListMasked'] = np.ndarray.tolist(geneMaskedGeneList)
-    allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
-    # allSamplesToAllen[i]['zScoredFeatureMatrixMasked'] = (allSamplesToAllen[i]['filteredFeatureMatrixMasked'] - np.mean(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)) / np.std(allSamplesToAllen[i]['filteredFeatureMatrixMasked'],axis=1)
 
-# limiting factors to consider: minimum # of reads per spot
-def experimentCleanup(visiumExperiment, spotMin=5000, ):
-    
-    return
-#%% compare gene lists and find genes present in all samples
-# create list of genes present to all slices
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
-for i, regSample in enumerate(allSamplesToAllen):
+for i, regSample in enumerate(allSamplesToAllen):        
+    actNN, actCDist = findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots)
+    allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
+    # creates a list of genes present in all samples
     if i == 0:
         continue
-    allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
+    else:
+        allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
 
 #### everything from here on out including experimental or control in variables needs to be reworked into functions
 #%% can now use this gene list to loop over expressed genes 
 # 'Arc','Egr1','Lars2','Ccl4'
-testGeneList = ['Arc','Egr1']
-caudoputamenGeneList = ['Adora2a','Drd2','Pde10a','Drd1','Scn4b','Gpr6','Ido1','Adcy5','Rasd2','Meis2','Lars2','Ccl4']
-allocortexGeneList = ['Nptxr','Lmo3','Slc30a3','Syn2','Snca','Ccn3','Bmp3','Olfm1','Ldha','Tafa2']
-fibertractsGeneList = ['Plp1','Mag','Opalin','Cnp','Trf','Cldn11','Cryab','Mobp','Qdpr','Sept4']
-hippocampalregionGeneList = ['Wipf3','Cabp7','Cnih2','Gria1','Ptk2b','Cebpb','Nr3c2','Lct','Arhgef25','Epha7']
-hypothalamusGeneList = ['Gpx3','Resp18','AW551984','Minar2','Nap1l5','Gabrq','Pcbd1','Sparc','Vat1','6330403K07Rik']
-neocortexGeneList = ['1110008P14Rik','Ccl27a','Mef2c','Tbr1','Cox8a','Snap25','Nrgn','Vxn','Efhd2','Satb2']
-striatumlikeGeneList = ['Hap1','Scn5a','Pnck','Ahi1','Snhg11','Galnt16','Pnmal2','Baiap3','Ly6h','Meg3']
-thalamusGeneList = ['Plekhg1','Tcf7l2','Ntng1','Ramp3','Rora','Patj','Rgs16','Nsmf','Ptpn4','Rab37']
-testGeneList = testGeneList + caudoputamenGeneList + allocortexGeneList + fibertractsGeneList + hippocampalregionGeneList + hypothalamusGeneList + neocortexGeneList + striatumlikeGeneList + thalamusGeneList
-sigGenes = []
-
-listOfSigGenes220812 = ['Tdp1','Oxsm','Homer1','Katna1','Slc52a3','Btaf1','Aff3','Gm10561','Mtrf1l','Ergic2','Lims1','Gpr3','Serinc2','Arc','Vgf','Trib1','Itpkc','Ier5','Cep57l1','Dlx5','Ccdc151','Tfr2','Colgalt2','Camk1g','Mir124a-1hg','Gm27003','Tnfrsf25','Npas4','Rgs6','Gm21887','Synj2']
+# testGeneList = ['Arc','Egr1']
+# caudoputamenGeneList = ['Adora2a','Drd2','Pde10a','Drd1','Scn4b','Gpr6','Ido1','Adcy5','Rasd2','Meis2','Lars2','Ccl4']
+# allocortexGeneList = ['Nptxr','Lmo3','Slc30a3','Syn2','Snca','Ccn3','Bmp3','Olfm1','Ldha','Tafa2']
+# fibertractsGeneList = ['Plp1','Mag','Opalin','Cnp','Trf','Cldn11','Cryab','Mobp','Qdpr','Sept4']
+# hippocampalregionGeneList = ['Wipf3','Cabp7','Cnih2','Gria1','Ptk2b','Cebpb','Nr3c2','Lct','Arhgef25','Epha7']
+# hypothalamusGeneList = ['Gpx3','Resp18','AW551984','Minar2','Nap1l5','Gabrq','Pcbd1','Sparc','Vat1','6330403K07Rik']
+# neocortexGeneList = ['1110008P14Rik','Ccl27a','Mef2c','Tbr1','Cox8a','Snap25','Nrgn','Vxn','Efhd2','Satb2']
+# striatumlikeGeneList = ['Hap1','Scn5a','Pnck','Ahi1','Snhg11','Galnt16','Pnmal2','Baiap3','Ly6h','Meg3']
+# thalamusGeneList = ['Plekhg1','Tcf7l2','Ntng1','Ramp3','Rora','Patj','Rgs16','Nsmf','Ptpn4','Rab37']
+# testGeneList = testGeneList + caudoputamenGeneList + allocortexGeneList + fibertractsGeneList + hippocampalregionGeneList + hypothalamusGeneList + neocortexGeneList + striatumlikeGeneList + thalamusGeneList
+# listOfSigGenes220812 = ['Tdp1','Oxsm','Homer1','Katna1','Slc52a3','Btaf1','Aff3','Gm10561','Mtrf1l','Ergic2','Lims1','Gpr3','Serinc2','Arc','Vgf','Trib1','Itpkc','Ier5','Cep57l1','Dlx5','Ccdc151','Tfr2','Colgalt2','Camk1g','Mir124a-1hg','Gm27003','Tnfrsf25','Npas4','Rgs6','Gm21887','Synj2']
 
 start_time = time.time()
 
@@ -694,7 +659,9 @@ nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 alphaSidak = 1 - np.power((1 - 0.05),(1/nDigitalSpots))
 # alphaSidak = 5e-8
 # list(allSampleGeneList)[0:1000]
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+geneList = allSampleGeneList
+sigGenes = []
+for nOfGenesChecked,actGene in enumerate(geneList):
     digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
     digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
     startControl = 0
@@ -716,7 +683,11 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             if np.all(spots[1] < 0):
                 geneCount[spots[0]] = 0
             else:
-                geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][geneIndex,np.asarray(spots[1], dtype=int)]
+                spotij = np.zeros([7,2], dtype=int)
+                spotij[:,1] = np.asarray(spots[1], dtype=int)
+                spotij[:,0] = geneIndex
+                
+                geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][spotij[:,0],spotij[:,1]]
                 
         spotCount = np.nanmean(geneCount, axis=1)
         nTestedSamples += 1
@@ -748,7 +719,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
     else:
         testControlSamples = digitalSamplesControl[checkAllSamples,:] 
         testExperimentalSamples = digitalSamplesExperimental[checkAllSamples,:]
-        testSpotCoordinates = inTissueTemplateSpots[checkAllSamples,:]
+        testSpotCoordinates = templateDigitalSpots[checkAllSamples,:]
         maskedDigitalSamplesControl = np.zeros(digitalSamplesControl.shape)
         maskedDigitalSamplesExperimental = np.zeros(digitalSamplesExperimental.shape)
         maskedDigitalSamplesControl[checkAllSamples,:] = digitalSamplesControl[checkAllSamples,:]
@@ -765,7 +736,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
         spotThr = 20 #0.05 * nDigitalSpots
         if sum(mulCompResults) > spotThr:
             sigGenes.append(actGene)
-            maskedDigitalCoordinates = inTissueTemplateSpots[np.array(mulCompResults)]
+            maskedDigitalCoordinates = templateDigitalSpots[np.array(mulCompResults)]
             maskedTstats = actTtest[0][mulCompResults]
             maskedDigitalCoordinates = np.array(maskedDigitalCoordinates)
             medianDigitalControl = np.nanmedian(digitalSamplesControl,axis=1)
@@ -783,21 +754,21 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             maxGeneCount = np.nanmax([medianDigitalControl,medianDigitalExperimental])
             # display mean gene count for control group            
             plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
-            plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalControl[0]), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds')
+            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl[0]), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds')
             plt.title(f'Mean gene count for {actGene}, non sleep deprived')
             plt.colorbar()
             plt.savefig(os.path.join(derivatives,f'meanGeneCount{actGene}Control.png'), bbox_inches='tight', dpi=300)
             plt.show()
             # display mean gene count for experimental group
             plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
-            plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(meanDigitalExperimental[0]), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds')
+            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental[0]), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds')
             plt.title(f'Mean gene count for {actGene}, sleep deprived')
             plt.colorbar()
             plt.savefig(os.path.join(derivatives,f'meanGeneCount{actGene}SleepDep.png'), bbox_inches='tight', dpi=300)
             plt.show()
             # display t statistics
             plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
-            plt.scatter(inTissueTemplateSpots[:,0],inTissueTemplateSpots[:,1], c=np.array(actTtest[0]), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
+            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTtest[0]), cmap='seismic',alpha=0.8,norm=zeroCenteredCmap,plotnonfinite=False)
             plt.title(f't-statistic for {actGene}.')
             plt.colorbar()
             plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep.png'), bbox_inches='tight', dpi=300)
