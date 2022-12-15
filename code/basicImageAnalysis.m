@@ -1,11 +1,11 @@
 %% import rawdata
 
 close all; clear; clc
-rawdata=fullfile('/','home','zjpeters','Documents','visiumalignment','rawdata');
-derivatives = fullfile('/','home','zjpeters','Documents','visiumalignment','derivatives');
-datafolder=fullfile('/','home','zjpeters','Documents','visiumalignment','data');
-imageSlice = imread(fullfile(datafolder,'allen10umSlices','allen10umLHSlice0700.png'));
-tissue = imread(fullfile(rawdata,'sample-01','spatial','tissue_hires_image.png'));
+rawdata=fullfile('/','home','zjpeters','rdss_tnj','visiumalignment','rawdata');
+derivatives = fullfile('/','home','zjpeters','rdss_tnj','visiumalignment','derivatives');
+datafolder=fullfile('/','home','zjpeters','rdss_tnj','visiumalignment','data');
+imageSlice = imread(fullfile(datafolder,'allen10umSlices','allen10umcoronalLHSlice0700.png'));
+tissue = imread(fullfile(rawdata,'sample-05','spatial','tissue_hires_image.png'));
 tissueRed = tissue(:,:,1);
 tissueGreen = tissue(:,:,2);
 tissueBlue = tissue(:,:,3);

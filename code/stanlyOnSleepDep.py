@@ -26,8 +26,8 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
-rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
+derivatives = "/home/zjpeters/rdss_tnj/visiumalignment/derivatives"
+rawdata = "/home/zjpeters/rdss_tnj/visiumalignment/rawdata"
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -491,7 +491,6 @@ def createDigitalSpots(templateData, desiredSpotSize):
             templateSpots.append([currentX, currentY])
             currentX += w
         elif (currentX > templateData['leftHem'].shape[1]):
-            # templateSpots.append([currentX, currentY])
             rowCount += 1
             currentY += h * (3/4)
             if ((currentY < templateData['leftHem'].shape[0]) and (rowCount % 2)):
@@ -632,7 +631,7 @@ for actSample in range(len(experimentalResults)):
     
 #%% digital spot creation
 # so far testing has been done at a spot diameter of 18 pixels
-spotDiameter = 20
+spotDiameter = 18
 
 templateDigitalSpots = createDigitalSpots(template, spotDiameter)
 
