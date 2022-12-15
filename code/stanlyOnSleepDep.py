@@ -237,7 +237,7 @@ def processVisiumData(visiumData, templateData, rotation):
     countsPerSpot = np.sum(orderedDenseMatrix,axis=0)
     countsPerSpotMean = np.mean(countsPerSpot)
     countsPerSpotStD = np.std(countsPerSpot)
-    spotCountZscore = (countsPerSpot - countsPerSpotMean) / countsPerSpotStD
+    countsPerSpotZscore = (countsPerSpot - countsPerSpotMean) / countsPerSpotStD
     spotMask = countsPerSpot > 5000
     spotMask = np.squeeze(np.array(spotMask))
     countsPerGene = np.count_nonzero(np.array(orderedDenseMatrix),axis=1, keepdims=True)
@@ -252,8 +252,17 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['countMaskedTissuePositionList'] = processedVisium['tissuePointsResized'][spotMask,:]
     processedVisium['filteredFeatureMatrixOrdered'] = sp_sparse.csc_matrix(orderedDenseMatrixSpotMasked)
     processedVisium['filteredFeatureMatrixLog2'] = sp_sparse.csc_matrix(np.log2((orderedDenseMatrixSpotMasked + 1)))
+    
+    finiteMin=np.min(countsPerSpotZscore)
+    finiteMax=np.max(countsPerSpotZscore)
+    zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
+    # plt.imshow( processedVisium['tissueRotated'], cmap='gray')
+    # plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(countsPerSpot), alpha=0.8)
+    # plt.title(f"Total gene count per spot for {processedVisium['sampleID']}")
+    # plt.colorbar()
+    # plt.show()
     plt.imshow( processedVisium['tissueRotated'], cmap='gray')
-    plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(spotCountZscore), alpha=0.8)
+    plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(countsPerSpotZscore), alpha=0.8, cmap='seismic', norm=zeroCenteredCmap)
     plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
     plt.colorbar()
     plt.show()
@@ -623,7 +632,7 @@ for actSample in range(len(experimentalResults)):
     
 #%% digital spot creation
 # so far testing has been done at a spot diameter of 18 pixels
-spotDiameter = 15
+spotDiameter = 20
 
 templateDigitalSpots = createDigitalSpots(template, spotDiameter)
 
