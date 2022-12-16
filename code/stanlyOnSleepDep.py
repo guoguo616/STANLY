@@ -26,8 +26,8 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "/home/zjpeters/rdss_tnj/visiumalignment/derivatives"
-rawdata = "/home/zjpeters/rdss_tnj/visiumalignment/rawdata"
+derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
+rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -262,7 +262,7 @@ def processVisiumData(visiumData, templateData, rotation):
     # plt.colorbar()
     # plt.show()
     plt.imshow( processedVisium['tissueRotated'], cmap='gray')
-    plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(countsPerSpotZscore), alpha=0.8, cmap='seismic', norm=zeroCenteredCmap)
+    plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(countsPerSpotZscore), alpha=0.8, cmap='seismic', norm=zeroCenteredCmap, marker='.')
     plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
     plt.colorbar()
     plt.show()
@@ -754,8 +754,10 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             maskedDigitalCoordinates = np.array(maskedDigitalCoordinates)
             medianDigitalControl = np.nanmedian(digitalSamplesControl,axis=1)
             medianDigitalExperimental = np.nanmedian(digitalSamplesExperimental,axis=1)
-            meanDigitalControl = scipy.stats.mode(digitalSamplesControl,axis=1)
-            meanDigitalExperimental = scipy.stats.mode(digitalSamplesExperimental,axis=1)
+            # meanDigitalControl = scipy.stats.mode(digitalSamplesControl,axis=1)
+            # meanDigitalExperimental = scipy.stats.mode(digitalSamplesExperimental,axis=1)
+            meanDigitalControl = np.nanmean(digitalSamplesControl,axis=1)
+            meanDigitalExperimental = np.nanmean(digitalSamplesExperimental,axis=1)
             finiteMin = np.nanmin(actTtest[0])
             finiteMax = np.nanmax(actTtest[0])
             if finiteMin > 0:
@@ -767,14 +769,14 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             maxGeneCount = np.nanmax([medianDigitalControl,medianDigitalExperimental])
             # display mean gene count for control group            
             plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
-            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl[0]), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title(f'Mean gene count for {actGene}, non sleep deprived')
             plt.colorbar()
             plt.savefig(os.path.join(derivatives,f'meanGeneCount{actGene}Control.png'), bbox_inches='tight', dpi=300)
             plt.show()
             # display mean gene count for experimental group
             plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
-            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental[0]), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title(f'Mean gene count for {actGene}, sleep deprived')
             plt.colorbar()
             plt.savefig(os.path.join(derivatives,f'meanGeneCount{actGene}SleepDep.png'), bbox_inches='tight', dpi=300)
