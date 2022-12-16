@@ -479,25 +479,25 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     return templateRegisteredData
 
 # create digital spots for an allen template slice
-def createDigitalSpots(templateData, desiredSpotSize):
+def createDigitalSpots(templateRegisteredData, desiredSpotSize):
     w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
     h = desiredSpotSize    # height of pointy up hexagon
     currentX = 0
     currentY = 0
     rowCount = 0
     templateSpots = []
-    while currentY < templateData['leftHem'].shape[0]:
-        if currentX < templateData['leftHem'].shape[1]:
+    while currentY < templateRegisteredData['visiumTransformed'].shape[0]:
+        if currentX < templateRegisteredData['visiumTransformed'].shape[1]:
             templateSpots.append([currentX, currentY])
             currentX += w
-        elif (currentX > templateData['leftHem'].shape[1]):
+        elif (currentX > templateRegisteredData['visiumTransformed'].shape[1]):
             rowCount += 1
             currentY += h * (3/4)
-            if ((currentY < templateData['leftHem'].shape[0]) and (rowCount % 2)):
+            if ((currentY < templateRegisteredData['visiumTransformed'].shape[0]) and (rowCount % 2)):
                 currentX = w/2
             else:
                 currentX = 0
-        elif ((currentX > templateData['leftHem'].shape[1] * 10) and (currentY > templateData['leftHem'].shape[0] * 10)):
+        elif ((currentX > templateRegisteredData['visiumTransformed'].shape[1] * 10) and (currentY > templateRegisteredData['visiumTransformed'].shape[0] * 10)):
             print("something is wrong")
 
     templateSpots = np.array(templateSpots)
@@ -507,12 +507,12 @@ def createDigitalSpots(templateData, desiredSpotSize):
     ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
     digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
-        if bestSampleToTemplate['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
+        if templateRegisteredData['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
             digitalSpots.append(templateSpots[row])
             
     digitalSpots = np.array(digitalSpots)
     # uncomment following 3 lines to see the digital template spots
-    plt.imshow(templateData['leftHem'])
+    plt.imshow(templateRegisteredData['visiumTransformed'])
     plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
     plt.show()
     return digitalSpots
@@ -561,3 +561,11 @@ def loadGeneListFromCsv(locOfCsvFile):
         for row in sigGeneReader:
             geneListFromCsv.append(row[0])
     return geneListFromCsv
+
+def setExperimentalFolder(locOfExpFolder):
+    global rawdata
+    global derivatives
+    rawdata = os.path.join(locOfExpFolder, 'rawdata')
+    derivatives = os.path.join(locOfExpFolder, 'derivatives')
+    return rawdata, derivatives
+    
