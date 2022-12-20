@@ -24,8 +24,6 @@ rhinalFissure = tree.get_structures_by_name(['rhinal fissure'])
 rhinalFissure3dMask = rsp.make_structure_mask([rhinalFissure[0]['id']])
 rhinalFissureMask = rhinalFissure3dMask[700,:,570:]
 
-plt.imshow(hippocampalMask)
-plt.show()
 bestTemplateSlice10 = bestTemplateSlice * 10
 plt.imshow(bestSampleToTemplate['visiumTransformed'])
 plt.imshow(hippocampalMask, alpha=0.3)

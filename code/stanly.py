@@ -26,8 +26,8 @@ import tables
 import time
 # from scipy.spatial.distance import pdist, squareform, cosine, cdist
 # setting up paths
-derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
-rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
+# derivatives = "/home/zjpeters/Documents/visiumalignment/derivatives"
+# rawdata = "/home/zjpeters/Documents/visiumalignment/rawdata"
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -141,11 +141,25 @@ def chooseTemplateSlice(sliceLocation):
     templateData['sliceNumber'] = sliceLocation
     templateData['leftHem'] = templateLeft
     templateData['rightHem'] = templateRight
-    templateData['leftHemAnnot'] = templateAnnotationLeft
-    templateData['rightHemAnnot'] = templateAnnotationRight
+    templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int')
+    templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int')
     # currently using the 10um resolution atlas, would need to change if that changes
     templateData['startingResolution'] = 0.01
-    
+    annotation_id = []
+    annotation_name = []
+    structure_id_path = []
+    with open(os.path.join(refDataPath,'data','ccf','allen_ccf_annotation.csv'), newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            # imports the annotation id, and full name
+            annotation_id.append(row[3])
+            annotation_name.append(row[4])
+            structure_id_path.append(row[7])
+
+    templateData['annotationID'] = annotation_id
+    templateData['annotationName'] = annotation_name
+    templateData['structureIDPath'] = structure_id_path
     return templateData
 
 # tissue coordinates should reference output of importVisiumData
@@ -161,7 +175,7 @@ def rotateTissuePoints(visiumData, rotation):
         # a null step, but makes for continuous math
         rotMat = [[1,0],[0,1]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
+        # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
     elif rotation == 90:
         rotMat = [[0,-1],[1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
@@ -175,6 +189,11 @@ def rotateTissuePoints(visiumData, rotation):
         rotMat = [[0,1],[-1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageDataGray"].shape[0]
+    elif rotation == -180:
+        rotMat = [[1,0],[0,-1]]
+        tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+        # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
+        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageDataGray"].shape[0]
     else:
         print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
     
@@ -207,10 +226,17 @@ def processVisiumData(visiumData, templateData, rotation):
     processedVisium['tissueNormalized'] = cv2.normalize(processedVisium['tissueGauss'], None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     processedVisium['resolutionRatio'] = visiumData['spotStartingResolution'] / templateData['startingResolution']
     processedVisium['tissueResized'] = rescale(processedVisium['tissueNormalized'],processedVisium['resolutionRatio'])
-    processedVisium['tissueRotated'] = rotate(processedVisium['tissueResized'], rotation, resize=True)
+    if rotation < 0:
+        processedVisium['tissuePointsRotated'] = rotateTissuePoints(visiumData, rotation)
+        rotation = rotation * -1
+        processedVisium['tissueRotated'] = rotate(processedVisium['tissueResized'], rotation, resize=True)
+        processedVisium['tissueRotated'] = processedVisium['tissueRotated'][:,::-1]
+    else:
+        processedVisium['tissueRotated'] = rotate(processedVisium['tissueResized'], rotation, resize=True)
+        processedVisium['tissuePointsRotated'] = rotateTissuePoints(visiumData, rotation)
     processedVisium['tissueHistMatched'] = match_histograms(processedVisium['tissueRotated'], templateData['leftHem'])
     processedVisium['tissueHistMatched'] = processedVisium['tissueHistMatched'] - processedVisium['tissueHistMatched'].min()
-    processedVisium['tissuePointsRotated'] = rotateTissuePoints(visiumData, rotation)
+    
     processedVisium['tissuePointsResized'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     # processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     # processedVisium['tissuePointsResizedForTransform'][:,[0,1]] = processedVisium['tissuePointsResizedForTransform'][:,[1,0]]
@@ -246,7 +272,7 @@ def processVisiumData(visiumData, templateData, rotation):
     wholeGeneList = np.array(processedVisium['filteredFeatureMatrixGeneList'])
     processedVisium['geneListMasked'] = wholeGeneList[geneMask].tolist()
     orderedDenseMatrixSpotMasked = orderedDenseMatrix[:,spotMask]
-    orderedDenseMatrixSpotMasked = orderedDenseMatrix[geneMask,:]
+    orderedDenseMatrixSpotMasked = orderedDenseMatrixSpotMasked[geneMask,:]
     processedVisium['spotCount'] = orderedDenseMatrixSpotMasked.shape[1]
     print(f"{processedVisium['sampleID']} has {processedVisium['spotCount']} spots")
     processedVisium['countMaskedTissuePositionList'] = processedVisium['tissuePointsResized'][spotMask,:]
@@ -261,20 +287,20 @@ def processVisiumData(visiumData, templateData, rotation):
     # plt.title(f"Total gene count per spot for {processedVisium['sampleID']}")
     # plt.colorbar()
     # plt.show()
-    plt.imshow( processedVisium['tissueRotated'], cmap='gray')
+    plt.imshow( processedVisium['tissueHistMatched'], cmap='gray')
     plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(countsPerSpotZscore), alpha=0.8, cmap='seismic', norm=zeroCenteredCmap, marker='.')
     plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
     plt.colorbar()
     plt.show()
     
     # write outputs
-    sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", processedVisium['filteredFeatureMatrixOrdered'])
+    sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", processedVisium['filteredFeatureMatrixLog2'])
             
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",processedVisium['tissue'])
     
     header=['x','y','z','t','label','comment']
     rowFormat = []
-    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv", 'w', encoding='UTF8') as f:
+    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsResizeRotate.csv", 'w', encoding='UTF8') as f:
         writer = csv.writer(f)
         writer.writerow(header)
         for i in range(len(processedVisium['countMaskedTissuePositionList'])):
@@ -297,7 +323,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
     # apply syn transform to tissue spot coordinates
-    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplateTransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz]"
+    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeRotate.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeRotateToAllen.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz]"
     pid = os.system(applyTransformStr)
     
     if pid:
@@ -307,7 +333,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
         print("Finished transforming spots!")
     
     transformedTissuePositionList = []
-    with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeToTemplateTransformApplied.csv"), newline='') as csvfile:
+    with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResizeRotateToAllen.csv"), newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
             next(csvreader)
             for row in csvreader:
@@ -318,7 +344,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
                 transformedTissuePositionList.append(row)
                 
     registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
-    registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
+    # registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
     registeredData['geneListMasked'] = processedVisium['geneListMasked']
     registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype=float)
     # switching x,y columns back to python compatible and deleting empty columns
@@ -407,12 +433,12 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
     registeredData['tissueSpotBarcodeList'] = processedVisium['tissueSpotBarcodeList']
     registeredData['filteredFeatureMatrixLog2'] = processedVisium['filteredFeatureMatrixLog2']
-    plt.imshow(registeredData['visiumTransformed'])
+    plt.imshow(registeredData['visiumTransformed'], cmap='gray')
     plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
     
-    plt.imshow(sampleToRegisterTo['tissueHistMatched'])
-    plt.imshow(registeredData['visiumTransformed'], alpha=0.7)
+    plt.imshow(sampleToRegisterTo['tissueHistMatched'], cmap='gray')
+    plt.imshow(registeredData['visiumTransformed'], alpha=0.7, cmap='gray')
     plt.title(processedVisium['sampleID'])
     plt.show()
 
@@ -450,12 +476,12 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     templateRegisteredData['filteredFeatureMatrixGeneList'] = registeredVisium['filteredFeatureMatrixGeneList']
     templateRegisteredData['geneListMasked'] = registeredVisium['geneListMasked']
 
-    plt.imshow(templateRegisteredData['visiumTransformed'])
+    plt.imshow(templateRegisteredData['visiumTransformed'], cmap='gray')
     plt.scatter(templateRegisteredData['transformedTissuePositionList'][0:,0],templateRegisteredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
-    
-    plt.imshow(templateRegisteredData['visiumTransformed'],cmap='gray')
-    plt.imshow(templateData['leftHem'], alpha=0.3)
+
+    plt.imshow(templateData['leftHem'], cmap='gray')    
+    plt.imshow(templateRegisteredData['visiumTransformed'],alpha=0.8,cmap='gray')
     plt.title(templateRegisteredData['sampleID'])
     plt.show()
         
@@ -519,7 +545,7 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
 
 # find nearest neighbor in digital allen spots for each sample spot
 # kNN assuming 1 spot with 6 neighbors
-def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN):
+def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spotDist):
     # finds distance between current spot and list
     allSpotNN = []
     allMeanCdists = []
@@ -532,7 +558,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN):
         blankIdx = np.zeros([kNN,1], dtype=int)
         spotNNIdx = []
         for i in actSpotCdist:
-            if spotMeanCdist < 30:
+            if spotMeanCdist < (spotDist * 3):
                 actNNIdx = np.where(spotCdist == i)[0]
                 spotNNIdx.append(actNNIdx[:])
             else:
@@ -569,3 +595,117 @@ def setExperimentalFolder(locOfExpFolder):
     derivatives = os.path.join(locOfExpFolder, 'derivatives')
     return rawdata, derivatives
     
+# desired region will need to be in the naming format of the allen ccf
+# it seems that reading from the csv is probably faster than searching the allen sdk, but will time it at some point
+def createRegionalMask(template, desiredRegion):
+    regionIdx = template['annotationName'].index(desiredRegion)
+    regionID = int(template['annotationID'][regionIdx])
+    # regionStructs = template['structureIDPath']
+    structIDs = []
+    for idx, actStruct in enumerate(np.array(template['structureIDPath'])):
+        if f"/{regionID}/" in actStruct:
+            structIDs.append(template['annotationID'][idx])
+    structIDs = np.array(structIDs)
+    regionMask = np.zeros(template['leftHemAnnot'].shape, dtype='int')  
+    # maskList = []
+    for actID in structIDs:
+        # structMask = np.zeros(template['leftHemAnnot'].shape, dtype='int')        
+        regionBoolMask = np.where(template['leftHemAnnot'] == int(actID))
+        if any(regionBoolMask[0]):
+            regionMask[regionBoolMask[0],regionBoolMask[1]] = 1
+        # regionMask = regionMask + structMask
+        
+    plt.imshow(template['leftHem'], cmap='gray')
+    plt.imshow(regionMask, alpha=0.8)
+    plt.show()
+    return regionMask
+
+def createRegionMaskAllenSDK(template, desiredRegion):
+    from allensdk.core.reference_space_cache import ReferenceSpaceCache
+    reference_space_key = 'annotation/ccf_2017'
+    resolution = 10
+    rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
+    rsp = rspc.get_reference_space()
+    # structure graph id is 1 for mouse
+    tree = rspc.get_structure_tree(structure_graph_id=1) 
+    # regionList = tree.get_name_map()
+    region = tree.get_structures_by_name([desiredRegion])
+    fullMask = rsp.make_structure_mask([region[0]['id']])
+    # the 570 here is to split the mask in half
+    regionMask = fullMask[(template['sliceNumber'] * resolution),:,570:]
+    return regionMask
+
+def createRegionalDigitalSpots(regionMask, desiredSpotSize):
+    w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
+    h = desiredSpotSize    # height of pointy up hexagon
+    currentX = 0
+    currentY = 0
+    rowCount = 0
+    templateSpots = []
+    while currentY < regionMask.shape[0]:
+        if currentX < regionMask.shape[1]:
+            templateSpots.append([currentX, currentY])
+            currentX += w
+        elif (currentX > regionMask.shape[1]):
+            rowCount += 1
+            currentY += h * (3/4)
+            if ((currentY < regionMask.shape[0]) and (rowCount % 2)):
+                currentX = w/2
+            else:
+                currentX = 0
+        elif ((currentX > regionMask.shape[1] * 10) and (currentY > regionMask.shape[0] * 10)):
+            print("something is wrong")
+
+    templateSpots = np.array(templateSpots)
+
+    # remove non-tissue spots
+    roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
+    ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
+    digitalSpots = []
+    for row in range(len(roundedTemplateSpots)):
+        if regionMask[roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
+            digitalSpots.append(templateSpots[row])
+            
+    digitalSpots = np.array(digitalSpots)
+    # uncomment following 3 lines to see the digital template spots
+    # plt.imshow(regionMask)
+    # plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
+    # plt.show()
+    return digitalSpots
+
+#%%
+
+# def runTTestOnDigitalSpots(digitalSpots, templateRegisteredData, geneList):
+#     nDigitalSpots = digitalSpots.shape[0]
+#     alphaSidak = 1 - np.power((1 - 0.05),(1/nDigitalSpots))
+#     sigGenes = []
+#     for nOfGenesChecked,actGene in enumerate(geneList):
+#         digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
+#         digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
+#         startControl = 0
+#         stopControl = kSpots
+#         startExperimental = 0
+#         stopExperimental = kSpots
+#         nTestedSamples = 0
+#         nControls = 0
+#         nExperimentals = 0
+#         for actSample in range(nTotalSamples):
+#             try:
+#                 geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(actGene)
+#             except(ValueError):
+#                 print(f'{actGene} not in dataset')
+#                 continue
+
+#             geneCount = np.zeros([nDigitalSpots,kSpots])
+#             for spots in enumerate(allSamplesToAllen[actSample]['digitalSpotNearestNeighbors']):
+#                 if np.all(spots[1] < 0):
+#                     geneCount[spots[0]] = 0
+#                 else:
+#                     spotij = np.zeros([7,2], dtype=int)
+#                     spotij[:,1] = np.asarray(spots[1], dtype=int)
+#                     spotij[:,0] = geneIndex
+                    
+#                     geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][spotij[:,0],spotij[:,1]]
+
+    
+#     return
