@@ -713,8 +713,11 @@ def loadAllenRegisteredSample(locOfRegSample):
     templateRegisteredData = {}
     templateRegisteredData['derivativesPath'] = os.path.join(locOfRegSample)
     templateRegisteredData['sampleID'] = locOfRegSample.rsplit(sep='/',maxsplit=1)[-1]
-    bestFitSample = glob(os.path.join(locOfRegSample, f"{templateRegisteredData['sampleID']}_registered_to_*_to_Allen.png"))
-    bestFitSample = bestFitSample[0]
+    try:
+        bestFitSample = glob(os.path.join(locOfRegSample, f"{templateRegisteredData['sampleID']}_registered_to_*_to_Allen.png"))
+        bestFitSample = bestFitSample[0]
+    except IndexError:
+        print(f"No registered data found in {locOfRegSample}")
     templateRegisteredData['visiumTransformed'] = io.imread(bestFitSample)
     bestFitSample = bestFitSample.rsplit(sep='/',maxsplit=1)[-1]
     # id of best fit is the third from the end
