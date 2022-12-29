@@ -15,3 +15,10 @@ Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)
 
 # Registration
 Images are prepared for analysis by first creating rotating the images into the same orientation as the template. Whenever a change is performed to the image we must also transform the corresponding spots, which we can do by applying the transformation acquired from the image registration to the XY coordinates of the spots. We use the Allen Common Coordinate Framework for our analysis, and in doing so aligned our images to the corresponding Nissl stained CCF image. Since the images collected by Visium are hematoxylin and eosin (H&E) stained we have used the inverted greyscale image in our registration, as this better matched the intensity distribution of the CCF Nissl Stains.
+
+# Code description
+- stanly.py: contains the codebase for STANLy. This includes functions to importing visium data, importing template data from the Allen CCF nrrd files, rotating tissue points into proper position, processing Visium image and transcriptomic data, registering individual samples to other samples, registering samples to CCF, applying the CCF transformations to samples, creating digital spots, finding the nearest neighbors for digital spots, creating regional masks for analysis based on Allen regional parcellation, loading gene lists from txt or csv, loading samples that have already been processed and registered in STANLy, and running basic statistics on the digital spots.
+- stanlyGUI.py: **IN DEVELOPMENT** a gui built upon the stanly.py codebase that allows users to view, process, register, and interact with the data in a windowed environment
+- stanlyOnSleepDep.py: script used to run full STANLy processing and analysis on the sleep deprivation dataset
+- extractStanlyInfoFromRegisteredSamples.py: script that runs the analysis on the already processed and registered sleep dep samples
+- runGeneListThroughToppGene.sh: bash script that takes the gene list output by the STANLy analysis and runs them through ToppGene functional enrichment analysis
