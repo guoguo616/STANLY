@@ -1,1 +1,0 @@
-in order for the AntsPy package to work, need to update various scripts to reference scipy.special rather than scipy.misc
