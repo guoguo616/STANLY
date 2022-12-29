@@ -80,9 +80,13 @@ for actSample in range(len(processedSamples)):
     experimentalResults[actSample] = sampleRegistered
 
 #%% output image of arc spots for each subject before registration
-actGene = 'Arc'
+actGene = 'Hart'
 for i, regSample in enumerate(experimentalResults):
-    geneIndex = processedSamples[i]['geneListMasked'].index(actGene)
+    try:
+        geneIndex = processedSamples[i]['geneListMasked'].index(actGene)
+    except(ValueError):
+        print(f'{actGene} not in dataset')
+        continue
     actSpots = processedSamples[i]['filteredFeatureMatrixLog2'][geneIndex, :]
     plt.imshow( processedSamples[i]['tissueProcessed'], cmap='gray')
     plt.scatter(processedSamples[i]['processedTissuePositionList'][:,0],processedSamples[i]['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
@@ -120,14 +124,14 @@ for i, regSample in enumerate(allSamplesToAllen):
         allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
 
 #%% plot single gene on sample-05 in native space
-actGene = 'Arc'
+actGene = 'Camk2n1'
 geneIndex = bestSample['geneListMasked'].index(actGene)
-plt.imshow( bestSample['tissueProcessed'], cmap='gray')
+plt.imshow( bestSample['tissueProcessed'], cmap='gray', alpha=0)
 actSpots = bestSample['filteredFeatureMatrixLog2'][geneIndex, :]
-plt.scatter(bestSample['processedTissuePositionList'][:,0],bestSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+plt.scatter(bestSample['processedTissuePositionList'][:,0],bestSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), cmap='Reds', marker='.')
 plt.title(f'Gene count for {actGene} in {bestSample["sampleID"]}')
 plt.colorbar()
-plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{bestSample["sampleID"]}.png'), bbox_inches='tight', dpi=300)
+plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{bestSample["sampleID"]}.png'), bbox_inches='tight', dpi=300,transparent=True)
 plt.show()
 
 # plot single gene on sample-05 after registration to allen space
@@ -141,15 +145,15 @@ plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{bestSampleToTemplate["
 plt.show()
 
 #%% output image of arc spots for each subject after registration but before digital spot creation
-actGene = 'Arc'
+actGene = 'Hart'
 for i, regSample in enumerate(allSamplesToAllen):
     geneIndex = allSamplesToAllen[i]['geneListMasked'].index(actGene)
     actSpots = allSamplesToAllen[i]['filteredFeatureMatrixMasked'][geneIndex, :]
-    plt.imshow( allSamplesToAllen[i]['visiumTransformed'], cmap='gray')
-    plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+    plt.imshow( allSamplesToAllen[i]['visiumTransformed'], cmap='gray', alpha=0)
+    plt.scatter(allSamplesToAllen[i]['maskedTissuePositionList'][:,0],allSamplesToAllen[i]['maskedTissuePositionList'][:,1], c=np.array(actSpots.todense()), cmap='Reds', marker='.')
     plt.title(f'Gene count for {actGene} in {allSamplesToAllen[i]["sampleID"]}')
     plt.colorbar()
-    plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{allSamplesToAllen[i]["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+    plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{allSamplesToAllen[i]["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300,transparent=True)
     plt.show()
 
 #%% run regional statistics
