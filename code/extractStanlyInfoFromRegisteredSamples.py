@@ -53,7 +53,7 @@ for actSample in range(len(experiment['sample-id'])):
     allSamplesToAllen[actSample] = sampleRegistered
 
 #%% output image of arc spots for each subject before registration
-actGene = 'Hcrt'
+actGene = 'Camk2n1'
 for i, regSample in enumerate(processedSamples):
     try:
         geneIndex = processedSamples[i]['geneListMasked'].index(actGene)

@@ -136,12 +136,12 @@ plt.show()
 
 # plot single gene on sample-05 after registration to allen space
 geneIndex = bestSampleToTemplate['geneListMasked'].index(actGene)
-plt.imshow( bestSampleToTemplate['visiumTransformed'], cmap='gray')
+plt.imshow(template['leftHem'], cmap='gray')
 actSpots = bestSampleToTemplate['filteredFeatureMatrixMasked'][geneIndex, :]
-plt.scatter(bestSampleToTemplate['maskedTissuePositionList'][:,0],bestSampleToTemplate['maskedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+plt.scatter(bestSampleToTemplate['maskedTissuePositionList'][:,0],bestSampleToTemplate['maskedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.4, cmap='Reds', marker='.')
 plt.title(f'Gene count for {actGene} in {bestSampleToTemplate["sampleID"]}')
 plt.colorbar()
-plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{bestSampleToTemplate["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{bestSampleToTemplate["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300,transparent=True)
 plt.show()
 
 #%% output image of arc spots for each subject after registration but before digital spot creation
