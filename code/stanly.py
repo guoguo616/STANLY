@@ -553,6 +553,17 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
     plt.imshow(templateRegisteredData['visiumTransformed'])
     plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
     plt.show()
+    # write csv of digital spots in ants format
+    derivativesPath = templateRegisteredData['derivativesPath'].split('/')
+    del derivativesPath[-1]
+    derivativesPath = os.path.join('/',*derivativesPath)
+    with open(os.path.join(derivativesPath,'digitalSpotCoordinates.csv'), 'w', encoding='UTF8') as f:
+        header=['x','y','z','t','label','comment']
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for i in range(len(digitalSpots)):
+            rowFormat = [digitalSpots[i,1]] + [digitalSpots[i,0]] + [0] + [0] + [0] + [0]
+            writer.writerow(rowFormat)
     return digitalSpots
 
 # find nearest neighbor in digital allen spots for each sample spot
@@ -568,6 +579,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
         spotMeanCdist = np.mean(actSpotCdist)
         blankIdx = np.zeros([kNN,1], dtype=int)
+        blankIdx[:] = -9999
         spotNNIdx = []
         for i in actSpotCdist:
             if spotMeanCdist < (spotDist * 3):
