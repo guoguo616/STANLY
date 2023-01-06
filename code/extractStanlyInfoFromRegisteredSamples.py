@@ -87,6 +87,59 @@ nDigitalSpots = len(templateDigitalSpots)
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 
+
+#%% section that outputs the mean log base 2 gene count for the gene of interest
+
+# for nOfGenesChecked,actGene in enumerate('Camk2n1'):
+digitalSamplesCombined = np.zeros([nDigitalSpots,(nTotalSamples * kSpots)])
+    # digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
+startControl = 0
+stopControl = kSpots
+    # startExperimental = 0
+    # stopExperimental = kSpots
+nTestedSamples = 0
+    # nControls = 0
+    # nExperimentals = 0
+for actSample in range(len(allSamplesToAllen)):
+    try:
+        geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(actGene)
+    except(ValueError):
+        print(f'{actGene} not in dataset')
+        continue
+
+    geneCount = np.zeros([nDigitalSpots,kSpots])
+    for spots in enumerate(allSamplesToAllen[actSample]['digitalSpotNearestNeighbors']):
+        if np.any(spots[1] < 0):
+            geneCount[spots[0]] = np.nan
+        else:
+            spotij = np.zeros([7,2], dtype=int)
+            spotij[:,1] = np.asarray(spots[1], dtype=int)
+            spotij[:,0] = geneIndex
+            geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][spotij[:,0],spotij[:,1]]
+                
+    spotCount = np.nanmean(geneCount, axis=1)
+    nTestedSamples += 1
+    digitalSamplesCombined[:,startControl:stopControl] = geneCount
+    startControl += kSpots
+    stopControl += kSpots
+        #     nControls += 1
+        # elif experiment['experimental-group'][actSample] == 1:
+        #     digitalSamplesExperimental[:,startExperimental:stopExperimental] = geneCount
+        #     startExperimental += kSpots
+        #     stopExperimental += kSpots
+        #     nExperimentals += 1
+            
+        # else:
+        #     continue
+maxGeneCount = np.nanmax(np.nanmax(digitalSamplesCombined))
+digitalSamplesCombined = np.array(digitalSamplesCombined, dtype=float).squeeze()
+digitalSamplesMean = np.nanmean(digitalSamplesCombined,axis=1)
+plt.axis('off')
+plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray', alpha=0)
+plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(digitalSamplesMean), alpha=1, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+plt.title(f'Mean log base 2 gene count for {actGene}')
+plt.savefig(os.path.join(derivatives,f'{actGene}MeanGeneCountRegistered.png'), bbox_inches='tight', dpi=300, transparent=True)
+
 #%% can now use this gene list to loop over expressed genes 
 # 'Arc','Egr1','Lars2','Ccl4'
 # testGeneList = ['Arc','Egr1','Rpl21']
@@ -222,7 +275,7 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
             tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
-            plt.title(f't-statistic for {actGene}')
+            plt.title(actGene, style='italic')
             fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
             plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep.png'), bbox_inches='tight', dpi=300)
             plt.show()
@@ -350,14 +403,14 @@ for nOfGenesChecked,actGene in enumerate(genesFromYann):
     # display mean gene count for experimental group
     fig.add_subplot(1,3,2)
     plt.axis('off')
-    plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
+    plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
     expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
     plt.title('SD')
     fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
     fig.add_subplot(1,3,3)
     plt.axis('off')
-    plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
+    plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
     tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTtest[0]), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
     plt.title(f't-statistic for {actGene}')
     fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
