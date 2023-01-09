@@ -1,13 +1,13 @@
 #!/bin/bash
 # run this after gene lists have been created using the
-resultsDir=../derivatives/221224
+resultsDir=../derivatives
 
 if [ ! -d $resultsDir/toppGene ]; then
   mkdir $resultsDir/toppGene
 fi
-csvGeneList=$resultsDir/listOfSigSleepDepGenes20221224-162709.csv
+csvGeneList=$resultsDir/listOfSigSleepDepGenesPvalues20230104-161335.csv
 txtGeneList=$resultsDir/toppGene/geneListForToppGene.txt
-if [ ! -f $txtGeneList ]; then 
+if [ ! -f $txtGeneList ]; then
   touch $txtGeneList
   while IFS=, read geneList nSigGenes; do
     # echo $geneList
@@ -32,5 +32,5 @@ for geneNumber in $entrezList; do
 done
 callApi=${callApi%,*}
 callApi=$(echo "${callApi}]}' https://toppgene.cchmc.org/API/enrich?pretty=true")
-eval $callApi > ${resultsDir}/toppGene/${listName}_func_enrich.json
+eval $callApi > ${resultsDir}/toppGene/sleep_dep_DEGs_func_enrich.json
 # done
