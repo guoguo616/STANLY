@@ -137,7 +137,7 @@ digitalSamplesMean = np.nanmean(digitalSamplesCombined,axis=1)
 plt.axis('off')
 plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray', alpha=0)
 plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(digitalSamplesMean), alpha=1, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
-plt.title(f'Mean log base 2 gene count for {actGene}')
+# plt.title(f'Mean log base 2 gene count for {actGene}')
 plt.savefig(os.path.join(derivatives,f'{actGene}MeanGeneCountRegistered.png'), bbox_inches='tight', dpi=300, transparent=True)
 
 #%% can now use this gene list to loop over expressed genes 
