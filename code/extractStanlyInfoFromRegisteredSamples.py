@@ -15,7 +15,7 @@ import time
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 
 sampleList = []
@@ -159,7 +159,7 @@ alphaSidak = 1 - np.power((1 - 0.05),(1/nDigitalSpots))
 # alphaSidak = 5e-8
 # list(allSampleGeneList)[0:1000]
 
-geneList = stanly.loadGeneListFromCsv('/home/zjpeters/Documents/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
+geneList = stanly.loadGeneListFromCsv('/home/zjpeters/rdss_tnj/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
