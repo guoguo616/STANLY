@@ -1,6 +1,6 @@
 # STANLy
 STANLy (**S**patial **T**ranscriptomic **A**lignment **N**on**L**inearl**y**) is a set of tools that utilizes the imaging data from spatial transcriptomic experiments such as Visium to register multiple images from into a common coordinate space to allow a truly spatial analysis of transcriptomic data. This toolbox is built in Python using tools from [Advanced Normalization Tools (ANTs)](http://stnava.github.io/ANTs/) and [The Allen Software Development Kit (SDK)](https://allensdk.readthedocs.io/en/latest/). Once aligned into a common space, we create 'digital' spots for each sample based on a selection of nearest neighbors and use these spots to run differential statistics on the experiment.
-![Image shows a visual representation of registering a Visium sample slice, including tissue image and spot data, into a template space. Image also shows 6 example differentially expressed genes.](/source/figure5portraitWhiteBG230106.png)*Figure5*
+![Image shows a visual representation of registering a Visium sample slice, including tissue image and spot data, into a template space. Image also shows 6 example differentially expressed genes.](/source/images/figure5portraitWhiteBG230106.png)*Figure5*
 
 
 # Data Structure
