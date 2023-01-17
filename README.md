@@ -22,3 +22,6 @@ Images are prepared for analysis by first creating rotating the images into the 
 - stanlyOnSleepDep.py: script used to run full STANLy processing and analysis on the sleep deprivation dataset
 - extractStanlyInfoFromRegisteredSamples.py: script that runs the analysis on the already processed and registered sleep dep samples
 - runGeneListThroughToppGene.sh: bash script that takes the gene list output by the STANLy analysis and runs them through ToppGene functional enrichment analysis
+
+# License
+STANLY is released under the GPL v3 license. Commercial use of this software is prohibited due to licensing of software components used.
