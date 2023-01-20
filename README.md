@@ -31,5 +31,11 @@ Images are prepared for analysis by first creating rotating the images into the 
 - extractStanlyInfoFromRegisteredSamples.py: script that runs the analysis on the already processed and registered sleep dep samples
 - runGeneListThroughToppGene.sh: bash script that takes the gene list output by STANLY and runs them through ToppGene functional enrichment analysis
 
+# Citation
+To reference STANLY or read the containing paper please cite:
+Spatial transcriptomics reveals unique gene expression changes in different brain regions after sleep deprivation
+Yann Vanrobaeys, Zeru Peterson, Emily Walsh, Snehajyoti Chatterjee, Li-Chun Lin, Lisa Lyons, Thomas Nickl-Jockschat, Ted Abel
+bioRxiv 2023.01.18.524406; doi: https://doi.org/10.1101/2023.01.18.524406
+
 # License
 STANLY is released under the GPL v3 license. Commercial use of this software is prohibited due to licensing of software components used.
