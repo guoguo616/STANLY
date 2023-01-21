@@ -37,8 +37,8 @@ sample-02 270 0
 sample-03 270  1
 ... ... ...
 sample-16 -180  1
-
 ```
+The degrees of affine rotation is the degrees of counter-clockwise rotation that it takes to bring a coronal slice into the same orientation as the template to be registered to. Additionally, to flip the hemisphere of a slice, add a `-` before the degrees of rotation, as with sample-16 above. ![Image shows three examples of rotation performed in STANLY. First row, with the superior side of the mouse brain facing the right side of the screen a 90 degree counter-clockwise rotation is performed so that the superior side is facing the top of the screen. Second row, with the superior side of the mouse brain facing the left side of the screen a 270 degree counter-clockwise rotation is performed so that the superior side is facing the top of the screen. Third row, with the superior side of the mouse brain facing the bottom side of the screen a -180 degree counter-clockwise rotation is performed so that the superior side is facing the top of the screen and additionally the slice has been flipped across the left-right axis. All images are displayed in radiological orientation.](/source/images/rotationExplanation.png)*Examples for describing rotation in participants.tsv*
 # Importing data
 
 Create a python script in a code editor (I use Spyder through Anaconda) and save it to your code file. This will be the script that processes your data. With the STANLY code located somewhere you can easily access and import it and set the experimental folder for your analysis by running the `setExperimentalFolder` command.
