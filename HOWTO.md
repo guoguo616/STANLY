@@ -26,3 +26,9 @@ STANLY was built with modularity involved, which is why we built the code around
               spatial
           sample-03
           ...
+
+# Importing data
+
+Create a python script in a code editor (I use Spyder through Anaconda) and save it to your code file. This will be the script that processes your data. With the STANLY code located somewhere you can easily access and import it and set the experimental folder for your analysis by running the `setExperimentalFolder` command.
+> `import stanly`
+> `rawdata, derivatives = stanly.setExperimentalFolder("/home/user/data/sleepDeprivationVisium")`
