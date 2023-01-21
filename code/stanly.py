@@ -210,7 +210,7 @@ def processVisiumData(visiumData, templateData, rotation):
     except IOError:
         print(f"Processing {processedVisium['sampleID']}")
     if not os.path.exists(outputPath):
-        os.mkdir(outputPath)
+        os.mkdirs(outputPath)
     resolutionRatio = visiumData['spotStartingResolution'] / templateData['startingResolution']
     processedVisium['derivativesPath'] = outputPath
     # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
