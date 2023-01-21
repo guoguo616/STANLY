@@ -27,6 +27,16 @@ STANLY was built with modularity involved, which is why we built the code around
           sample-03
           ...
 
+# Participants file
+
+Inside of the rawdata folder you will also need to create a tsv file listing information about your samples including the sample ID, degrees of affine rotation [0,+/-90,+/-180,+/-270], and experimental group [0,1].
+```
+participant_id  deg_rot sleep_dep
+sample-01 68  270  1
+sample-02 67  270 0
+sample-03 72  270  1
+... ... ...
+```
 # Importing data
 
 Create a python script in a code editor (I use Spyder through Anaconda) and save it to your code file. This will be the script that processes your data. With the STANLY code located somewhere you can easily access and import it and set the experimental folder for your analysis by running the `setExperimentalFolder` command.
