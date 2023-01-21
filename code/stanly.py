@@ -118,7 +118,16 @@ def importVisiumData(sampleFolder):
 
 # use to select which allen slice to align visium data to and import relevant data
 def chooseTemplateSlice(sliceLocation):
-    ara_data = ants.image_read(os.path.join(refDataPath,'data','ccf','ara_nissl_10.nrrd'))
+    ccfPath = os.path.join(refDataPath,'data','ccf')
+    # checks if ccf data has been downloaded already and downloads it if it hasn't
+    if not os.path.exists(ccfPath):
+        print("Downloading 10 micron resolution ara_nissl nrrd file from the Allen Institute, this may take awhile")
+        os.mkdirs(ccfPath)
+        from allensdk.core.reference_space_cache import ReferenceSpaceApi
+        rsapi = ReferenceSpaceApi()
+        rsapi.download_volumetric_data('ara_nissl','ara_nissl_10.nrrd',10, save_file_path=os.path.join(ccfPath, 'ara_nissl_10.nrrd'))
+    ara_data = ants.image_read(os.path.join(ccfPath,'ara_nissl_10.nrrd'))
+        
     annotation_data = ants.image_read(os.path.join(refDataPath,'data','ccf','annotation_10.nrrd'))
     templateData = {}
     bestSlice = sliceLocation * 10
@@ -763,6 +772,11 @@ def loadAllenRegisteredSample(locOfRegSample):
     tempDenseMatrix = filteredFeatureMatrixLog2.todense()
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     return templateRegisteredData
+
+#%% Things that need to be added
+
+# 1. internal check for ara_nissl_10.nrrd, set program to ask to download if not present or to direct the script to its location
+# 2. importParticipantsFile
 
 #%%
 

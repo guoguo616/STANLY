@@ -4,7 +4,7 @@ STANLY (**S**patial **T**ranscriptomic **AN** a **LY** sis) is a set of tools th
 
 
 # Data Structure
-Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)](https://bids.neuroimaging.io/), so that within an experimental folder there is a code folder for any code used to analyze the experiment, a derivatives folder which will contain all processed images and data, and a rawdata folder which contains VIsium data, i.e. the spatial folder and .h5 file from [SpaceRanger](https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/what-is-space-ranger) for each sample, i.e.:
+Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)](https://bids.neuroimaging.io/), so that within an experimental folder there is a code folder for any code used to analyze the experiment, a derivatives folder which will contain all processed images and data, and a rawdata folder which contains Visium data, i.e. the spatial folder and .h5 file from [SpaceRanger](https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/what-is-space-ranger) for each sample, i.e.:
 
     rawdata ->
         sample-01 ->
