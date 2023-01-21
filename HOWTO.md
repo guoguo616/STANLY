@@ -10,18 +10,19 @@ List of dependencies can be found in requirements.txt. Additionally, this assume
 
 STANLY was built with modularity involved, which is why we built the code around a mostly unified data formatting that allows processing to be performed on individual or multiple subjects easily. First, create an experimental folder that will contain your code, rawdata, derivatives, and sourcedata folders. Format your data in such a way that each sample in your experiment is given a unique identification of some sort, i.e. {sample-01,sample-02,...,sample-16}. If you have processed your Visium data locally and have the output of the `spaceranger count` separated into folders labeled with the sample ID, you can copy this into your rawdata folder. If you don't already have this prepared, you can create a folder for each sample and copy the `spatial` folder and `filtered_feature_bc_matrix.h5` file for each sample into its respective folder so that your experimental folder will look like this:
 
-> sleepDeprivationVisium:
-> rawdata ->
-    sample-01 ->
-        Sample1_SD_filtered_feature_bc_matrix.h5
-        spatial ->
-            aligned_fiducials.jpg
-            detected_tissue_image.jpg
-            scalefactors_json.json
-            tissue_hires_image.png
-            tissue_lowres_image.png
-            tissue_positions_list.csv
-    sample-02
-    sample-03
-    ...
-    ...
+sleepDeprivationVisium ->
+  rawdata ->
+      sample-01 ->
+          Sample1_SD_filtered_feature_bc_matrix.h5
+          spatial ->
+              aligned_fiducials.jpg
+              detected_tissue_image.jpg
+              scalefactors_json.json
+              tissue_hires_image.png
+              tissue_lowres_image.png
+              tissue_positions_list.csv
+      sample-02 ->
+          Sample2_SD_filtered_feature_bc_matrix.h5
+          spatial
+      sample-03
+      ...
