@@ -32,10 +32,12 @@ STANLY was built with modularity involved, which is why we built the code around
 Inside of the rawdata folder you will also need to create a tsv file listing information about your samples including the sample ID, degrees of affine rotation [0,+/-90,+/-180,+/-270], and experimental group [0,1].
 ```
 participant_id  deg_rot sleep_dep
-sample-01 68  270  1
-sample-02 67  270 0
-sample-03 72  270  1
+sample-01 270  1
+sample-02 270 0
+sample-03 270  1
 ... ... ...
+sample-16 -180  1
+
 ```
 # Importing data
 
