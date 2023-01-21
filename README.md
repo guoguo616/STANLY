@@ -34,7 +34,7 @@ Images are prepared for analysis by first creating rotating the images into the 
 # Citation
 To reference STANLY or read the containing paper please cite:
 
-Spatial transcriptomics reveals unique gene expression changes in different brain regions after sleep deprivation
+*Spatial transcriptomics reveals unique gene expression changes in different brain regions after sleep deprivation.*
 Yann Vanrobaeys, Zeru Peterson, Emily Walsh, Snehajyoti Chatterjee, Li-Chun Lin, Lisa Lyons, Thomas Nickl-Jockschat, Ted Abel
 bioRxiv 2023.01.18.524406; doi: https://doi.org/10.1101/2023.01.18.524406
 
