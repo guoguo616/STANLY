@@ -44,6 +44,15 @@ The degrees of affine rotation is the degrees of counter-clockwise rotation that
 
 Create a python script in a code editor (I use Spyder through Anaconda) and save it to your code folder. This will be the script you use to process your data. Assuming you have downloaded the STANLY code and stored it somewhere you can easily access and import it. The first command we will use from STANLY will be to set the experimental folder for your analysis by running the `setExperimentalFolder` command.
 ```python
+import os
+from matplotlib import pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
 import stanly
+
 rawdata, derivatives = stanly.setExperimentalFolder("/home/user/data/sleepDeprivationVisium")
+# this is a list of the images to be included in the analysis based on visual inspection
+imageList = [0,1,2,3,4,5,6,7,10,11,12,13,15]
+experiment = stanly.loadParticipantsTsv(os.path.join(rawdata, 'participants.tsv'), imageList)
 ```
+If you have already removed any excluded samples from your `participants.tsv` file you can ignore the second option of the `loadParticipantsTsv` function and it will import all samples in `participants.tsv`.

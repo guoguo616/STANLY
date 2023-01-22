@@ -621,6 +621,36 @@ def loadGeneListFromCsv(locOfCsvFile):
             geneListFromCsv.append(row[0])
     return geneListFromCsv
 
+def loadParticipantsTsv(locOfTsvFile, imageList='all'):
+    # as the input takes the location of participants.tsv
+    # default loads all images in participants.tsv
+    # using a list of int index in second position will mask to use only those samples listed
+    # might want to rethink to excluding samples prior to creating participants.tsv
+    # in the future, could add default to rawdata/participants.tsv
+    sampleIDs = []
+    sampleInfo = []
+    with open(locOfTsvFile, newline='') as tsvfile:
+        tsvreader = csv.reader(tsvfile, delimiter='\t')
+        # assumes tsv has header of sample id, degrees of rotation, and group status
+        next(tsvreader)
+        for row in tsvreader:
+            sampleIDs.append(row[0])
+            sampleInfo.append(row[1:])
+    
+    sampleInfo = np.array(sampleInfo, dtype='int')
+
+    # list of good images
+    if imageList == 'all':
+        imageList = list(range(len(sampleIDs)))
+    # else:
+    #     imageList = [0,1,2,3,4,5,6,7,10,11,12,13,15]
+    
+    experiment = {'sample-id': np.asarray(sampleIDs)[imageList],
+                        'rotation': sampleInfo[imageList,0],
+                        'experimental-group': sampleInfo[imageList,1]}
+
+    return experiment
+
 def setExperimentalFolder(locOfExpFolder):
     global rawdata
     global derivatives
