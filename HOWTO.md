@@ -100,4 +100,4 @@ for actSample in range(len(experimentalResults)):
 
 It is at this point that the user will want to carefully examine the quality of the registration, both to the template and between samples. Potential places for error include:
 - flipped hemispheres (i.e. your slice does not match the hemispheric orientation of your other samples)
-- 
+- check for the alignment of landmark regions
