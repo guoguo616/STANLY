@@ -76,4 +76,28 @@ spotCountMean = totalSpotCount / nTotalSamples
 print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
  ```
 
- This loop additionally calculates the average number of spots from all samples for a sanity check.
+ This loop additionally calculates the average number of spots from all samples for a sanity check. Will also show the image of spot-wise z-scores for total gene count.
+
+# Register best fit image to template and apply transformation to remaining samples
+
+From your experiment, select one sample with good image quality to be your "best fit" image for registration. This image will be registered to the Allen CCF template image using the `runANTsToAllenRegistration` function, and all other images will subsequently be registered to this best fit using the `runANTsInterSampleRegistration` function, and have the best fit-to-Allen transformation applied to their images and spots using the `applyAntsTransformations` function. For this data, the sample we selected as best fit is sample-05 (which has a Python index of [4] in our `processedSamples` variable created above).
+
+```python
+bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template)
+
+experimentalResults = {}
+for actSample in range(len(processedSamples)):
+    sampleRegistered = stanly.runANTsInterSampleRegistration(processedSamples[actSample], bestSample)
+    experimentalResults[actSample] = sampleRegistered
+
+allSamplesToAllen = {}
+for actSample in range(len(experimentalResults)):
+    regSampleToTemplate = stanly.applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template)
+    allSamplesToAllen[actSample] = regSampleToTemplate
+```
+
+# Check the results of registration
+
+It is at this point that the user will want to carefully examine the quality of the registration, both to the template and between samples. Potential places for error include:
+- flipped hemispheres (i.e. your slice does not match the hemispheric orientation of your other samples)
+- 
