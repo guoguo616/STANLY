@@ -153,7 +153,7 @@ def chooseTemplateSlice(sliceLocation):
     annotation_id = []
     annotation_name = []
     structure_id_path = []
-    with open(os.path.join(refDataPath,'data','ccf','allen_ccf_annotation.csv'), newline='') as csvfile:
+    with open(os.path.join(codePath,'data','allen_ccf_annotation.csv'), newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
         next(csvreader)
         for row in csvreader:
@@ -219,7 +219,7 @@ def processVisiumData(visiumData, templateData, rotation):
     except IOError:
         print(f"Processing {processedVisium['sampleID']}")
     if not os.path.exists(outputPath):
-        os.mkdirs(outputPath)
+        os.makedirs(outputPath)
     resolutionRatio = visiumData['spotStartingResolution'] / templateData['startingResolution']
     processedVisium['derivativesPath'] = outputPath
     # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
@@ -235,7 +235,7 @@ def processVisiumData(visiumData, templateData, rotation):
     visiumGauss = filters.gaussian(visiumData['imageDataGray'], sigma=5)
     tissueGauss = np.zeros(visiumGauss.shape)
     tissueGauss[processedVisium['visiumOtsu']==True] = visiumGauss[processedVisium['visiumOtsu']==True]
-    tissueNormalized = cv2.normalize(processedVisium['tissueGauss'], None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    tissueNormalized = cv2.normalize(tissueGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     # processedVisium['resolutionRatio'] = visiumData['spotStartingResolution'] / templateData['startingResolution']
     tissueResized = rescale(tissueNormalized,resolutionRatio)
     if rotation < 0:

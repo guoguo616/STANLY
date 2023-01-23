@@ -57,10 +57,23 @@ experiment = stanly.loadParticipantsTsv(os.path.join(rawdata, 'participants.tsv'
 ```
 If you have already removed any excluded samples from your `participants.tsv` file you can ignore the second option of the `loadParticipantsTsv` function and it will import all samples in `participants.tsv`.
 
-# Loading the template
+# Loading the template and processing samples
 
-STANLY has been built using the Allen Common Coordinate Framework (CCF) template image for registration of coronal brain slices from the mouse. To find the correct slice for alignment the user should look through the [Interactive Atlas Viewer](http://atlas.brain-map.org/atlas?atlas=1#atlas=1) and use the number of the slice listed below the image as the input for `chooseTemplateSlice` in STANLY. When run, this will first check if the user has already downloaded the reference data and if not download it. This may take awhile, so be patient during the loading. Once loaded, it will have the image data for the appropriate Nissl stained image as well as the annotation information provided by the Allen Institute.
+STANLY has been built using the Allen Common Coordinate Framework (CCF) template image for registration of coronal brain slices from the mouse. To find the correct slice for alignment the user should look through the [Interactive Atlas Viewer](http://atlas.brain-map.org/atlas?atlas=1#atlas=1) and use the number of the slice listed below the image as the input for `chooseTemplateSlice` in STANLY. When run, this will first check if the user has already downloaded the reference data and if not download it. This may take awhile, so be patient during the loading. Once loaded, it will have the image data for the appropriate Nissl stained image as well as the annotation information provided by the Allen Institute. The next step is to process all of the samples imported above. We can do this all using a loop like so:
 
 ```python
  template = stanly.chooseTemplateSlice(70)
+
+ processedSamples = {}
+totalSpotCount = 0
+for actSample in range(len(experiment['sample-id'])):
+    sample = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+    sampleProcessed = stanly.processVisiumData(sample, template, experiment['rotation'][actSample])
+    processedSamples[actSample] = sampleProcessed
+    totalSpotCount += sampleProcessed['spotCount']
+nTotalSamples = len(processedSamples)
+spotCountMean = totalSpotCount / nTotalSamples
+print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
  ```
+
+ This loop additionally calculates the average number of spots from all samples for a sanity check.
