@@ -80,7 +80,7 @@ for actSample in range(len(processedSamples)):
     experimentalResults[actSample] = sampleRegistered
 
 #%% output image of arc spots for each subject before registration
-actGene = 'Marcksl1'
+actGene = 'Camk2n1'
 for i, regSample in enumerate(experimentalResults):
     try:
         geneIndex = processedSamples[i]['geneListMasked'].index(actGene)
@@ -92,7 +92,7 @@ for i, regSample in enumerate(experimentalResults):
     plt.scatter(processedSamples[i]['processedTissuePositionList'][:,0],processedSamples[i]['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
     plt.title(f'Gene count for {actGene} in {processedSamples[i]["sampleID"]}')
     plt.colorbar()
-    plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{processedSamples[i]["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+    plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{processedSamples[i]["sampleID"]}.png'), bbox_inches='tight', dpi=300)
     plt.show()
 
 #%% register all samples to CCF
