@@ -89,13 +89,19 @@ def importVisiumData(sampleFolder):
     # this currently assumes that sampleFolder contains spatial folder and the
     # filtered_feature_bc_matrix.h5 output from space ranger
     visiumData = {}
-    visiumData['imageData'] = io.imread(os.path.join(sampleFolder,"spatial","tissue_hires_image.png"))
+    if os.path.exists(os.path.join(sampleFolder,"spatial")):
+        spatialFolder = os.path.join(sampleFolder,"spatial")
+        dataFolder = os.path.join(sampleFolder)
+    elif os.path.exists(os.path.join(sampleFolder,"outs","spatial")):
+        spatialFolder = os.path.join(sampleFolder,"outs","spatial")
+        dataFolder = os.path.join(sampleFolder,"outs")
+    visiumData['imageData'] = io.imread(os.path.join(spatialFolder,"tissue_hires_image.png"))
     # visiumData['imageDataGray'] = 1 - visiumData['imageData'][:,:,2]
     visiumData['imageDataGray'] = 1 - color.rgb2gray(visiumData['imageData'])
     visiumData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
     tissuePositionsList = []
     tissueSpotBarcodes = []
-    with open(os.path.join(sampleFolder,"spatial","tissue_positions_list.csv"), newline='') as csvfile:
+    with open(os.path.join(spatialFolder,"tissue_positions_list.csv"), newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
         for row in csvreader:
             # checks for in tissue spots
@@ -105,10 +111,10 @@ def importVisiumData(sampleFolder):
     tissuePositionsList = np.array(tissuePositionsList, dtype=float)
     visiumData['tissueSpotBarcodeList'] = tissueSpotBarcodes
     visiumData['tissuePositionsList'] = tissuePositionsList
-    scaleFactorPath = open(os.path.join(sampleFolder,"spatial","scalefactors_json.json"))
+    scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
     visiumData['scaleFactors'] = json.loads(scaleFactorPath.read())
     scaleFactorPath.close()
-    filteredFeatureMatrixPath = glob(os.path.join(sampleFolder,"*_filtered_feature_bc_matrix.h5"))
+    filteredFeatureMatrixPath = glob(os.path.join(dataFolder,"*filtered_feature_bc_matrix.h5"))
     filteredFeatureMatrix = get_matrix_from_h5(os.path.join(filteredFeatureMatrixPath[0]))
     visiumData['filteredFeatureMatrix'] = filteredFeatureMatrix
     # the ratio of real spot diameter, 55um, by imaged resolution of spot
@@ -802,6 +808,19 @@ def loadAllenRegisteredSample(locOfRegSample):
     tempDenseMatrix = filteredFeatureMatrixLog2.todense()
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     return templateRegisteredData
+#%% 
+def viewGeneInProcessedVisium(processedSample, geneName):
+    try:
+        geneIndex = processedSample['geneListMasked'].index(geneName)
+        actSpots = processedSample['filteredFeatureMatrixLog2'][geneIndex, :]
+        plt.imshow(processedSample['tissueProcessed'], cmap='gray')
+        plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+        plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
+        plt.colorbar()
+        # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+        plt.show()
+    except(ValueError):
+        print(f'{geneName} not found in dataset')
 
 #%% Things that need to be added
 
