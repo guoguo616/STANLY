@@ -95,6 +95,8 @@ def importVisiumData(sampleFolder):
     elif os.path.exists(os.path.join(sampleFolder,"outs","spatial")):
         spatialFolder = os.path.join(sampleFolder,"outs","spatial")
         dataFolder = os.path.join(sampleFolder,"outs")
+    else:
+        print("Something isn't working!")
     visiumData['imageData'] = io.imread(os.path.join(spatialFolder,"tissue_hires_image.png"))
     # visiumData['imageDataGray'] = 1 - visiumData['imageData'][:,:,2]
     visiumData['imageDataGray'] = 1 - color.rgb2gray(visiumData['imageData'])

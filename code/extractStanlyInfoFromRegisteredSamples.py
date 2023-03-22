@@ -67,6 +67,30 @@ for i, regSample in enumerate(processedSamples):
     plt.colorbar()
     plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{processedSamples[i]["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
     plt.show()
+    
+#%% display number of genes expressed per spot
+
+# sample = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][4]))
+filtFeatMat = processedSamples[4]['filteredFeatureMatrixLog2']
+filtFeatMat = filtFeatMat.todense()
+filtFeatMat[filtFeatMat > 0] = 1
+nOfGenesExp = sum(filtFeatMat)
+plt.imshow(processedSamples[4]['tissueProcessed'], cmap='gray')
+plt.scatter(processedSamples[4]['processedTissuePositionList'][:,0],processedSamples[4]['processedTissuePositionList'][:,1], c=np.array(nOfGenesExp), alpha=0.8, cmap='Reds', marker='.')
+plt.title(f'Number of genes per spot for {processedSamples[4]["sampleID"]}')
+plt.colorbar()
+###################
+
+for i, regSample in enumerate(processedSamples):
+    actSpots = processedSamples[i]['filteredFeatureMatrixLog2'][geneIndex, :]
+    plt.imshow( processedSamples[i]['tissueProcessed'], cmap='gray')
+    plt.scatter(processedSamples[i]['processedTissuePositionList'][:,0],processedSamples[i]['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+    plt.title(f'Gene count for {actGene} in {processedSamples[i]["sampleID"]}')
+    plt.colorbar()
+    # plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{processedSamples[i]["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+    plt.show()
+    
+####################
 #%% create digital spots and find nearest neighbors
 wholeBrainSpotSize = 15
 kSpots = 7
