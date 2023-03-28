@@ -76,7 +76,7 @@ nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 #%% first test using Sidak correction
 
 start_time = time.time()
-alphaSidak = 1 - np.power((1 - 0.05),(1/nDigitalSpots))
+alphaSidak = 1 - np.power((1 - 0.05),(1/len(allSampleGeneList)))
 
 sigGenes = []
 sigGenesWithPvals = []
@@ -154,7 +154,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
         # mulCompResults = multipletests(actTtest[1], 0.05, method='bonferroni', is_sorted=False)
         # fdrAlpha = mulCompResults[3].
         spotThr = 3 #0.05 * nDigitalSpots
-        if sum(mulCompResults) > spotThr:
+        if sum(mulCompResults) > 0:
             actSigGene = [actGene,sum(mulCompResults)]
             sigGenes.append(actSigGene)
             actSigGeneWithPvals = np.append(actSigGene, actPvals)
@@ -219,7 +219,7 @@ print("--- %s seconds ---" % (time.time() - start_time))
 start_time = time.time()
 rankList = np.arange(1,nDigitalSpots+1)
 desiredPval = 0.05
-bhCorrPval = (rankList/nDigitalSpots)*desiredPval
+bhCorrPval = (rankList/len(allSampleGeneList))*desiredPval
 
 sigGenes = []
 sigGenesWithPvals = []
@@ -291,7 +291,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
         # allPvals.append(actPvals)
         mulCompResults = sortedPVals < bhCorrPval
         spotThr = 3 #0.05 * nDigitalSpots
-        if sum(mulCompResults) > spotThr:
+        if sum(mulCompResults) > 0:
             actSigGene = [actGene,sum(mulCompResults)]
             sigGenes.append(actSigGene)
             actSigGeneWithPvals = np.append(actSigGene, actPvals)
@@ -351,9 +351,7 @@ print("--- %s seconds ---" % (time.time() - start_time))
 #%% test using Bonferroni correction 0.05
 
 start_time = time.time()
-rankList = np.arange(1,nDigitalSpots+1)
-desiredPval = 0.05
-bonCorrPval = nDigitalSpots/desiredPval
+bonCorrPval = desiredPval/len(allSampleGeneList)
 
 sigGenes = []
 sigGenesWithPvals = []
@@ -425,7 +423,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
         # allPvals.append(actPvals)
         mulCompResults = sortedPVals < bonCorrPval
         spotThr = 3 #0.05 * nDigitalSpots
-        if sum(mulCompResults) > spotThr:
+        if sum(mulCompResults) > 0:
             actSigGene = [actGene,sum(mulCompResults)]
             sigGenes.append(actSigGene)
             actSigGeneWithPvals = np.append(actSigGene, actPvals)
@@ -475,7 +473,7 @@ with open(os.path.join(derivatives,f'listOfSigSleepDepGenesBonferroniPvalues{tim
     for i in sigGenesWithPvals:
         writer.writerow(i)
         
-with open(os.path.join(derivatives,f'listOfSigSleepDepGenesBonferoniHochbergTstatistics{timestr}.csv'), 'w', encoding='UTF8') as f:
+with open(os.path.join(derivatives,f'listOfSigSleepDepGenesBonferroniTstatistics{timestr}.csv'), 'w', encoding='UTF8') as f:
     writer = csv.writer(f)
     for i in sigGenesWithTstats:
         writer.writerow(i)
