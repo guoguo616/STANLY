@@ -15,7 +15,7 @@ import time
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -53,30 +53,31 @@ for actSample in range(len(experiment['sample-id'])):
     allSamplesToAllen[actSample] = sampleRegistered
 
 
-#%% create digital spots and find nearest neighbors
-wholeBrainSpotSize = 15
+#%% digital spot creation
+# so far testing has been best at a spot diameter of 18 pixels
+regionalSpotSize = 18
 kSpots = 7
-templateDigitalSpots = stanly.createDigitalSpots(allSamplesToAllen[4], wholeBrainSpotSize)
+
+desiredRegion = 'Hippocampal region'
+regionMask = stanly.createRegionalMask(template, desiredRegion)
+regionMaskDigitalSpots = stanly.createRegionalDigitalSpots(regionMask, regionalSpotSize)
 
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
 for i, regSample in enumerate(allSamplesToAllen):        
-    actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+    actNN, actCDist = stanly.findDigitalNearestNeighbors(regionMaskDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, regionalSpotSize)
     allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
     # creates a list of genes present in all samples
-    if i == 0:
-        continue
-    else:
+    if i > 0:
         allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
 
-
-nDigitalSpots = len(templateDigitalSpots)
-nSampleExperimental = sum(experiment['experimental-group'])
-nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
-
+nDigitalSpots = len(regionMaskDigitalSpots)
 #%% first test using Sidak correction
 
 start_time = time.time()
 alphaSidak = 1 - np.power((1 - 0.05),(1/(len(allSampleGeneList)*nDigitalSpots)))
+
+nSampleExperimental = sum(experiment['experimental-group'])
+nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 
 sigGenes = []
 sigGenesWithPvals = []
@@ -161,7 +162,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             actSigGeneWithTstats = np.append(actSigGene, actTstats)
             sigGenesWithPvals.append(actSigGeneWithPvals)
             sigGenesWithTstats.append(actSigGeneWithTstats)
-            maskedDigitalCoordinates = templateDigitalSpots[np.array(mulCompResults)]
+            maskedDigitalCoordinates = regionMaskDigitalSpots[np.array(mulCompResults)]
             maskedTstats = actTtest[0][mulCompResults]
             maskedDigitalCoordinates = np.array(maskedDigitalCoordinates)
             medianDigitalControl = np.nanmedian(digitalSamplesControl,axis=1)
@@ -178,21 +179,21 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             fig.add_subplot(1,3,1)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('NSD')
 
             # display mean gene count for experimental group
             fig.add_subplot(1,3,2)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            expScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('SD')
             fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
             fig.add_subplot(1,3,3)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
+            tStatScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             plt.title(actGene, style='italic')
             fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
             plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep.png'), bbox_inches='tight', dpi=300)
@@ -219,7 +220,7 @@ print("--- %s seconds ---" % (time.time() - start_time))
 start_time = time.time()
 rankList = np.arange(1,nDigitalSpots+1)
 desiredPval = 0.05
-bhCorrPval = (rankList/(len(allSampleGeneList)*nDigitalSpots))*desiredPval
+bhCorrPval = (rankList/len(allSampleGeneList))*desiredPval
 
 sigGenes = []
 sigGenesWithPvals = []
@@ -298,7 +299,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             actSigGeneWithTstats = np.append(actSigGene, actTstats)
             sigGenesWithPvals.append(actSigGeneWithPvals)
             sigGenesWithTstats.append(actSigGeneWithTstats)
-            maskedDigitalCoordinates = templateDigitalSpots[np.array(mulCompResults)]
+            maskedDigitalCoordinates = regionMaskDigitalSpots[np.array(mulCompResults)]
             maskedTstats = actTtest[0][mulCompResults]
             maskedDigitalCoordinates = np.array(maskedDigitalCoordinates)
             medianDigitalControl = np.nanmedian(digitalSamplesControl,axis=1)
@@ -315,21 +316,21 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             fig.add_subplot(1,3,1)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('NSD')
 
             # display mean gene count for experimental group
             fig.add_subplot(1,3,2)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            expScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('SD')
             fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
             fig.add_subplot(1,3,3)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
+            tStatScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             plt.title(actGene, style='italic')
             fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
             plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}BenjaminiHochbergSleepDep.png'), bbox_inches='tight', dpi=300)
@@ -351,7 +352,7 @@ print("--- %s seconds ---" % (time.time() - start_time))
 #%% test using Bonferroni correction 0.05
 
 start_time = time.time()
-bonCorrPval = desiredPval/(len(allSampleGeneList)*nDigitalSpots)
+bonCorrPval = desiredPval/len(allSampleGeneList)
 
 sigGenes = []
 sigGenesWithPvals = []
@@ -430,7 +431,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             actSigGeneWithTstats = np.append(actSigGene, actTstats)
             sigGenesWithPvals.append(actSigGeneWithPvals)
             sigGenesWithTstats.append(actSigGeneWithTstats)
-            maskedDigitalCoordinates = templateDigitalSpots[np.array(mulCompResults)]
+            maskedDigitalCoordinates = regionMaskDigitalSpots[np.array(mulCompResults)]
             maskedTstats = actTtest[0][mulCompResults]
             maskedDigitalCoordinates = np.array(maskedDigitalCoordinates)
             medianDigitalControl = np.nanmedian(digitalSamplesControl,axis=1)
@@ -447,21 +448,21 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             fig.add_subplot(1,3,1)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('NSD')
 
             # display mean gene count for experimental group
             fig.add_subplot(1,3,2)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+            expScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('SD')
             fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
             fig.add_subplot(1,3,3)
             plt.axis('off')
             plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
+            tStatScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             plt.title(actGene, style='italic')
             fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
             plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}BonferroniSleepDep.png'), bbox_inches='tight', dpi=300)
