@@ -217,6 +217,7 @@ print("--- %s seconds ---" % (time.time() - start_time))
 #%% first test using Benjamani-Hochberg correction 0.05
 
 start_time = time.time()
+print(start_time)
 rankList = np.arange(1,nDigitalSpots+1)
 desiredPval = 0.05
 bhCorrPval = (rankList/(len(allSampleGeneList)*nDigitalSpots))*desiredPval
@@ -351,6 +352,7 @@ print("--- %s seconds ---" % (time.time() - start_time))
 #%% test using Bonferroni correction 0.05
 
 start_time = time.time()
+print(start_time)
 bonCorrPval = desiredPval/(len(allSampleGeneList)*nDigitalSpots)
 
 sigGenes = []
