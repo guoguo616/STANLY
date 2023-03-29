@@ -15,7 +15,7 @@ import time
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -67,6 +67,30 @@ for i, regSample in enumerate(processedSamples):
     plt.colorbar()
     plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{processedSamples[i]["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
     plt.show()
+    
+#%% display number of genes expressed per spot
+
+# sample = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][4]))
+filtFeatMat = processedSamples[4]['filteredFeatureMatrixLog2']
+filtFeatMat = filtFeatMat.todense()
+filtFeatMat[filtFeatMat > 0] = 1
+nOfGenesExp = sum(filtFeatMat)
+plt.imshow(processedSamples[4]['tissueProcessed'], cmap='gray')
+plt.scatter(processedSamples[4]['processedTissuePositionList'][:,0],processedSamples[4]['processedTissuePositionList'][:,1], c=np.array(nOfGenesExp), alpha=0.8, cmap='Reds', marker='.')
+plt.title(f'Number of genes per spot for {processedSamples[4]["sampleID"]}')
+plt.colorbar()
+###################
+
+for i, regSample in enumerate(processedSamples):
+    actSpots = processedSamples[i]['filteredFeatureMatrixLog2'][geneIndex, :]
+    plt.imshow( processedSamples[i]['tissueProcessed'], cmap='gray')
+    plt.scatter(processedSamples[i]['processedTissuePositionList'][:,0],processedSamples[i]['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+    plt.title(f'Gene count for {actGene} in {processedSamples[i]["sampleID"]}')
+    plt.colorbar()
+    # plt.savefig(os.path.join(derivatives,f'geneCount{actGene}{processedSamples[i]["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+    plt.show()
+    
+####################
 #%% create digital spots and find nearest neighbors
 wholeBrainSpotSize = 15
 kSpots = 7
@@ -159,7 +183,7 @@ alphaSidak = 1 - np.power((1 - 0.05),(1/nDigitalSpots))
 # alphaSidak = 5e-8
 # list(allSampleGeneList)[0:1000]
 
-geneList = stanly.loadGeneListFromCsv('/home/zjpeters/rdss_tnj/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
+geneList = stanly.loadGeneListFromCsv('/home/zjpeters/Documents/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
@@ -299,8 +323,11 @@ kSpots = 7
 regionalSpotSize = 18
 
 # desired region must be from 'name' column of allen_ccf_annotation.csv
-desiredRegion = 'Epithalamus'
-regionMask = stanly.createRegionalMask(template, desiredRegion)
+# desiredRegion = 'Dentate gyrus'
+nameForMask = 'DG+CA1'
+dgMask = stanly.createRegionalMask(template, 'Dentate gyrus')
+ca1Mask = stanly.createRegionalMask(template, 'Field CA1')
+regionMask = dgMask + ca1Mask
 regionMaskDigitalSpots = stanly.createRegionalDigitalSpots(regionMask, regionalSpotSize)
 
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
@@ -422,7 +449,7 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             fig = plt.figure()
             fig.add_subplot(1,3,1)
             plt.axis('off')
-            plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
             plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('NSD')
 
@@ -431,18 +458,18 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             # display mean gene count for experimental group
             fig.add_subplot(1,3,2)
             plt.axis('off')
-            plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
             expScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('SD')
             fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
             fig.add_subplot(1,3,3)
             plt.axis('off')
-            plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
             tStatScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(actTtest[0]), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             plt.title(f't-statistic for {actGene}')
             fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
-            plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep_{desiredRegion}.png'), bbox_inches='tight', dpi=300)
+            plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep_{nameForMask}.png'), bbox_inches='tight', dpi=300)
             plt.show()
             
             # plt.imshow(bestSampleToTemplate['visiumTransformed'],cmap='gray')
@@ -468,7 +495,7 @@ for nOfGenesChecked,actGene in enumerate(geneList):
 
 
 timestr = time.strftime("%Y%m%d-%H%M%S")
-with open(os.path.join(derivatives,f'listOfSigSleepDepGenes_{desiredRegion}_{timestr}.csv'), 'w', encoding='UTF8') as f:
+with open(os.path.join(derivatives,f'listOfSigSleepDepGenes_{nameForMask}_{timestr}.csv'), 'w', encoding='UTF8') as f:
     writer = csv.writer(f)
     for i in sigGenes:
         writer.writerow([i])
@@ -483,9 +510,10 @@ print("--- %s seconds ---" % (time.time() - start_time))
 #         writer.writerow(rowFormat)
 #%% rewriting t stat section to output everything asked for, no matter significance, good for searching a gene list
 wholeBrainSpotSize = 15
+regionMaskDigitalSpots = stanly.createRegionalDigitalSpots(regionMask, regionalSpotSize)
 templateDigitalSpots = stanly.createDigitalSpots(allSamplesToAllen[4], wholeBrainSpotSize)
 for i, regSample in enumerate(allSamplesToAllen):        
-    actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+    actNN, actCDist = stanly.findDigitalNearestNeighbors(regionMaskDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
     allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
     # creates a list of genes present in all samples
     if i == 0:
@@ -493,10 +521,10 @@ for i, regSample in enumerate(allSamplesToAllen):
     else:
         allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
 
-genesFromYann = ['Arc', 'Cirbp', 'Rbm3', 'Homer1', 'Pmch', 'Hcrt', 'Ttr', 'Bhlhe41','Marcksl1','Ep300','Nr4a1','Per1','Ube3a','Sh3gl1','Slc9a3r1', 'Marcksl1', 'Malat1', 'Hart']
+genesFromYann = ['Arc', 'Cirbp', 'Egr1', 'Rbm3', 'Homer1', 'Pmch', 'Hcrt', 'Ttr', 'Bhlhe41','Marcksl1','Ep300','Nr4a1','Per1','Ube3a','Sh3gl1','Slc9a3r1', 'Marcksl1', 'Malat1', 'Hart']
 start_time = time.time()
 
-nDigitalSpots = len(templateDigitalSpots)
+nDigitalSpots = len(regionMaskDigitalSpots)
 
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
@@ -574,7 +602,7 @@ for nOfGenesChecked,actGene in enumerate(genesFromYann):
     fig.add_subplot(1,3,1)
     plt.axis('off')
     plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-    plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+    plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
     plt.title('NSD')
 
     # plt.savefig(os.path.join(derivatives,f'meanGeneCount{actGene}Control.png'), bbox_inches='tight', dpi=300)
@@ -583,17 +611,17 @@ for nOfGenesChecked,actGene in enumerate(genesFromYann):
     fig.add_subplot(1,3,2)
     plt.axis('off')
     plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-    expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
+    expScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
     plt.title('SD')
     fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
     fig.add_subplot(1,3,3)
     plt.axis('off')
     plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-    tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTtest[0]), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
+    tStatScatter = plt.scatter(regionMaskDigitalSpots[:,0],regionMaskDigitalSpots[:,1], c=np.array(actTtest[0]), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
     plt.title(f't-statistic for {actGene}')
     fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
-    plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep.png'), bbox_inches='tight', dpi=300)
+    plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}{nameForMask}SleepDep.png'), bbox_inches='tight', dpi=300)
     plt.show()
 timestr = time.strftime("%Y%m%d-%H%M%S")
 print("--- %s seconds ---" % (time.time() - start_time))
