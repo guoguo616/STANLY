@@ -482,3 +482,6 @@ with open(os.path.join(derivatives,f'listOfSigSleepDepGenesBonferroniTstatistics
         
 print("--- %s seconds ---" % (time.time() - start_time))
 
+#%% testing runTTest
+x = experiment['experimental-group']
+stanly.runTTest(allSamplesToAllen, x, allSampleGeneList)
