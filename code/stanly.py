@@ -920,6 +920,7 @@ def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
                 actSigGeneWithTstats = np.append(actSigGene, actTstats)
                 sigGenesWithPvals.append(actSigGeneWithPvals)
                 sigGenesWithTstats.append(actSigGeneWithTstats)
+                print(actGene)
             else:
                 continue
     timestr = time.strftime("%Y%m%d-%H%M%S")
