@@ -63,7 +63,7 @@ regionMask = stanly.createRegionalMask(template, desiredRegion)
 regionMaskDigitalSpots = stanly.createRegionalDigitalSpots(regionMask, regionalSpotSize)
 
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
-for i, regSample in enumerate(allSamplesToAllen):        
+for i, regSample in enumerate(['Arc']):        
     actNN, actCDist = stanly.findDigitalNearestNeighbors(regionMaskDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, regionalSpotSize)
     allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
     # creates a list of genes present in all samples
