@@ -810,7 +810,7 @@ def loadAllenRegisteredSample(locOfRegSample):
     tempDenseMatrix = filteredFeatureMatrixLog2.todense()
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     return templateRegisteredData
-#%% 
+
 def viewGeneInProcessedVisium(processedSample, geneName):
     try:
         geneIndex = processedSample['geneListMasked'].index(geneName)
@@ -823,10 +823,6 @@ def viewGeneInProcessedVisium(processedSample, geneName):
         plt.show()
     except(ValueError):
         print(f'{geneName} not found in dataset')
-
-#%% Things that need to be added
-
-# 1. t-test for experiment function
 
 #%%
 def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
@@ -933,4 +929,24 @@ def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
         writer = csv.writer(f)
         for i in sigGenesWithTstats:
             writer.writerow(i)
+
+#%% add analysis that utilizes spots of known gene
+# this version uses processed but unregistered samples
+def selectSpotsWithGene(processedSample, geneToSelect):
+    denseMatrix = processedSample['filteredFeatureMatrixLog2']
+    denseMatrix = denseMatrix.todense()
+    geneIndex = processedSample['geneListMasked'].index(geneToSelect)
+    actSpots = processedSample['filteredFeatureMatrixLog2'][geneIndex, :]
+    actSpots = actSpots.todense()
+    posSpots = actSpots > 0
+    posSpots = np.squeeze(np.array(posSpots))
+    maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
+    maskedMatrix = denseMatrix[:,posSpots]
+    return 
+
+
+
+
+
+
             

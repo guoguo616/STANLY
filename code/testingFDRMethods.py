@@ -73,15 +73,20 @@ nDigitalSpots = len(templateDigitalSpots)
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 
+#%% display annotation
+annotColors = np.random.rand(3,len(template['annotationID']))
+
 #%% first test using Sidak correction
 
 start_time = time.time()
-alphaSidak = 1 - np.power((1 - 0.05),(1/(len(allSampleGeneList)*nDigitalSpots)))
+desiredPval = 0.1
+alphaSidak = 1 - np.power((1 - desiredPval),(1/(len(allSampleGeneList))))
+geneList = stanly.loadGeneListFromCsv('/home/zjpeters/Documents/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
 
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+for nOfGenesChecked,actGene in enumerate(['Per1','Nr4a1','Homer1','Arc','Rbm3','Cirbp']):
     digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
     digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
     startControl = 0
@@ -153,7 +158,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
         mulCompResults = actPvals < alphaSidak
         # mulCompResults = multipletests(actTtest[1], 0.05, method='bonferroni', is_sorted=False)
         # fdrAlpha = mulCompResults[3].
-        spotThr = 3 #0.05 * nDigitalSpots
+        
         if sum(mulCompResults) > 0:
             actSigGene = [actGene,sum(mulCompResults)]
             sigGenes.append(actSigGene)
@@ -174,27 +179,36 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             finiteMax = np.nanmax(actTtest[0])
             maxGeneCount = np.nanmax([medianDigitalControl,medianDigitalExperimental])
             # display mean gene count for control group            
-            fig = plt.figure()
-            fig.add_subplot(1,3,1)
+            # fig = plt.figure()
+            #Plot data
+            fig, axs = plt.subplots(1,3)
+            
+            # axs[0].plot(Y)
+            # axs[1].scatter(z['level_1'], z['level_0'],c=z[0])
+            
+            # fig.add_subplot(1,3,1)
             plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
-            plt.title('NSD')
-
+            axs[0].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
+            axs[0].set_title('NSD')
+            axs[0].axis('off')
             # display mean gene count for experimental group
-            fig.add_subplot(1,3,2)
-            plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
-            plt.title('SD')
-            fig.colorbar(expScatter,fraction=0.046, pad=0.04)
+            # fig.add_subplot(1,3,2)
+            # plt.axis('off')
+            axs[1].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
+            axs[1].set_title('SD')
+            axs[1].axis('off')
+            # plt.colorbar(scatterBar,ax=axs[1])
 
-            fig.add_subplot(1,3,3)
-            plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
-            tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
-            plt.title(actGene, style='italic')
-            fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
+            # fig.add_subplot(1,3,3)
+            # plt.axis('off')
+            axs[2].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
+            
+            axs[2].set_title(actGene, style='italic')
+            axs[2].axis('off')
+            # plt.colorbar(tBar,ax=axs[2],fraction=0.046, pad=0.04)
             plt.savefig(os.path.join(derivatives,f'tStatGeneCount{actGene}SleepDep.png'), bbox_inches='tight', dpi=300)
             plt.show()
 
@@ -211,21 +225,18 @@ with open(os.path.join(derivatives,f'listOfSigSleepDepGenesSidakTstatistics{time
         
 print("--- %s seconds ---" % (time.time() - start_time))
 
-###############################################################################
-# should repeat the above without the 3 spot threshold
-###############################################################################
+
 #%% first test using Benjamani-Hochberg correction 0.05
 
 start_time = time.time()
 print(start_time)
 rankList = np.arange(1,nDigitalSpots+1)
-desiredPval = 0.05
-bhCorrPval = (rankList/(len(allSampleGeneList)*nDigitalSpots))*desiredPval
+bhCorrPval = (rankList/(len(allSampleGeneList)))*desiredPval
 
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+for nOfGenesChecked,actGene in enumerate(geneList):
     digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
     digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
     startControl = 0
@@ -353,12 +364,12 @@ print("--- %s seconds ---" % (time.time() - start_time))
 
 start_time = time.time()
 print(start_time)
-bonCorrPval = desiredPval/(len(allSampleGeneList)*nDigitalSpots)
+bonCorrPval = desiredPval/(len(allSampleGeneList))
 
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+for nOfGenesChecked,actGene in enumerate(geneList):
     digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
     digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
     startControl = 0
@@ -483,5 +494,4 @@ with open(os.path.join(derivatives,f'listOfSigSleepDepGenesBonferroniTstatistics
 print("--- %s seconds ---" % (time.time() - start_time))
 
 #%% testing runTTest
-x = experiment['experimental-group']
-stanly.runTTest(allSamplesToAllen, x, allSampleGeneList)
+stanly.runTTest(allSamplesToAllen, experiment['experimental-group'], allSampleGeneList)
