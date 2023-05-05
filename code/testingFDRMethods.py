@@ -28,7 +28,10 @@ with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
         templateList.append(row[1:])
 
 templateList = np.array(templateList, dtype='int')
-        
+
+# run edge detection on annotation image
+# start by renumbering annotated version so it doesn't have large numbers
+
 # list of good images
 imageList = [0,1,2,3,4,5,6,7,10,11,12,13,15]
 
@@ -186,23 +189,25 @@ for nOfGenesChecked,actGene in enumerate(['Per1','Nr4a1','Homer1','Arc','Rbm3','
             # fig.add_subplot(1,3,1)
             plt.axis('off')
             axs[0].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
-            axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
+            axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.5, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
+            axs[0].imshow(template['leftHemAnnotEdges'], cmap='gray_r')
             axs[0].set_title('NSD')
             axs[0].axis('off')
             # display mean gene count for experimental group
             # fig.add_subplot(1,3,2)
             # plt.axis('off')
             axs[1].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
-            axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
+            axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.5, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
+            axs[1].imshow(template['leftHemAnnotEdges'], cmap='gray_r')
             axs[1].set_title('SD')
             axs[1].axis('off')
             # plt.colorbar(scatterBar,ax=axs[1])
 
             # fig.add_subplot(1,3,3)
             # plt.axis('off')
-            axs[2].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
-            axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
-            
+            # axs[2].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.5,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
+            axs[2].imshow(template['leftHemAnnotEdges'],cmap='gray_r')
             axs[2].set_title(actGene, style='italic')
             axs[2].axis('off')
             # plt.colorbar(tBar,ax=axs[2],fraction=0.046, pad=0.04)
@@ -222,7 +227,18 @@ with open(os.path.join(derivatives,f'listOfSigSleepDepGenesSidakTstatistics{time
         
 print("--- %s seconds ---" % (time.time() - start_time))
 
+#%% show overlay of images with template
 
+plt.imshow(template['leftHem'])
+plt.imshow(allSamplesToAllen[4]['visiumTransformed'], cmap='gray',alpha=0.6)
+plt.axis('off')
+plt.show()
+#%% show overlay of images with template
+
+plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
+plt.imshow(allSamplesToAllen[5]['visiumTransformed'], cmap='gray',alpha=0.6)
+plt.axis('off')
+plt.show()
 #%% first test using Benjamani-Hochberg correction 0.05
 
 start_time = time.time()
@@ -643,3 +659,5 @@ with open(os.path.join(derivatives,f'listOfSigSleepDepGenesSidakTstatistics{time
         writer.writerow(i)
         
 print("--- %s seconds ---" % (time.time() - start_time))
+
+

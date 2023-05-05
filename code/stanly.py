@@ -7,7 +7,7 @@ Created on Sep 7 2022
 """
 # data being read in includes: json, h5, csv, nrrd, jpg, and svg
 import os
-from skimage import io, filters, color
+from skimage import io, filters, color, feature, morphology
 from skimage.transform import rescale, rotate
 from skimage.exposure import match_histograms
 from matplotlib import pyplot as plt
@@ -156,6 +156,24 @@ def chooseTemplateSlice(sliceLocation):
     templateData['rightHem'] = templateRight
     templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int')
     templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int')
+    annotX = templateLeft.shape[0]
+    annotY = templateLeft.shape[1]
+    templateAnnotLeftRGB = np.zeros([annotX, annotY, 3])
+    templateAnnotLeftUnique = np.unique(templateData['leftHemAnnot'])
+    templateAnnotLeftRenum = np.zeros(templateData['leftHemAnnot'].shape)
+    for newNum, origNum in enumerate(templateAnnotLeftUnique):
+        templateAnnotLeftRenum[templateData['leftHemAnnot'] == origNum] = newNum
+    # templateAnnotLeftRGB[:,:,1] = templateAnnotLeftRGB[:,:,1] - morphology.binary_dilation(feature.canny(templateAnnotLeftRenum))
+    # templateData['leftHemAnnotEdges']  = templateAnnotLeftRGB
+    se = morphology.disk(2)
+    templateAnnotLeftRGB = morphology.binary_dilation(feature.canny(templateAnnotLeftRenum), footprint=se)
+    templateData['leftHemAnnotEdges']  = templateAnnotLeftRGB
+    # templateData['leftHemAnnotEdges'] = morphology.binary_dilation(feature.canny(templateAnnotLeftRenum))
+    templateAnnotRightUnique = np.unique(templateData['rightHemAnnot'])
+    templateAnnotRightRenum = np.zeros(templateData['rightHemAnnot'].shape)
+    for newNum, origNum in enumerate(templateAnnotRightUnique):
+        templateAnnotRightRenum[templateData['rightHemAnnot'] == origNum] = newNum
+    templateData['rightHemAnnotEdges'] = feature.canny(templateAnnotRightRenum)*255
     # currently using the 10um resolution atlas, would need to change if that changes
     templateData['startingResolution'] = 0.01
     annotation_id = []
