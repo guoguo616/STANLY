@@ -74,7 +74,7 @@ nDigitalSpots = len(regionMaskDigitalSpots)
 #%% first test using Sidak correction
 
 start_time = time.time()
-alphaSidak = 1 - np.power((1 - 0.05),(1/(len(allSampleGeneList)*nDigitalSpots)))
+alphaSidak = 1 - np.power((1 - 0.2),(1/(len(allSampleGeneList)*nDigitalSpots)))
 
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
