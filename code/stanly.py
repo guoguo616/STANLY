@@ -91,17 +91,25 @@ def importVisiumData(sampleFolder):
     visiumData = {}
     if os.path.exists(os.path.join(sampleFolder,"spatial")):
         spatialFolder = os.path.join(sampleFolder,"spatial")
+        try:
+            os.path.isfile(glob(os.path.join(sampleFolder, '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = sampleFolder
+        except IndexError:
+            os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = spatialFolder
         # dataFolder = os.path.join(sampleFolder)
     elif os.path.exists(os.path.join(sampleFolder,"outs","spatial")):
         spatialFolder = os.path.join(sampleFolder,"outs","spatial")
+        try:
+            os.path.isfile(glob(os.path.join(sampleFolder,"outs", '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = sampleFolder
+        except IndexError:
+            os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = spatialFolder
         # dataFolder = os.path.join(sampleFolder,"outs")
     else:
         print("Something isn't working!")
     
-    if os.path.isfile(glob(os.path.join(sampleFolder, '*filtered_feature_bc_matrix.h5'))):
-        dataFolder = sampleFolder
-    elif os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))):
-        dataFolder = spatialFolder
     visiumData['imageData'] = io.imread(os.path.join(spatialFolder,"tissue_hires_image.png"))
     # visiumData['imageDataGray'] = 1 - visiumData['imageData'][:,:,2]
     visiumData['imageDataGray'] = 1 - color.rgb2gray(visiumData['imageData'])
@@ -519,7 +527,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
         for row in csvreader:
             transformedTissuePositionList.append(row)
                 
-    
+    templateRegisteredData['derivativesPath'] = registeredVisium['derivativesPath']
     templateRegisteredData['sampleID'] = registeredVisium['sampleID']
     templateRegisteredData['bestFitSampleID'] = bestSampleRegisteredToTemplate['sampleID']
     templateRegisteredData['visiumTransformed'] = sampleToTemplate.numpy()
