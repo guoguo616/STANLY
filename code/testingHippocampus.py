@@ -15,7 +15,7 @@ import time
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -74,7 +74,7 @@ nDigitalSpots = len(regionMaskDigitalSpots)
 #%% first test using Sidak correction
 
 start_time = time.time()
-alphaSidak = 1 - np.power((1 - 0.05),(1/(len(allSampleGeneList)*nDigitalSpots)))
+alphaSidak = 1 - np.power((1 - 0.2),(1/(len(allSampleGeneList)*nDigitalSpots)))
 
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
@@ -82,7 +82,7 @@ nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+for nOfGenesChecked,actGene in enumerate(['Arc','Egr1']):
     digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
     digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
     startControl = 0
@@ -225,7 +225,7 @@ bhCorrPval = (rankList/len(allSampleGeneList))*desiredPval
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+for nOfGenesChecked,actGene in enumerate(['Arc','Egr1']):
     digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
     digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
     startControl = 0
@@ -357,7 +357,7 @@ bonCorrPval = desiredPval/len(allSampleGeneList)
 sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
-for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
+for nOfGenesChecked,actGene in enumerate(['Arc','Egr1']):
     digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
     digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
     startControl = 0

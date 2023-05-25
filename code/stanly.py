@@ -7,7 +7,7 @@ Created on Sep 7 2022
 """
 # data being read in includes: json, h5, csv, nrrd, jpg, and svg
 import os
-from skimage import io, filters, color
+from skimage import io, filters, color, feature, morphology
 from skimage.transform import rescale, rotate
 from skimage.exposure import match_histograms
 from matplotlib import pyplot as plt
@@ -23,7 +23,7 @@ import scipy.spatial as sp_spatial
 import scipy.sparse as sp_sparse
 import collections
 import tables
-# import time
+import time
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -91,12 +91,25 @@ def importVisiumData(sampleFolder):
     visiumData = {}
     if os.path.exists(os.path.join(sampleFolder,"spatial")):
         spatialFolder = os.path.join(sampleFolder,"spatial")
-        dataFolder = os.path.join(sampleFolder)
+        try:
+            os.path.isfile(glob(os.path.join(sampleFolder, '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = sampleFolder
+        except IndexError:
+            os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = spatialFolder
+        # dataFolder = os.path.join(sampleFolder)
     elif os.path.exists(os.path.join(sampleFolder,"outs","spatial")):
         spatialFolder = os.path.join(sampleFolder,"outs","spatial")
-        dataFolder = os.path.join(sampleFolder,"outs")
+        try:
+            os.path.isfile(glob(os.path.join(sampleFolder,"outs", '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = sampleFolder
+        except IndexError:
+            os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
+            dataFolder = spatialFolder
+        # dataFolder = os.path.join(sampleFolder,"outs")
     else:
         print("Something isn't working!")
+    
     visiumData['imageData'] = io.imread(os.path.join(spatialFolder,"tissue_hires_image.png"))
     # visiumData['imageDataGray'] = 1 - visiumData['imageData'][:,:,2]
     visiumData['imageDataGray'] = 1 - color.rgb2gray(visiumData['imageData'])
@@ -156,6 +169,24 @@ def chooseTemplateSlice(sliceLocation):
     templateData['rightHem'] = templateRight
     templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int')
     templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int')
+    annotX = templateLeft.shape[0]
+    annotY = templateLeft.shape[1]
+    templateAnnotLeftRGB = np.zeros([annotX, annotY, 3])
+    templateAnnotLeftUnique = np.unique(templateData['leftHemAnnot'])
+    templateAnnotLeftRenum = np.zeros(templateData['leftHemAnnot'].shape)
+    for newNum, origNum in enumerate(templateAnnotLeftUnique):
+        templateAnnotLeftRenum[templateData['leftHemAnnot'] == origNum] = newNum
+    # templateAnnotLeftRGB[:,:,1] = templateAnnotLeftRGB[:,:,1] - morphology.binary_dilation(feature.canny(templateAnnotLeftRenum))
+    # templateData['leftHemAnnotEdges']  = templateAnnotLeftRGB
+    se = morphology.disk(2)
+    templateAnnotLeftRGB = morphology.binary_dilation(feature.canny(templateAnnotLeftRenum), footprint=se)
+    templateData['leftHemAnnotEdges']  = templateAnnotLeftRGB
+    # templateData['leftHemAnnotEdges'] = morphology.binary_dilation(feature.canny(templateAnnotLeftRenum))
+    templateAnnotRightUnique = np.unique(templateData['rightHemAnnot'])
+    templateAnnotRightRenum = np.zeros(templateData['rightHemAnnot'].shape)
+    for newNum, origNum in enumerate(templateAnnotRightUnique):
+        templateAnnotRightRenum[templateData['rightHemAnnot'] == origNum] = newNum
+    templateData['rightHemAnnotEdges'] = feature.canny(templateAnnotRightRenum)*255
     # currently using the 10um resolution atlas, would need to change if that changes
     templateData['startingResolution'] = 0.01
     annotation_id = []
@@ -496,7 +527,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
         for row in csvreader:
             transformedTissuePositionList.append(row)
                 
-    
+    templateRegisteredData['derivativesPath'] = registeredVisium['derivativesPath']
     templateRegisteredData['sampleID'] = registeredVisium['sampleID']
     templateRegisteredData['bestFitSampleID'] = bestSampleRegisteredToTemplate['sampleID']
     templateRegisteredData['visiumTransformed'] = sampleToTemplate.numpy()
@@ -810,7 +841,7 @@ def loadAllenRegisteredSample(locOfRegSample):
     tempDenseMatrix = filteredFeatureMatrixLog2.todense()
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     return templateRegisteredData
-#%% 
+
 def viewGeneInProcessedVisium(processedSample, geneName):
     try:
         geneIndex = processedSample['geneListMasked'].index(geneName)
@@ -824,46 +855,129 @@ def viewGeneInProcessedVisium(processedSample, geneName):
     except(ValueError):
         print(f'{geneName} not found in dataset')
 
-#%% Things that need to be added
-
-# 1. internal check for ara_nissl_10.nrrd, set program to ask to download if not present or to direct the script to its location
-# 2. importParticipantsFile
-
 #%%
+def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
+    # needs to include:
+    # benjamini-hochberg, bonferroni, and sidak fdr corrections
+    # option to suppress image output, alternatively default off
+    # experiment in this case is formatted as previous with each sample having `digitalSpotNearestNeighbors`
+    # experimentalGroup is a binary list of [0,1] indicating whether or not sample is in experimental group
+    nOfGenes = len(geneList)
+    nDigitalSpots = experiment[0]['digitalSpotNearestNeighbors'].shape[0]
+    nNearestNeighbors = experiment[0]['digitalSpotNearestNeighbors'].shape[1]
+    if fdr == 'sidak':
+        alphaFDR = 1 - np.power((1 - alpha),(1/(nOfGenes*nDigitalSpots)))
+    elif fdr == 'benjamini-hochberg':
+        rankList = np.arange(1,nDigitalSpots+1)
+        alphaFDR = (rankList/(nOfGenes*nDigitalSpots)) * alpha
+    elif fdr == 'bonferroni':
+        alphaFDR = alpha/(nOfGenes*nDigitalSpots)
+    elif fdr == 'no':
+        alphaFDR = alpha
 
-# def geneDiscoveryDigitalSpots(digitalSpots, templateRegisteredData, geneList, pVal=0.05):
-#     # inputs needed, digital spots/n of digital spots, template registered data, list of genes
-#     # optional arguments pval default 0.05
-#     nDigitalSpots = digitalSpots.shape[0]
-#     alphaSidak = 1 - np.power((1 - 0.05),(1/nDigitalSpots))
-#     sigGenes = []
-#     for nOfGenesChecked,actGene in enumerate(geneList):
-#         digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
-#         digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
-#         startControl = 0
-#         stopControl = kSpots
-#         startExperimental = 0
-#         stopExperimental = kSpots
-#         nTestedSamples = 0
-#         nControls = 0
-#         nExperimentals = 0
-#         for actSample in range(nTotalSamples):
-#             try:
-#                 geneIndex = allSamplesToAllen[actSample]['geneListMasked'].index(actGene)
-#             except(ValueError):
-#                 print(f'{actGene} not in dataset')
-#                 continue
+    sigGenes = []
+    sigGenesWithPvals = []
+    sigGenesWithTstats = []
+    nSampleExperimental = sum(experimentalGroup)
+    nSampleControl = len(experimentalGroup) - nSampleExperimental
+    for nOfGenesChecked,actGene in enumerate(geneList):
+        digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * nNearestNeighbors)])
+        digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * nNearestNeighbors)])
+        startControl = 0
+        stopControl = nNearestNeighbors
+        startExperimental = 0
+        stopExperimental = nNearestNeighbors
+        nTestedSamples = 0
+        nControls = 0
+        nExperimentals = 0
+        for actSample in range(len(experiment)):
+            try:
+                geneIndex = experiment[actSample]['geneListMasked'].index(actGene)
+            except(ValueError):
+                print(f'{actGene} not in dataset')
+                continue
 
-#             geneCount = np.zeros([nDigitalSpots,kSpots])
-#             for spots in enumerate(allSamplesToAllen[actSample]['digitalSpotNearestNeighbors']):
-#                 if np.all(spots[1] < 0):
-#                     geneCount[spots[0]] = 0
-#                 else:
-#                     spotij = np.zeros([7,2], dtype=int)
-#                     spotij[:,1] = np.asarray(spots[1], dtype=int)
-#                     spotij[:,0] = geneIndex
+            geneCount = np.zeros([nDigitalSpots,nNearestNeighbors])
+            for spots in enumerate(experiment[actSample]['digitalSpotNearestNeighbors']):
+                if np.any(spots[1] < 0):
+                    geneCount[spots[0]] = np.nan
+                else:
+                    spotij = np.zeros([nNearestNeighbors,2], dtype=int)
+                    spotij[:,1] = np.asarray(spots[1], dtype=int)
+                    spotij[:,0] = geneIndex
                     
-#                     geneCount[spots[0]] = allSamplesToAllen[actSample]['filteredFeatureMatrixMasked'][spotij[:,0],spotij[:,1]]
+                    geneCount[spots[0]] = experiment[actSample]['filteredFeatureMatrixMasked'][spotij[:,0],spotij[:,1]]
+                    
+            spotCount = np.nanmean(geneCount, axis=1)
+            nTestedSamples += 1
+            if experimentalGroup[actSample] == 0:
+                digitalSamplesControl[:,startControl:stopControl] = geneCount
+                startControl += nNearestNeighbors
+                stopControl += nNearestNeighbors
+                nControls += 1
+            elif experimentalGroup[actSample] == 1:
+                digitalSamplesExperimental[:,startExperimental:stopExperimental] = geneCount
+                startExperimental += nNearestNeighbors
+                stopExperimental += nNearestNeighbors
+                nExperimentals += 1
+                
+            else:
+                continue
+                
+        digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
+        digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
+        #####################################################################################################
+        # this will check that at least a certain number of spots show expression for the gene of interest  #
+        # might be able to remove entirely now that FDR has been expanded                                   #
+        #####################################################################################################
+        checkControlSamples = np.count_nonzero(digitalSamplesControl,axis=1)
+        checkExperimentalSamples = np.count_nonzero(digitalSamplesExperimental,axis=1)
+        checkAllSamples = checkControlSamples & checkExperimentalSamples > 20
+        if sum(checkAllSamples) < 20:
+            continue
+        else:
+            actTtest = scipy.stats.ttest_ind(digitalSamplesExperimental,digitalSamplesControl, axis=1, nan_policy='propagate')
+            actTstats = actTtest[0]
+            actPvals = actTtest[1]
+            mulCompResults = actPvals < alphaFDR
+            if sum(mulCompResults) > 0:
+                actSigGene = [actGene,sum(mulCompResults)]
+                sigGenes.append(actSigGene)
+                actSigGeneWithPvals = np.append(actSigGene, actPvals)
+                actSigGeneWithTstats = np.append(actSigGene, actTstats)
+                sigGenesWithPvals.append(actSigGeneWithPvals)
+                sigGenesWithTstats.append(actSigGeneWithTstats)
+                print(actGene)
+            else:
+                continue
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    with open(os.path.join(derivatives,f'listOfDEGsPvalues{fdr}Correction_{timestr}.csv'), 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        for i in sigGenesWithPvals:
+            writer.writerow(i)
+            
+    with open(os.path.join(derivatives,f'listOfDEGsTstatistics{fdr}Correction_{timestr}.csv'), 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        for i in sigGenesWithTstats:
+            writer.writerow(i)
 
-    
-#     return sigGenes
+#%% add analysis that utilizes spots of known gene
+# this version uses processed but unregistered samples
+def selectSpotsWithGene(processedSample, geneToSelect):
+    denseMatrix = processedSample['filteredFeatureMatrixLog2']
+    denseMatrix = denseMatrix.todense()
+    geneIndex = processedSample['geneListMasked'].index(geneToSelect)
+    actSpots = processedSample['filteredFeatureMatrixLog2'][geneIndex, :]
+    actSpots = actSpots.todense()
+    posSpots = actSpots > 0
+    posSpots = np.squeeze(np.array(posSpots))
+    maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
+    maskedMatrix = denseMatrix[:,posSpots]
+    return 
+
+
+
+
+
+
+            
