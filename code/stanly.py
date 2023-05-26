@@ -970,10 +970,13 @@ def selectSpotsWithGene(processedSample, geneToSelect):
     actSpots = processedSample['filteredFeatureMatrixLog2'][geneIndex, :]
     actSpots = actSpots.todense()
     posSpots = actSpots > 0
-    posSpots = np.squeeze(np.array(posSpots))
-    maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
-    maskedMatrix = denseMatrix[:,posSpots]
-    return 
+    if np.sum(actSpots) > 0:
+        posSpots = np.squeeze(np.array(posSpots))
+        maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
+        maskedMatrix = denseMatrix[:,posSpots]
+    else:
+        print(f"No spots in {processedSample[sampleID]} are positive for {geneToSelect}")
+    return maskedMatrix
 
 
 
