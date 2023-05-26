@@ -102,7 +102,7 @@ def importVisiumData(sampleFolder):
         spatialFolder = os.path.join(sampleFolder,"outs","spatial")
         try:
             os.path.isfile(glob(os.path.join(sampleFolder,"outs", '*filtered_feature_bc_matrix.h5'))[0])
-            dataFolder = sampleFolder
+            dataFolder = os.path.join(sampleFolder,"outs")
         except IndexError:
             os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
             dataFolder = spatialFolder
