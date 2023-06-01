@@ -380,35 +380,47 @@ def processVisiumData(visiumData, templateData, rotation):
 
 
 def runANTsToAllenRegistration(processedVisium, templateData):
+    # registeredData will contain: sampleID, derivativesPath, transformedTissuePositionList, fwdtransforms, invtransforms
+    registeredData = {}
     try:
         file = open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
         print(f"{processedVisium['sampleID']} has already been processed! check {processedVisium['derivativesPath']}")
+        print(f"Loading data for {processedVisium['sampleID']}")
+        registeredData['sampleID'] = processedVisium['sampleID']
+        registeredData['derivativesPath'] = processedVisium['derivativesPath']
+        registeredData['fwdtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat")]
+        registeredData['invtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1InverseWarp.nii.gz"),]
+        registeredData['visiumTransformed'] = plt.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
         return
     except IOError:
         print(f"Registering {processedVisium['sampleID']}")
-    # convert into ants image type
-    registeredData = {}
-    templateAntsImage = ants.from_numpy(templateData['leftHem'])
-    sampleAntsImage = ants.from_numpy(processedVisium['tissueProcessed'])
-    synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
-    syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
-    registeredData['antsOutput'] = synXfm
-    registeredData['sampleID'] = processedVisium['sampleID']
-    registeredData['derivativesPath'] = processedVisium['derivativesPath']
-    # apply syn transform to tissue spot coordinates
-    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz]"
-    pid = os.system(applyTransformStr)
-    # program has to wait while spots are transformed by the system
-    if pid:
-        os.wait()
-    #     print("Applying transformation to spots")
-    # else:
-    #     print("Finished transforming spots!")
+        # convert into ants image type
+        registeredData['sampleID'] = processedVisium['sampleID']
+        registeredData['derivativesPath'] = processedVisium['derivativesPath']
+        templateAntsImage = ants.from_numpy(templateData['leftHem'])
+        sampleAntsImage = ants.from_numpy(processedVisium['tissueProcessed'])
+        # run registration
+        synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
+        type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
+        syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
+        
+        registeredData['antsOutput'] = synXfm
+        registeredData['fwdtransforms'] = synXfm['fwdtransforms']
+        registeredData['invtransforms'] = synXfm['invtransforms']
 
-    registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
-    # registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
-    registeredData['geneListMasked'] = processedVisium['geneListMasked']
+        # apply syn transform to tissue spot coordinates
+        applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz]"
+        pid = os.system(applyTransformStr)
+        # program has to wait while spots are transformed by the system
+        if pid:
+            os.wait()
+        #     print("Applying transformation to spots")
+        # else:
+        #     print("Finished transforming spots!")
+    
+        registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
+        # registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
+        registeredData['geneListMasked'] = processedVisium['geneListMasked']
     
     transformedTissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv"), newline='') as csvfile:
