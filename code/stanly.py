@@ -406,7 +406,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     # else:
     #     print("Finished transforming spots!")
 
-    registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
+    registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
     # registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
     registeredData['geneListMasked'] = processedVisium['geneListMasked']
     
@@ -427,16 +427,16 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(transformedTissuePositionList, [2,3,4,5],1)
 
-    # plt.imshow(registeredData['visiumTransformed'])
+    # plt.imshow(registeredData['tissueRegistered'])
     # plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     # plt.show()
     
-    # plt.imshow(registeredData['visiumTransformed'],cmap='gray')
+    # plt.imshow(registeredData['tissueRegistered'],cmap='gray')
     # plt.imshow(templateData['leftHem'], alpha=0.3)
     # plt.title(processedVisium['sampleID'])
     # plt.show()
         
-    transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['visiumTransformed'].shape[0])
+    transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['tissueRegistered'].shape[0])
     maskedTissuePositionList = []
     # filteredFeatureMatrixBinaryMask = []
     # filteredFeatureMatrixMasked = np.zeros(processedVisium['filteredFeatureMatrixOrdered'][:,0].shape)
@@ -456,7 +456,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['filteredFeatureMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # write re-ordered filtered feature matrix csv to match tissue spot order
     sp_sparse.save_npz(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['filteredFeatureMatrixMasked']))        
-    cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['visiumTransformed'])
+    cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['tissueRegistered'])
     
     return registeredData
 
@@ -487,7 +487,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
             for row in csvreader:
                 transformedTissuePositionList.append(row)
                 
-    registeredData['visiumTransformed'] = synXfm["warpedmovout"].numpy()
+    registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
     # registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
     registeredData['geneListMasked'] = processedVisium['geneListMasked']
 
@@ -497,16 +497,16 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
     # registeredData['tissueSpotBarcodeList'] = processedVisium['tissueSpotBarcodeList']
     registeredData['filteredFeatureMatrixLog2'] = processedVisium['filteredFeatureMatrixLog2']
-    plt.imshow(registeredData['visiumTransformed'], cmap='gray')
+    plt.imshow(registeredData['tissueRegistered'], cmap='gray')
     plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
     
     plt.imshow(sampleToRegisterTo['tissueProcessed'], cmap='gray')
-    plt.imshow(registeredData['visiumTransformed'], alpha=0.7, cmap='gray')
+    plt.imshow(registeredData['tissueRegistered'], alpha=0.7, cmap='gray')
     plt.title(processedVisium['sampleID'])
     plt.show()
 
-    cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png",registeredData['visiumTransformed'])
+    cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png",registeredData['tissueRegistered'])
 
     return registeredData
     
@@ -514,7 +514,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     # if not os.exists(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv"):
         
     templateAntsImage = ants.from_numpy(templateData['leftHem'])
-    sampleAntsImage = ants.from_numpy(registeredVisium['visiumTransformed'])
+    sampleAntsImage = ants.from_numpy(registeredVisium['tissueRegistered'])
     sampleToTemplate = ants.apply_transforms( fixed=templateAntsImage, moving=sampleAntsImage, transformlist=bestSampleRegisteredToTemplate['antsOutput']['fwdtransforms'])
     
     # make sure this actually does what it's supposed to
@@ -530,7 +530,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     templateRegisteredData['derivativesPath'] = registeredVisium['derivativesPath']
     templateRegisteredData['sampleID'] = registeredVisium['sampleID']
     templateRegisteredData['bestFitSampleID'] = bestSampleRegisteredToTemplate['sampleID']
-    templateRegisteredData['visiumTransformed'] = sampleToTemplate.numpy()
+    templateRegisteredData['tissueRegistered'] = sampleToTemplate.numpy()
 
     transformedTissuePositionList = np.array(transformedTissuePositionList, dtype=float)
     # switching x,y columns back to python compatible and deleting empty columns
@@ -538,16 +538,16 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
     templateRegisteredData['geneListMasked'] = registeredVisium['geneListMasked']
 
-    plt.imshow(templateRegisteredData['visiumTransformed'], cmap='gray')
+    plt.imshow(templateRegisteredData['tissueRegistered'], cmap='gray')
     plt.scatter(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
 
     plt.imshow(templateData['leftHem'], cmap='gray')    
-    plt.imshow(templateRegisteredData['visiumTransformed'],alpha=0.8,cmap='gray')
+    plt.imshow(templateRegisteredData['tissueRegistered'],alpha=0.8,cmap='gray')
     plt.title(templateRegisteredData['sampleID'])
     plt.show()
         
-    transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['visiumTransformed'].shape[0])
+    transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['tissueRegistered'].shape[0])
     maskedTissuePositionList = []
     filteredFeatureMatrixMaskedIdx = []
     for i, masked in enumerate(transformedTissuePositionListMask):
@@ -560,7 +560,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # imageFilename = f"os.path.join({registeredVisium['derivativesPath']},{registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png"
     imageFilename = os.path.join(registeredVisium['derivativesPath'],f"{registeredVisium['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png")
-    cv2.imwrite(imageFilename, templateRegisteredData['visiumTransformed'])
+    cv2.imwrite(imageFilename, templateRegisteredData['tissueRegistered'])
 
     return templateRegisteredData
 
@@ -572,18 +572,18 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
     currentY = 0
     rowCount = 0
     templateSpots = []
-    while currentY < templateRegisteredData['visiumTransformed'].shape[0]:
-        if currentX < templateRegisteredData['visiumTransformed'].shape[1]:
+    while currentY < templateRegisteredData['tissueRegistered'].shape[0]:
+        if currentX < templateRegisteredData['tissueRegistered'].shape[1]:
             templateSpots.append([currentX, currentY])
             currentX += w
-        elif (currentX > templateRegisteredData['visiumTransformed'].shape[1]):
+        elif (currentX > templateRegisteredData['tissueRegistered'].shape[1]):
             rowCount += 1
             currentY += h * (3/4)
-            if ((currentY < templateRegisteredData['visiumTransformed'].shape[0]) and (rowCount % 2)):
+            if ((currentY < templateRegisteredData['tissueRegistered'].shape[0]) and (rowCount % 2)):
                 currentX = w/2
             else:
                 currentX = 0
-        elif ((currentX > templateRegisteredData['visiumTransformed'].shape[1] * 10) and (currentY > templateRegisteredData['visiumTransformed'].shape[0] * 10)):
+        elif ((currentX > templateRegisteredData['tissueRegistered'].shape[1] * 10) and (currentY > templateRegisteredData['tissueRegistered'].shape[0] * 10)):
             print("something is wrong")
 
     templateSpots = np.array(templateSpots)
@@ -593,12 +593,12 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
     ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
     digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
-        if templateRegisteredData['visiumTransformed'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
+        if templateRegisteredData['tissueRegistered'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
             digitalSpots.append(templateSpots[row])
             
     digitalSpots = np.array(digitalSpots)
     # uncomment following 3 lines to see the digital template spots
-    plt.imshow(templateRegisteredData['visiumTransformed'])
+    plt.imshow(templateRegisteredData['tissueRegistered'])
     plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
     plt.show()
     # write csv of digital spots in ants format
@@ -808,7 +808,7 @@ def loadAllenRegisteredSample(locOfRegSample):
         bestFitSample = bestFitSample[0]
     except IndexError:
         print(f"No registered data found in {locOfRegSample}")
-    templateRegisteredData['visiumTransformed'] = io.imread(bestFitSample)
+    templateRegisteredData['tissueRegistered'] = io.imread(bestFitSample)
     bestFitSample = bestFitSample.rsplit(sep='/',maxsplit=1)[-1]
     # id of best fit is the third from the end
     bestFitSample = bestFitSample.rsplit(sep='_')[-3]
@@ -827,7 +827,7 @@ def loadAllenRegisteredSample(locOfRegSample):
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
     transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
     transformedTissuePositionListMask = []
-    transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['visiumTransformed'].shape[0])
+    transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['tissueRegistered'].shape[0])
     maskedTissuePositionList = []
     filteredFeatureMatrixMaskedIdx = []
     for i, masked in enumerate(transformedTissuePositionListMask):
@@ -842,12 +842,26 @@ def loadAllenRegisteredSample(locOfRegSample):
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     return templateRegisteredData
 
+# these could probably be included as part of a class for both processed and registered samples
+
 def viewGeneInProcessedVisium(processedSample, geneName):
     try:
         geneIndex = processedSample['geneListMasked'].index(geneName)
         actSpots = processedSample['filteredFeatureMatrixLog2'][geneIndex, :]
         plt.imshow(processedSample['tissueProcessed'], cmap='gray')
         plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+        plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
+        plt.colorbar()
+        # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+        plt.show()
+    except(ValueError):
+        print(f'{geneName} not found in dataset')
+def viewGeneInRegisteredVisium(registeredSample, geneName):
+    try:
+        geneIndex = registeredSample['geneListMasked'].index(geneName)
+        actSpots = registeredSample['filteredFeatureMatrixLog2'][geneIndex, :]
+        plt.imshow(registeredSample['tissueProcessed'], cmap='gray')
+        plt.scatter(registeredSample['processedTissuePositionList'][:,0],registeredSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
         plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
         plt.colorbar()
         # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
