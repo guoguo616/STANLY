@@ -867,7 +867,7 @@ def viewGeneInProcessedVisium(processedSample, geneName):
     except(ValueError):
         print(f'{geneName} not found in dataset')
 
-#%%
+#%% not working properly indpendently yet
 def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
     # needs to include:
     # benjamini-hochberg, bonferroni, and sidak fdr corrections
@@ -988,7 +988,7 @@ def selectSpotsWithGene(processedSample, geneToSelect):
         maskedMatrix = denseMatrix[:,posSpots]
     else:
         print(f"No spots in {processedSample[sampleID]} are positive for {geneToSelect}")
-    return maskedMatrix
+    return maskedMatrix, maskedTissuePositionList
 
 
 
