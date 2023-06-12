@@ -13,11 +13,11 @@ import scipy
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -61,27 +61,8 @@ for actSample in range(len(experiment['sample-id'])):
 actGene = 'Fezf2'
 for i, regSample in enumerate(processedSamples):
     stanly.viewGeneInProcessedVisium(processedSamples[i], actGene)
-    
-#%% create digital spots for whole slice and find nearest neighbors
-# ONLY RUN ONE OF THE FOLLOWING TWO SECTIONS, OTHERWISE
 
-# allSampleGeneList = experimentalResults[0]['geneListMasked']
-# for i, regSample in enumerate(experimentalResults):        
-#     actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, experimentalResults[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
-#     experimentalResults[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
-#     # creates a list of genes present in all samples
-#     if i == 0:
-#         continue
-#     else:
-#         allSampleGeneList = set(allSampleGeneList) & set(experimentalResults[i]['geneListMasked'])
-
-
-# nDigitalSpots = len(templateDigitalSpots)
-# nSampleExperimental = sum(experiment['experimental-group'])
-# nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
-
-
-#%% This runs a sidak corrected t-test on all spots expressing Tph2
+#%% This runs a sidak corrected t-test on all spots expressing masking gene
 
 maskingGene = 'Fezf2'
 # allSampleGeneList = processedSamples[0]['geneListMasked']
@@ -144,14 +125,14 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
         ax.set_title(f'Mean log 2 normalized gene expression for {actGene}')
         plt.savefig(os.path.join('/','media','zjpeters','Samsung_T5','marcinkiewcz','lkolling','derivatives',f'meanLog2GeneExpression{actGene}.png'))
         plt.show()
-        # for i in range(nTotalSamples):
-        #     displayGeneIndex = processedSamples[i]['geneListMasked'].index(actGene)
-        #     plt.imshow(processedSamples[i]['tissueProcessed'], cmap='gray')
-        #     plt.scatter(processedSamples[i]['geneMaskedTissuePositions'][:,0],processedSamples[i]['geneMaskedTissuePositions'][:,1], c=np.array(processedSamples[i]['geneMaskedSpots'][displayGeneIndex,:]), alpha=0.8, cmap='Reds', marker='.')
-        #     plt.title(f'Gene count for {actGene} in {processedSamples[i]["sampleID"]}')
-        #     plt.colorbar()
-        #     # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
-        #     plt.show()
+        for i in range(nTotalSamples):
+            displayGeneIndex = processedSamples[i]['geneListMasked'].index(actGene)
+            plt.imshow(processedSamples[i]['tissueProcessed'], cmap='gray')
+            plt.scatter(processedSamples[i]['geneMaskedTissuePositions'][:,0],processedSamples[i]['geneMaskedTissuePositions'][:,1], c=np.array(processedSamples[i]['geneMaskedSpots'][displayGeneIndex,:]), alpha=0.8, cmap='Reds', marker='.')
+            plt.title(f'Gene count for {actGene} in {processedSamples[i]["sampleID"]}')
+            plt.colorbar()
+            # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+            plt.show()
 
 timestr = time.strftime("%Y%m%d-%H%M%S")
 with open(os.path.join(derivatives,f'listOfSigGenes_{maskingGene}_{timestr}.csv'), 'w', encoding='UTF8') as f:
