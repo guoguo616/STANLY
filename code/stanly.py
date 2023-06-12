@@ -987,31 +987,17 @@ def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
 #%% add analysis that utilizes spots of known gene
 # this version uses processed but unregistered samples
 def selectSpotsWithGene(processedSample, geneToSelect):
-    maskedSpots = {}
     denseMatrix = processedSample['filteredFeatureMatrixLog2']
     denseMatrix = denseMatrix.todense()
     geneIndex = processedSample['geneListMasked'].index(geneToSelect)
     actSpots = processedSample['filteredFeatureMatrixLog2'][geneIndex, :]
     actSpots = actSpots.todense()
-    
     posSpots = actSpots > 0
     if np.sum(actSpots) > 0:
         posSpots = np.squeeze(np.array(posSpots))
-        maskedSpots['maskedTissuePositionList'] = processedSample['processedTissuePositionList'][posSpots,:]
-        maskedSpots['filteredFeatureMatrixLog2Masked'] = denseMatrix[:,posSpots]
-        countsPerGene = np.count_nonzero(np.array(maskedSpots['filteredFeatureMatrixLog2Masked']),axis=1, keepdims=True)
-        # geneMask = countsPerGene > 0
-        # geneMask = np.squeeze(np.array(geneMask,dtype=int))
-        # geneList = np.array(processedSample['geneListMasked'])
-        # print(geneList)
-        # maskedSpots['geneListMasked'] = geneList[geneMask].tolist()
-        
+        maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
+        maskedMatrix = denseMatrix[:,posSpots]
     else:
         print(f"No spots in {processedSample[sampleID]} are positive for {geneToSelect}")
     return maskedMatrix, maskedTissuePositionList
-
-
-
-
-
-            
+           
