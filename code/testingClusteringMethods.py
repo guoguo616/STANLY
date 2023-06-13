@@ -10,14 +10,16 @@ from matplotlib import pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
 import scipy
+import scipy.spatial as sp_spatial
+import scipy.sparse as sp_sparse
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -122,6 +124,39 @@ for sampleIdx, actSample in enumerate(experimentalResults):
 # sigGenesWithPvals = []
 # sigGenesWithTstats = []
 # since we've sorted and masked the gene lists for all samples, no need to search list for indices
+
+#%% perform spectral clustering on groups using locations in registered coordinates
+
+nControls = 0
+nExperimentals = 0
+kNN = 12
+# 1. generate a list of all coordinates 
+for sampleIdx, actSample in enumerate(experimentalResults):
+    if experimentalResults[actSample]['experimentalStatus'] == 0:
+        if nControls == 0:
+            allCoordinatesControl = experimentalResults[actSample]['maskedTissuePositionList']
+        else:
+            allCoordinatesControl = np.append(allCoordinatesControl,experimentalResults[actSample]['maskedTissuePositionList'], axis=0)
+        nControls += 1
+    elif experimentalResults[actSample]['experimentalStatus'] == 1:
+        if nExperimentals == 0:
+            allCoordinatesExperimental = experimentalResults[actSample]['maskedTissuePositionList']
+        else:
+            allCoordinatesExperimental = np.append(allCoordinatesExperimental,experimentalResults[actSample]['maskedTissuePositionList'], axis=0)
+        nExperimentals += 1
+    
+# 2. calculate nearest neighbors and select for top kNN
+nnControl = sp_spatial.distance.cdist(allCoordinatesControl, allCoordinatesControl, 'euclidean')
+nnControlSortedDist = np.sort(nnControl, axis=1)[:,1:kNN+1]
+nnControlSortedIdx = np.argsort(nnControl, axis=1)[:,1:kNN+1]
+del(nnControl)
+nnExperimental = sp_spatial.distance.cdist(allCoordinatesExperimental, allCoordinatesExperimental, 'euclidean')
+nnExperimentalSortedDist = np.sort(nnExperimental, axis=1)[:,1:kNN+1]
+nnExperimentalSortedIdx = np.argsort(nnExperimental, axis=1)[:,1:kNN+1]
+del(nnExperimental)
+
+# 3. using column numbers and cosine sim, populate sparse matrix to use for spectral embedding
+# 3a. this will require: data, row, and column variables as input for sparse matrix function
 
 #%%
 adjacencyMatrix = np.zeros([nDigitalSpots,nDigitalSpots])
@@ -236,7 +271,7 @@ for actSpot in range(1):
             
             # fig.add_subplot(1,3,1)
             plt.axis('off')
-            axs[0].imshow(experimentalResults[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[0].imshow(experimentalResults[4]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             # axs[0].imshow(template['leftHem'], cmap='gray')
             axs[0].set_title('NSD')
@@ -244,7 +279,7 @@ for actSpot in range(1):
             # display mean gene count for experimental group
             # fig.add_subplot(1,3,2)
             # plt.axis('off')
-            axs[1].imshow(experimentalResults[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[1].imshow(experimentalResults[4]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             # axs[1].imshow(template['leftHem'], cmap='gray')
             axs[1].set_title('SD')
@@ -253,9 +288,9 @@ for actSpot in range(1):
     
             # fig.add_subplot(1,3,3)
             # plt.axis('off')
-            # axs[2].imshow(experimentalResults[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            # axs[2].imshow(experimentalResults[4]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic', vmin=-4,vmax=4,plotnonfinite=False,marker='.')
-            axs[2].imshow(experimentalResults[4]['visiumTransformed'],cmap='gray')
+            axs[2].imshow(experimentalResults[4]['tissueRegistered'],cmap='gray')
             axs[2].set_title(actGene, style='italic')
             axs[2].axis('off')
             # plt.colorbar(tBar,ax=axs[2],fraction=0.046, pad=0.04)
@@ -277,13 +312,13 @@ print("--- %s seconds ---" % (time.time() - start_time))
 
 #%% show overlay of images with template
 
-plt.imshow(template['leftHem'])
-plt.imshow(experimentalResults[4]['visiumTransformed'], cmap='gray',alpha=0.6)
+plt.imshow(template['rightHem'])
+plt.imshow(experimentalResults[4]['tissueRegistered'], cmap='gray',alpha=0.6)
 plt.axis('off')
 plt.show()
 #%% show overlay of images with template
 
-plt.imshow(experimentalResults[4]['visiumTransformed'])
-plt.imshow(experimentalResults[5]['visiumTransformed'], cmap='gray',alpha=0.6)
+plt.imshow(experimentalResults[4]['tissueRegistered'])
+plt.imshow(experimentalResults[5]['tissueRegistered'], cmap='gray',alpha=0.6)
 plt.axis('off')
 plt.show()
