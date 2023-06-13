@@ -13,11 +13,11 @@ import scipy
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -56,6 +56,7 @@ experimentalResults = {}
 for actSample in range(len(experiment['sample-id'])):
     sampleRegistered = stanly.loadAllenRegisteredSample(os.path.join(derivatives, experiment['sample-id'][actSample]))
     experimentalResults[actSample] = sampleRegistered
+    experimentalResults[actSample]['experimentalStatus'] = experiment['experimental-group'][actSample]
 
 
 #%% create digital spots for whole slice and find nearest neighbors
@@ -107,8 +108,8 @@ for actDigitalSpot in range(nDigitalSpots):
     print(actDigitalSpot)
     for sampleIdx, actSample in enumerate(experimentalResults):
         print(experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:])
-    for actComp in experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:]:
-        x = np.sum(np.dot(experimentalResults[0]['filteredFeatureMatrixMaskedSorted'][:,actComp], experimentalResults[0]['filteredFeatureMatrixMaskedSorted'][:,experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:]]))
+    # for actComp in experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:]:
+    #     x = np.sum(np.dot(experimentalResults[0]['filteredFeatureMatrixMaskedSorted'][:,actComp], experimentalResults[0]['filteredFeatureMatrixMaskedSorted'][:,experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:]]))
     
     
 #%%    
@@ -121,9 +122,13 @@ sigGenes = []
 sigGenesWithPvals = []
 sigGenesWithTstats = []
 # since we've sorted and masked the gene lists for all samples, no need to search list for indices
-for geneIndex,actGene in enumerate(allSampleGeneList):
-    digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
-    digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
+
+#%%
+adjacencyMatrix = np.zeros([nDigitalSpots,nDigitalSpots])
+for actSpot in range(nDigitalSpots):
+    digitalSamplesControl = np.zeros([nGenesInList,(nSampleControl * kSpots)])
+    digitalSamplesExperimental = np.zeros([nGenesInList,(nSampleExperimental * kSpots)])
+    
     startControl = 0
     stopControl = kSpots
     startExperimental = 0
@@ -132,34 +137,39 @@ for geneIndex,actGene in enumerate(allSampleGeneList):
     nControls = 0
     nExperimentals = 0
     
-    geneCount = np.zeros([nDigitalSpots,kSpots])
-    for spots in enumerate(experimentalResults[actSample]['digitalSpotNearestNeighbors']):
+    for sampleIdx, actSample in enumerate(experimentalResults):
         # checks for -9999 in NN to convert to nan
-        if np.any(spots[1] < 0):
-            geneCount[spots[0]] = np.nan
+        if np.any(experimentalResults[actSample]['digitalSpotNearestNeighbors'][actSpot] < 0):
+            if experimentalResults[actSample]['experimentalStatus'] == 0:
+                digitalSamplesControl[:,startControl:stopControl] = np.nan
+                startControl += kSpots
+                stopControl += kSpots
+                nControls += 1
+            elif experimentalResults[actSample]['experimentalStatus'] == 1:
+                digitalSamplesExperimental[:,startExperimental:stopExperimental] = np.nan
+                startExperimental += kSpots
+                stopExperimental += kSpots
+                nExperimentals += 1
         else:
-            spotij = np.zeros([kSpots,2], dtype=int)
-            spotij[:,1] = np.asarray(spots[1], dtype=int)
-            spotij[:,0] = geneIndex
-            
-            geneCount[spots[0]] = experimentalResults[actSample]['filteredFeatureMatrixMasked'][:,spotij[:,1]]
-            
-        spotCount = np.nanmean(geneCount, axis=1)
-        nTestedSamples += 1
-        if experiment['experimental-group'][actSample] == 0:
-            digitalSamplesControl[:,startControl:stopControl] = geneCount
-            startControl += kSpots
-            stopControl += kSpots
-            nControls += 1
-        elif experiment['experimental-group'][actSample] == 1:
-            digitalSamplesExperimental[:,startExperimental:stopExperimental] = geneCount
-            startExperimental += kSpots
-            stopExperimental += kSpots
-            nExperimentals += 1
-            
-        else:
-            continue
-    
+            if experimentalResults[actSample]['experimentalStatus'] == 0:
+                digitalSamplesControl[:,startControl:stopControl] = experimentalResults[actSample]['filteredFeatureMatrixMaskedSorted'][:,experimentalResults[actSample]['digitalSpotNearestNeighbors'][actSpot]].todense()
+                startControl += kSpots
+                stopControl += kSpots
+                nControls += 1
+            elif experimentalResults[actSample]['experimentalStatus'] == 1:
+                digitalSamplesExperimental[:,startExperimental:stopExperimental] = experimentalResults[actSample]['filteredFeatureMatrixMaskedSorted'][:,experimentalResults[actSample]['digitalSpotNearestNeighbors'][actSpot]].todense()
+                startExperimental += kSpots
+                stopExperimental += kSpots
+                nExperimentals += 1
+        spotAdjacencyMatrixControl = np.zeros([(nSampleControl * kSpots),(nSampleControl * kSpots)])
+        spotAdjacencyMatrixExperimental = np.zeros([(nSampleExperimental * kSpots),(nSampleExperimental * kSpots)])
+        for i in range(nSampleControl*kSpots):
+            for j in range(nSampleControl*kSpots):
+                spotAdjacencyMatrixControl[i,j] = np.matmul(digitalSamplesControl[:,i],digitalSamplesControl[:,j]) / (np.sqrt(digitalSamplesControl[:,i]**2)*np.sqrt(digitalSamplesControl[:,j]**2))
+        for i in range(nSampleExperimental*kSpots):
+            for j in range(nSampleExperimental*kSpots):
+                spotAdjacencyMatrixExperimental[i,j] = np.matmul(digitalSamplesExperimental[:,i],digitalSamplesExperimental[:,j]) / (np.sqrt(digitalSamplesControl[:,i]**2)*np.sqrt(digitalSamplesControl[:,j]**2))
+#%%
     
     digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
     digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
