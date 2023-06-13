@@ -13,11 +13,11 @@ import scipy
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
