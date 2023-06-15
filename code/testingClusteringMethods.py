@@ -94,39 +94,11 @@ for sampleIdx, actSample in enumerate(experimentalResults):
     experimentalResults[sampleIdx].pop('geneListMasked')
         # experimentalResults[i]['geneListSortedForGroup'][sortedIdx]
 
-#%% test cosine similarity/spectral clustering in single sample
 
-## could try making 2 column list where column 0 is sample #, column 1 is spot #
-## this would give nTotalSamples*kSpots rows  
-
-# digitalSpotEdges = []#np.zeros([nDigitalSpots, nTotalSamples*kSpots])
-# for sampleIdx, actSample in enumerate(experimentalResults):
-#     if sampleIdx == 0:
-#         digitalSpotEdges = experimentalResults[sampleIdx]['digitalSpotNearestNeighbors']
-#     else:
-#         np.append(digitalSpotEdges,experimentalResults[sampleIdx]['digitalSpotNearestNeighbors'], axis=1)
-
-# for actDigitalSpot in range(nDigitalSpots):
-#     print(actDigitalSpot)
-#     for sampleIdx, actSample in enumerate(experimentalResults):
-#         print(experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:])
-#     # for actComp in experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:]:
-#     #     x = np.sum(np.dot(experimentalResults[0]['filteredFeatureMatrixMaskedSorted'][:,actComp], experimentalResults[0]['filteredFeatureMatrixMaskedSorted'][:,experimentalResults[0]['digitalSpotNearestNeighbors'][actDigitalSpot,:]]))
     
-    
-#%%    
-# start_time = time.time()
-# desiredPval = 0.05
-# alphaSidak = 1 - np.power((1 - desiredPval),(1/(len(allSampleGeneList))))
-# geneList = stanly.loadGeneListFromCsv('/home/zjpeters/rdss_tnj/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
-
-# sigGenes = []
-# sigGenesWithPvals = []
-# sigGenesWithTstats = []
-# since we've sorted and masked the gene lists for all samples, no need to search list for indices
 
 #%% perform spectral clustering on groups using locations in registered coordinates
-
+# could consider breaking control and experimental into separate sections to save on memory
 nControls = 0
 nExperimentals = 0
 kNN = 12
@@ -135,14 +107,22 @@ for sampleIdx, actSample in enumerate(experimentalResults):
     if experimentalResults[actSample]['experimentalStatus'] == 0:
         if nControls == 0:
             allCoordinatesControl = experimentalResults[actSample]['maskedTissuePositionList']
+            allSampleSpotIdxIControl = np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0])
+            allSampleSpotIdxJControl = np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0]))
         else:
             allCoordinatesControl = np.append(allCoordinatesControl,experimentalResults[actSample]['maskedTissuePositionList'], axis=0)
+            allSampleSpotIdxIControl = np.append(allSampleSpotIdxIControl,np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0]), axis=0)
+            allSampleSpotIdxJControl = np.append(allSampleSpotIdxJControl,np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0])), axis=0)
         nControls += 1
     elif experimentalResults[actSample]['experimentalStatus'] == 1:
         if nExperimentals == 0:
             allCoordinatesExperimental = experimentalResults[actSample]['maskedTissuePositionList']
+            allSampleSpotIdxIExperimental = np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0])
+            allSampleSpotIdxJExperimental = np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0]))
         else:
             allCoordinatesExperimental = np.append(allCoordinatesExperimental,experimentalResults[actSample]['maskedTissuePositionList'], axis=0)
+            allSampleSpotIdxIExperimental = np.append(allSampleSpotIdxIExperimental,np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0]), axis=0)
+            allSampleSpotIdxJExperimental = np.append(allSampleSpotIdxJExperimental, np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0])),axis=0)
         nExperimentals += 1
     
 # 2. calculate nearest neighbors and select for top kNN
@@ -155,61 +135,27 @@ nnExperimentalSortedDist = np.sort(nnExperimental, axis=1)[:,1:kNN+1]
 nnExperimentalSortedIdx = np.argsort(nnExperimental, axis=1)[:,1:kNN+1]
 del(nnExperimental)
 
+# spotAdjacencyDataControl = []
+# for I, nnRow in enumerate(nnControlSortedIdx):
+#     for J in nnRow:
+#         spotAdjacencyDataControl = spotAdjacencyDataControl.append(np.dot(experimentalResults[allSampleSpotIdxControl[I][:,I],digitalSamplesExperimental[:,J]) / (np.linalg.norm(digitalSamplesExperimental[:,I])*np.linalg.norm(digitalSamplesExperimental[:,J]))
+    
+# create sparse degree and adjacency matrix
+# D = sp_sparse.coo_matrix()
 # 3. using column numbers and cosine sim, populate sparse matrix to use for spectral embedding
 # 3a. this will require: data, row, and column variables as input for sparse matrix function
 
 #%%
-adjacencyMatrix = np.zeros([nDigitalSpots,nDigitalSpots])
-for actSpot in range(1):
-    digitalSamplesControl = np.zeros([nGenesInList,(nSampleControl * kSpots)])
-    digitalSamplesExperimental = np.zeros([nGenesInList,(nSampleExperimental * kSpots)])
-    
-    startControl = 0
-    stopControl = kSpots
-    startExperimental = 0
-    stopExperimental = kSpots
-    nTestedSamples = 0
-    nControls = 0
-    nExperimentals = 0
-    
-    for sampleIdx, actSample in enumerate(experimentalResults):
-        # checks for -9999 in NN to convert to nan
-        if np.any(experimentalResults[actSample]['digitalSpotNearestNeighbors'][actSpot] < 0):
-            if experimentalResults[actSample]['experimentalStatus'] == 0:
-                digitalSamplesControl[:,startControl:stopControl] = np.nan
-                startControl += kSpots
-                stopControl += kSpots
-                # nControls += 1
-            elif experimentalResults[actSample]['experimentalStatus'] == 1:
-                digitalSamplesExperimental[:,startExperimental:stopExperimental] = np.nan
-                startExperimental += kSpots
-                stopExperimental += kSpots
-                # nExperimentals += 1
-        else:
-            if experimentalResults[actSample]['experimentalStatus'] == 0:
-                digitalSamplesControl[:,startControl:stopControl] = experimentalResults[actSample]['filteredFeatureMatrixMaskedSorted'][:,experimentalResults[actSample]['digitalSpotNearestNeighbors'][actSpot]].todense()
-                startControl += kSpots
-                stopControl += kSpots
-                # nControls += 1
-            elif experimentalResults[actSample]['experimentalStatus'] == 1:
-                digitalSamplesExperimental[:,startExperimental:stopExperimental] = experimentalResults[actSample]['filteredFeatureMatrixMaskedSorted'][:,experimentalResults[actSample]['digitalSpotNearestNeighbors'][actSpot]].todense()
-                startExperimental += kSpots
-                stopExperimental += kSpots
-                # nExperimentals += 1
-                
-    digitalSamplesControl = digitalSamplesControl[:,~np.isnan(digitalSamplesControl).any(axis=0)]
-    digitalSamplesExperimental = digitalSamplesExperimental[:,~np.isnan(digitalSamplesExperimental).any(axis=0)]
-    spotAdjacencyMatrixControl = np.zeros([digitalSamplesControl.shape[1],digitalSamplesControl.shape[1]])
-    spotAdjacencyMatrixExperimental = np.zeros([digitalSamplesExperimental.shape[1],digitalSamplesExperimental.shape[1]])
-    for i in range(digitalSamplesControl.shape[1]):
-        for j in range(digitalSamplesControl.shape[1]):
-            spotAdjacencyMatrixControl[i,j] = np.dot(digitalSamplesControl[:,i],digitalSamplesControl[:,j]) / (np.linalg.norm(digitalSamplesControl[:,i])*np.linalg.norm(digitalSamplesControl[:,j]))
-    for i in range(digitalSamplesExperimental.shape[1]):
-        for j in range(digitalSamplesExperimental.shape[1]):
-            spotAdjacencyMatrixExperimental[i,j] = np.dot(digitalSamplesExperimental[:,i],digitalSamplesExperimental[:,j]) / (np.linalg.norm(digitalSamplesExperimental[:,i])*np.linalg.norm(digitalSamplesExperimental[:,j]))
+# adjacencyMatrix = np.zeros(nnControlSortedIdx.shape[0]*nnControlSortedIdx.shape[1])
+adjacencyDataControl = []
+for i, actSpot in enumerate(nnControlSortedIdx):
+    I = experimentalResults[allSampleSpotIdxIControl[i]]['filteredFeatureMatrixMaskedSorted'][:,allSampleSpotIdxJControl[i]].todense()
+    for j in actSpot:
+        J = experimentalResults[allSampleSpotIdxIControl[j]]['filteredFeatureMatrixMaskedSorted'][:,allSampleSpotIdxJControl[j]].todense()
+        adjacencyDataControl.append(np.dot(I,J.transpose()) / (np.linalg.norm(I)*np.linalg.norm(J)))
             
     spotDiagMatrixControl = np.diag(sum(spotAdjacencyMatrixControl))
-    spotDiagMatrixExperimental = np.diag(sum(spotAdjacencyMatrixExperimental))
+    spotDiagMatrixExperimental = np.diag(sum(spotAjacencyMatrixExperimental))
     laplacianControl = spotDiagMatrixControl - spotAdjacencyMatrixControl
     laplacianExperimental = spotDiagMatrixExperimental -spotAdjacencyMatrixExperimental
 #%%
@@ -322,3 +268,13 @@ plt.imshow(experimentalResults[4]['tissueRegistered'])
 plt.imshow(experimentalResults[5]['tissueRegistered'], cmap='gray',alpha=0.6)
 plt.axis('off')
 plt.show()
+#%%    
+# start_time = time.time()
+# desiredPval = 0.05
+# alphaSidak = 1 - np.power((1 - desiredPval),(1/(len(allSampleGeneList))))
+# geneList = stanly.loadGeneListFromCsv('/home/zjpeters/rdss_tnj/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
+
+# sigGenes = []
+# sigGenesWithPvals = []
+# sigGenesWithTstats = []
+# since we've sorted and masked the gene lists for all samples, no need to search list for indices
