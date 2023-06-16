@@ -63,22 +63,22 @@ for actSample in range(len(experiment['sample-id'])):
 
 #%% create digital spots for whole slice and find nearest neighbors
 # ONLY RUN ONE OF THE FOLLOWING TWO SECTIONS, OTHERWISE
-wholeBrainSpotSize = 15
-kSpots = 7
-templateDigitalSpots = stanly.createDigitalSpots(experimentalResults[4], wholeBrainSpotSize)
+# wholeBrainSpotSize = 15
+# kSpots = 7
+# templateDigitalSpots = stanly.createDigitalSpots(experimentalResults[4], wholeBrainSpotSize)
 
-allSampleGeneList = experimentalResults[0]['geneListMasked']
+
 for i, regSample in enumerate(experimentalResults):        
-    actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, experimentalResults[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
-    experimentalResults[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
+    # actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, experimentalResults[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+    # experimentalResults[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype=int)
     # creates a list of genes present in all samples
     if i == 0:
-        continue
+        allSampleGeneList = experimentalResults[0]['geneListMasked']
     else:
         allSampleGeneList = set(allSampleGeneList) & set(experimentalResults[i]['geneListMasked'])
 
 
-nDigitalSpots = len(templateDigitalSpots)
+# nDigitalSpots = len(templateDigitalSpots)
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
 nGenesInList = len(allSampleGeneList)
@@ -93,9 +93,6 @@ for sampleIdx, actSample in enumerate(experimentalResults):
     experimentalResults[sampleIdx].pop('filteredFeatureMatrixMasked')
     experimentalResults[sampleIdx].pop('geneListMasked')
         # experimentalResults[i]['geneListSortedForGroup'][sortedIdx]
-
-
-    
 
 #%% perform spectral clustering on groups using locations in registered coordinates
 # could consider breaking control and experimental into separate sections to save on memory
@@ -114,26 +111,26 @@ for sampleIdx, actSample in enumerate(experimentalResults):
             allSampleSpotIdxIControl = np.append(allSampleSpotIdxIControl,np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0]), axis=0)
             allSampleSpotIdxJControl = np.append(allSampleSpotIdxJControl,np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0])), axis=0)
         nControls += 1
-    elif experimentalResults[actSample]['experimentalStatus'] == 1:
-        if nExperimentals == 0:
-            allCoordinatesExperimental = experimentalResults[actSample]['maskedTissuePositionList']
-            allSampleSpotIdxIExperimental = np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0])
-            allSampleSpotIdxJExperimental = np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0]))
-        else:
-            allCoordinatesExperimental = np.append(allCoordinatesExperimental,experimentalResults[actSample]['maskedTissuePositionList'], axis=0)
-            allSampleSpotIdxIExperimental = np.append(allSampleSpotIdxIExperimental,np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0]), axis=0)
-            allSampleSpotIdxJExperimental = np.append(allSampleSpotIdxJExperimental, np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0])),axis=0)
-        nExperimentals += 1
+    # elif experimentalResults[actSample]['experimentalStatus'] == 1:
+    #     if nExperimentals == 0:
+    #         allCoordinatesExperimental = experimentalResults[actSample]['maskedTissuePositionList']
+    #         allSampleSpotIdxIExperimental = np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0])
+    #         allSampleSpotIdxJExperimental = np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0]))
+    #     else:
+    #         allCoordinatesExperimental = np.append(allCoordinatesExperimental,experimentalResults[actSample]['maskedTissuePositionList'], axis=0)
+    #         allSampleSpotIdxIExperimental = np.append(allSampleSpotIdxIExperimental,np.repeat(actSample, experimentalResults[actSample]['maskedTissuePositionList'].shape[0]), axis=0)
+    #         allSampleSpotIdxJExperimental = np.append(allSampleSpotIdxJExperimental, np.array(range(experimentalResults[actSample]['maskedTissuePositionList'].shape[0])),axis=0)
+    #     nExperimentals += 1
     
 # 2. calculate nearest neighbors and select for top kNN
 nnControl = sp_spatial.distance.cdist(allCoordinatesControl, allCoordinatesControl, 'euclidean')
-nnControlSortedDist = np.sort(nnControl, axis=1)[:,1:kNN+1]
+# nnControlSortedDist = np.sort(nnControl, axis=1)[:,1:kNN+1]
 nnControlSortedIdx = np.argsort(nnControl, axis=1)[:,1:kNN+1]
 del(nnControl)
-nnExperimental = sp_spatial.distance.cdist(allCoordinatesExperimental, allCoordinatesExperimental, 'euclidean')
-nnExperimentalSortedDist = np.sort(nnExperimental, axis=1)[:,1:kNN+1]
-nnExperimentalSortedIdx = np.argsort(nnExperimental, axis=1)[:,1:kNN+1]
-del(nnExperimental)
+# nnExperimental = sp_spatial.distance.cdist(allCoordinatesExperimental, allCoordinatesExperimental, 'euclidean')
+# nnExperimentalSortedDist = np.sort(nnExperimental, axis=1)[:,1:kNN+1]
+# nnExperimentalSortedIdx = np.argsort(nnExperimental, axis=1)[:,1:kNN+1]
+# del(nnExperimental)
 
 # spotAdjacencyDataControl = []
 # for I, nnRow in enumerate(nnControlSortedIdx):
@@ -144,20 +141,23 @@ del(nnExperimental)
 # D = sp_sparse.coo_matrix()
 # 3. using column numbers and cosine sim, populate sparse matrix to use for spectral embedding
 # 3a. this will require: data, row, and column variables as input for sparse matrix function
-
+#%% remove duplicates from nearest neighbor list
+nnEdgeList = np.transpose([np.repeat(np.array(range(nnControlSortedIdx.shape[0])), kNN, axis=0).transpose(), nnControlSortedIdx.flatten().transpose()])
+nnEdgeList = np.unique(np.sort(nnEdgeList, axis=1), axis=0)
 #%%
-# adjacencyMatrix = np.zeros(nnControlSortedIdx.shape[0]*nnControlSortedIdx.shape[1])
+start_time = time.time()
 adjacencyDataControl = []
-for i, actSpot in enumerate(nnControlSortedIdx):
+for i, j in nnEdgeList:
     I = experimentalResults[allSampleSpotIdxIControl[i]]['filteredFeatureMatrixMaskedSorted'][:,allSampleSpotIdxJControl[i]].todense()
-    for j in actSpot:
-        J = experimentalResults[allSampleSpotIdxIControl[j]]['filteredFeatureMatrixMaskedSorted'][:,allSampleSpotIdxJControl[j]].todense()
-        adjacencyDataControl.append(np.dot(I,J.transpose()) / (np.linalg.norm(I)*np.linalg.norm(J)))
-            
-    spotDiagMatrixControl = np.diag(sum(spotAdjacencyMatrixControl))
-    spotDiagMatrixExperimental = np.diag(sum(spotAjacencyMatrixExperimental))
-    laplacianControl = spotDiagMatrixControl - spotAdjacencyMatrixControl
-    laplacianExperimental = spotDiagMatrixExperimental -spotAdjacencyMatrixExperimental
+    J = experimentalResults[allSampleSpotIdxIControl[j]]['filteredFeatureMatrixMaskedSorted'][:,allSampleSpotIdxJControl[j]].todense()
+    cs = np.sum(np.dot(I,J.transpose())) / np.sum((np.linalg.norm(I)*np.linalg.norm(J)))
+    adjacencyDataControl.append(cs)
+        # print(cs)
+print("--- %s seconds ---" % (time.time() - start_time))            
+    # spotDiagMatrixControl = np.diag(sum(spotAdjacencyMatrixControl))
+    # spotDiagMatrixExperimental = np.diag(sum(spotAjacencyMatrixExperimental))
+    # laplacianControl = spotDiagMatrixControl - spotAdjacencyMatrixControl
+    # laplacianExperimental = spotDiagMatrixExperimental -spotAdjacencyMatrixExperimental
 #%%
     
     digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
