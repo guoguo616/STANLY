@@ -17,7 +17,7 @@ import time
 import sys
 sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
 import stanly
-
+from sklearn.cluster import KMeans
 
 rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
@@ -144,7 +144,9 @@ del(nnControl)
 #%% remove duplicates from nearest neighbor list
 nnEdgeList = np.transpose([np.repeat(np.array(range(nnControlSortedIdx.shape[0])), kNN, axis=0).transpose(), nnControlSortedIdx.flatten().transpose()])
 nnEdgeList = np.unique(np.sort(nnEdgeList, axis=1), axis=0)
-#%%
+#############################################################################
+#%% takes a long time, if already run just load the adjacency data from csv
+#############################################################################
 start_time = time.time()
 adjacencyDataControl = []
 for i, j in nnEdgeList:
@@ -153,11 +155,38 @@ for i, j in nnEdgeList:
     cs = np.sum(np.dot(I,J.transpose())) / np.sum((np.linalg.norm(I)*np.linalg.norm(J)))
     adjacencyDataControl.append(cs)
         # print(cs)
-print("--- %s seconds ---" % (time.time() - start_time))            
+print("--- %s seconds ---" % (time.time() - start_time))  
+
+with open(os.path.join(derivatives,f'adjacencyDataForControl.csv'), 'w', encoding='UTF8') as f:
+    writer = csv.writer(f)
+    # for i in np.array(adjacencyDataControl):
+    writer.writerow(adjacencyDataControl)          
     # spotDiagMatrixControl = np.diag(sum(spotAdjacencyMatrixControl))
     # spotDiagMatrixExperimental = np.diag(sum(spotAjacencyMatrixExperimental))
     # laplacianControl = spotDiagMatrixControl - spotAdjacencyMatrixControl
     # laplacianExperimental = spotDiagMatrixExperimental -spotAdjacencyMatrixExperimental
+    
+    
+#%%
+adjacencyDataControl = []
+# with open(os.path.join(derivatives,f'adjacencyDataForControl.csv'), 'w', encoding='UTF8') as f:
+with open(os.path.join(derivatives,"adjacencyDataForControl.csv"), newline='') as csvfile:
+    tsvreader = csv.reader(csvfile, delimiter=',')
+    for row in tsvreader:
+        adjacencyDataControl = row
+#%%
+W = np.zeros([allSampleSpotIdxIControl.shape[0],allSampleSpotIdxIControl.shape[0]])
+for idx, actCS in enumerate(adjacencyDataControl):
+    W[nnEdgeList[idx,0],nnEdgeList[idx,1]] = actCS
+    W[nnEdgeList[idx,1],nnEdgeList[idx,0]] = actCS
+
+W = (W - W.min())/(W.max() - W.min())
+D = np.diag(sum(W))
+L = D - W
+L = sp_sparse.coo_matrix(L)
+eigval,eigvec = sp_sparse.linalg.eigs(L, k=300)
+clusters = KMeans(n_clusters=80, random_state=0).fit(np.real(eigvec))
+plt.scatter(allCoordinatesControl[0:2000,0], allCoordinatesControl[0:2000,1],c=clusters.labels_[0:2000])
 #%%
     
     digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
