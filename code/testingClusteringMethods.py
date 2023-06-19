@@ -184,9 +184,9 @@ W = (W - W.min())/(W.max() - W.min())
 D = np.diag(sum(W))
 L = D - W
 L = sp_sparse.coo_matrix(L)
-eigval,eigvec = sp_sparse.linalg.eigs(L, k=300)
-clusters = KMeans(n_clusters=80, random_state=0).fit(np.real(eigvec))
-plt.scatter(allCoordinatesControl[0:2000,0], allCoordinatesControl[0:2000,1],c=clusters.labels_[0:2000])
+eigval,eigvec = sp_sparse.linalg.eigs(L, k=1000)
+clusters = KMeans(n_clusters=3, init='random').fit(np.real(eigvec))
+plt.scatter(allCoordinatesControl[:,0], allCoordinatesControl[:,1],c=clusters.labels_)
 #%%
     
     digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
