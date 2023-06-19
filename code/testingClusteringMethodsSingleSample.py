@@ -15,11 +15,11 @@ import scipy.sparse as sp_sparse
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
 import stanly
 from sklearn.cluster import KMeans
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -132,22 +132,44 @@ del(nnControl)
 # 3. using column numbers and cosine sim, populate sparse matrix to use for spectral embedding
 # 3a. this will require: data, row, and column variables as input for sparse matrix function
 #%% remove duplicates from nearest neighbor list
-nnEdgeList = np.transpose([np.repeat(np.array(range(nnControlSortedIdx.shape[0])), kNN, axis=0).transpose(), nnControlSortedIdx.flatten().transpose()])
+nnEdgeList = np.transpose([np.repeat(np.array(range(nnControlSortedIdx.shape[0])), kNN, axis=0).transpose().astype('int32'), nnControlSortedIdx.flatten().transpose().astype('int32')])
 nnEdgeList = np.unique(np.sort(nnEdgeList, axis=1), axis=0)
 #############################################################################
 #%% takes a long time, if already run just load the adjacency data from csv
 #############################################################################
+# start_time = time.time()
+# adjacencyDataControl = []
+# for i, j in nnEdgeList[0:10,:]:
+#     I = experimentalResults[4]['filteredFeatureMatrixMaskedSorted'][:,i].todense().astype('float32')
+#     J = experimentalResults[4]['filteredFeatureMatrixMaskedSorted'][:,j].todense().astype('float32')
+#     cs = np.sum(np.dot(I,J.transpose())) / (np.sqrt(np.sum(np.square(I)))*np.sqrt(np.sum(np.square(J))))
+#     adjacencyDataControl.append(cs)
+#         # print(cs)
+# print("--- %s seconds ---" % (time.time() - start_time))
+
+# start_time = time.time()
+# I @ J.transpose()
+# print("--- %s seconds ---" % (time.time() - start_time))
+# start_time = time.time()
+# np.matmul(I,J.transpose())
+# print("--- %s seconds ---" % (time.time() - start_time))
+
+# start_time = time.time()
+# np.dot(I,J.transpose())
+# print("--- %s seconds ---" % (time.time() - start_time))
+#%% try the same as above but using list comprehension
 start_time = time.time()
-adjacencyDataControl = []
-for i, j in nnEdgeList:
-    I = experimentalResults[4]['filteredFeatureMatrixMaskedSorted'][:,i].todense()
-    J = experimentalResults[4]['filteredFeatureMatrixMaskedSorted'][:,j].todense()
-    cs = np.sum(np.dot(I,J.transpose())) / np.sum((np.linalg.norm(I)*np.linalg.norm(J)))
-    adjacencyDataControl.append(cs)
-        # print(cs)
+
+def cosineSimOfSample(i,j):
+    I = experimentalResults[4]['filteredFeatureMatrixMaskedSorted'][:,i].todense().astype('float32')
+    J = experimentalResults[4]['filteredFeatureMatrixMaskedSorted'][:,j].todense().astype('float32')
+    cs = np.sum(np.dot(I,J.transpose())) / (np.sqrt(np.sum(np.square(I)))*np.sqrt(np.sum(np.square(J))))
+    return cs
+
+adjacencyDataControl = [cosineSimOfSample(i, j) for i,j in nnEdgeList]
 print("--- %s seconds ---" % (time.time() - start_time))  
 
-with open(os.path.join(derivatives,f'adjacencyDataForControlSingleSample.csv'), 'w', encoding='UTF8') as f:
+with open(os.path.join(derivatives,'adjacencyDataForControlSingleSample.csv'), 'w', encoding='UTF8') as f:
     writer = csv.writer(f)
     # for i in np.array(adjacencyDataControl):
     writer.writerow(adjacencyDataControl)          
