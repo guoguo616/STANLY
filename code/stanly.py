@@ -247,11 +247,11 @@ def rotateTissuePoints(visiumData, rotation):
     return tissuePointsResizeRotate
 
 # prepares visium data for registration
-def processVisiumData(visiumData, templateData, rotation):
+def processVisiumData(visiumData, templateData, rotation, outputFolder, log2normalize=True):
     processedVisium = {}
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedVisium['sampleID'] = visiumData['sampleID']
-    outputPath = os.path.join(derivatives, visiumData['sampleID'])
+    outputPath = os.path.join(outputFolder, visiumData['sampleID'])
     try:
         file = open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsProcessed.csv", 'r')
         print(f"{processedVisium['sampleID']} has already been processed! Loading data")
@@ -330,8 +330,14 @@ def processVisiumData(visiumData, templateData, rotation):
     print(f"{processedVisium['sampleID']} has {processedVisium['spotCount']} spots")
     processedVisium['processedTissuePositionList'] = tissuePointsResized[spotMask,:]
     # processedVisium['filteredFeatureMatrixOrdered'] = sp_sparse.csc_matrix(orderedDenseMatrixSpotMasked)
-    processedVisium['filteredFeatureMatrixLog2'] = sp_sparse.csc_matrix(np.log2((orderedDenseMatrixSpotMasked + 1)))
-    
+    if log2normalize==True:
+        processedVisium['filteredFeatureMatrixLog2'] = sp_sparse.csc_matrix(np.log2((orderedDenseMatrixSpotMasked + 1)))
+        sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrixLog2Normalized.npz", processedVisium['filteredFeatureMatrixLog2'])
+        
+    else:
+        processedVisium['filteredFeatureMatrix'] = sp_sparse.csc_matrix(orderedDenseMatrixSpotMasked)
+        sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", processedVisium['filteredFeatureMatrix'])
+        
     finiteMin=np.min(countsPerSpotZscore)
     finiteMax=np.max(countsPerSpotZscore)
     zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
@@ -363,7 +369,6 @@ def processVisiumData(visiumData, templateData, rotation):
     with open(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_processing_information.json", "w") as outfile:
         outfile.write(json_object)
     # writes sorted, masked, normalized filtered feature matrix to .npz file
-    sp_sparse.save_npz(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointOrderedFeatureMatrix.npz", processedVisium['filteredFeatureMatrixLog2'])
     
     # writes image for masked greyscale tissue, as well as the processed image that will be used in registration
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",255*tissue)
@@ -381,7 +386,7 @@ def processVisiumData(visiumData, templateData, rotation):
     return processedVisium
 
 
-def runANTsToAllenRegistration(processedVisium, templateData):
+def runANTsToAllenRegistration(processedVisium, templateData, log2normalize=True):
     # registeredData will contain: sampleID, derivativesPath, transformedTissuePositionList, fwdtransforms, invtransforms
     registeredData = {}
     try:
@@ -461,7 +466,10 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     registeredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype=float)
 
     # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
-    tempDenseMatrix = processedVisium['filteredFeatureMatrixLog2'].todense()
+    if log2normalize == True:
+        tempDenseMatrix = processedVisium['filteredFeatureMatrixLog2'].todense()
+    else:
+        tempDenseMatrix = processedVisium['filteredFeatureMatrix'].todense()
     registeredData['filteredFeatureMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # write re-ordered filtered feature matrix csv to match tissue spot order
     sp_sparse.save_npz(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['filteredFeatureMatrixMasked']))        
@@ -469,7 +477,7 @@ def runANTsToAllenRegistration(processedVisium, templateData):
     
     return registeredData
 
-def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
+def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2normalize=True):
     # convert into ants image type
     registeredData = {}
     templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueProcessed'])
@@ -505,7 +513,10 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
     # registeredData['tissueSpotBarcodeList'] = processedVisium['tissueSpotBarcodeList']
-    registeredData['filteredFeatureMatrixLog2'] = processedVisium['filteredFeatureMatrixLog2']
+    if log2normalize==True:
+        registeredData['filteredFeatureMatrixLog2'] = processedVisium['filteredFeatureMatrixLog2']
+    else:
+        registeredData['filteredFeatureMatrix'] = processedVisium['filteredFeatureMatrix']
     plt.imshow(registeredData['tissueRegistered'], cmap='gray')
     plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
@@ -519,7 +530,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo):
 
     return registeredData
     
-def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, templateData):
+def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, templateData, log2normalize=True):
     # if not os.exists(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv"):
         
     templateAntsImage = ants.from_numpy(templateData['rightHem'])
@@ -565,7 +576,10 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
             maskedTissuePositionList.append(transformedTissuePositionList[i])
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
     templateRegisteredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype=float)
-    tempDenseMatrix = registeredVisium['filteredFeatureMatrixLog2'].todense()
+    if log2normalize == True:
+        tempDenseMatrix = registeredVisium['filteredFeatureMatrixLog2'].todense()
+    else:
+        tempDenseMatrix = registeredVisium['filteredFeatureMatrix'].todense()
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # imageFilename = f"os.path.join({registeredVisium['derivativesPath']},{registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png"
     imageFilename = os.path.join(registeredVisium['derivativesPath'],f"{registeredVisium['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png")
@@ -784,7 +798,7 @@ def createRegionalDigitalSpots(regionMask, desiredSpotSize):
     # plt.show()
     return digitalSpots
 
-def loadProcessedSample(locOfProcessedSample):
+def loadProcessedSample(locOfProcessedSample, loadLog2Norm=True):
     processedVisium = {}
     processedVisium['derivativesPath'] = os.path.join(locOfProcessedSample)
     processedVisium['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
@@ -793,8 +807,12 @@ def loadProcessedSample(locOfProcessedSample):
     processedSampleJson = json.loads(jsonPath.read())
     processedVisium['geneListMasked'] = processedSampleJson['geneList']
     processedVisium['spotCount'] = processedSampleJson['spotCount']
-    filteredFeatureMatrixLog2 = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
-    processedVisium['filteredFeatureMatrixLog2'] = filteredFeatureMatrixLog2
+    if loadLog2Norm==True:
+        filteredFeatureMatrixLog2 = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
+        processedVisium['filteredFeatureMatrixLog2'] = filteredFeatureMatrixLog2
+    else:
+        filteredFeatureMatrix = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
+        processedVisium['filteredFeatureMatrix'] = filteredFeatureMatrix
     tissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv"), newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
@@ -808,7 +826,7 @@ def loadProcessedSample(locOfProcessedSample):
     processedVisium['processedTissuePositionList'] = np.delete(tissuePositionList, [2,3,4,5],1)
     return processedVisium
 
-def loadAllenRegisteredSample(locOfRegSample):
+def loadAllenRegisteredSample(locOfRegSample, log2normalize=True):
     templateRegisteredData = {}
     templateRegisteredData['derivativesPath'] = os.path.join(locOfRegSample)
     templateRegisteredData['sampleID'] = locOfRegSample.rsplit(sep='/',maxsplit=1)[-1]
@@ -832,7 +850,7 @@ def loadAllenRegisteredSample(locOfRegSample):
             next(csvreader)
             for row in csvreader:
                 transformedTissuePositionList.append(row)
-    transformedTissuePositionList = np.array(transformedTissuePositionList, dtype=float)
+    transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
     transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
     transformedTissuePositionListMask = []
@@ -845,9 +863,12 @@ def loadAllenRegisteredSample(locOfRegSample):
             maskedTissuePositionList.append(transformedTissuePositionList[i])
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
     templateRegisteredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype=float)
-    
-    filteredFeatureMatrixLog2 = sp_sparse.load_npz(os.path.join(templateRegisteredData['derivativesPath'], f"{templateRegisteredData['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
-    tempDenseMatrix = filteredFeatureMatrixLog2.todense()
+    if log2normalize == True:
+        filteredFeatureMatrixLog2 = sp_sparse.load_npz(os.path.join(templateRegisteredData['derivativesPath'], f"{templateRegisteredData['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
+        tempDenseMatrix = filteredFeatureMatrixLog2.todense()
+    else:
+        filteredFeatureMatrix = sp_sparse.load_npz(os.path.join(templateRegisteredData['derivativesPath'], f"{templateRegisteredData['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
+        tempDenseMatrix = filteredFeatureMatrix.todense()
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     return templateRegisteredData
 
