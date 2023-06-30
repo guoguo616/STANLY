@@ -224,7 +224,7 @@ for actK in clusterRange:
     # plots of individual clusters, to demarcate them clearly.
     ax1.set_ylim([0, nDigitalSpots + (actK + 1) * 10])
 
-    clusters = KMeans(n_clusters=actK, init='random', n_init=300, tol=1e-8,)
+    clusters = KMeans(n_clusters=actK, init='random', n_init=500, tol=1e-8,)
     cluster_labels = clusters.fit_predict(np.real(eigvecControlSort[:,0:actK]))
 
     # The silhouette_score gives the average value for all the samples.
