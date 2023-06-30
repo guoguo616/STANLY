@@ -380,7 +380,55 @@ for actK in clusterRange:
     plt.savefig(os.path.join(derivatives,f'clusteringAndSilhouetteSleepDepExperimentalK{actK}.png'), bbox_inches='tight', dpi=300)
     plt.show()
 
+#%% preparing pca
 
+from sklearn.decomposition import PCA
+components=20
+pca = PCA(n_components=components)
+controlPca = pca.fit(digitalControlFilterFeatureMatrix.transpose())
+
+expVar = controlPca.explained_variance_ratio_
+cumExpVar = np.cumsum(controlPca.explained_variance_ratio_)
+# Plot the explained variance
+x = ["PC%s" %i for i in range(1,components+1)]
+expVarBar = plt.bar(x, expVar)
+cumExpVarLine = plt.scatter(x,cumExpVar)
+plt.show()
+
+controlPcaFeatures = pca.fit_transform(digitalControlFilterFeatureMatrix.transpose())
+
+clusterK = 25
+clusters = KMeans(n_clusters=clusterK, init='random', n_init=300, tol=1e-8,).fit(controlPcaFeatures)
+plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
+plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labels_,cmap='Set2')
+
+
+
+#%% pca with z-score normalized spots 
+# WORKS BETTER WITHOUT Z-SCORE
+# z = (x-u) / std
+# digitalControlFilterFeatureMatrixMean = np.mean(digitalControlFilterFeatureMatrix, axis=1)
+# digitalControlFilterFeatureMatrixStd = np.std(digitalControlFilterFeatureMatrix, axis=1)
+# digitalControlFilterFeatureMatrixZ = digitalControlFilterFeatureMatrix - digitalControlFilterFeatureMatrixMean[:,np.newaxis]
+# digitalControlFilterFeatureMatrixZ = np.divide(digitalControlFilterFeatureMatrixZ, digitalControlFilterFeatureMatrixStd[:,np.newaxis])
+
+# components=20
+# pca = PCA(n_components=components)
+# controlPca = pca.fit(digitalControlFilterFeatureMatrixZ.transpose())
+
+# expVar = controlPca.explained_variance_ratio_
+# cumExpVar = np.cumsum(controlPca.explained_variance_ratio_)
+# # Plot the explained variance
+# x = ["PC%s" %i for i in range(1,components+1)]
+# expVarBar = plt.bar(x, expVar)
+# cumExpVarLine = plt.scatter(x,cumExpVar)
+# plt.show()
+
+# controlPcaFeatures = pca.fit_transform(digitalControlFilterFeatureMatrixZ.transpose())
+
+# clusters = KMeans(n_clusters=clusterK, init='random', n_init=300, tol=1e-8,).fit(controlPcaFeatures)
+# plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
+# plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labels_,cmap='Set2')
 #%% run analysis for the delta of control and Delta digital filtered feature matrix
 #%% cosine sim of Delta group
 start_time = time.time()
