@@ -13,11 +13,11 @@ import scipy
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
 import stanly
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -103,7 +103,7 @@ nDigitalSpots = len(templateDigitalSpots)
 #%% first test regional using Sidak correction
 
 start_time = time.time()
-desiredPval = 0.1
+desiredPval = 0.05
 alphaSidak = 1 - np.power((1 - desiredPval),(1/(len(allSampleGeneList))))
 geneList = stanly.loadGeneListFromCsv('/home/zjpeters/rdss_tnj/visiumalignment/derivatives/221224/listOfSigSleepDepGenes20221224.csv')
 
@@ -212,7 +212,7 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             
             # fig.add_subplot(1,3,1)
             plt.axis('off')
-            axs[0].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[0].imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             # axs[0].imshow(template['leftHem'], cmap='gray')
             axs[0].set_title('NSD')
@@ -220,7 +220,7 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             # display mean gene count for experimental group
             # fig.add_subplot(1,3,2)
             # plt.axis('off')
-            axs[1].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[1].imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             # axs[1].imshow(template['leftHem'], cmap='gray')
             axs[1].set_title('SD')
@@ -229,9 +229,9 @@ for nOfGenesChecked,actGene in enumerate(geneList):
     
             # fig.add_subplot(1,3,3)
             # plt.axis('off')
-            # axs[2].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray',aspect="equal")
+            # axs[2].imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic', vmin=-4,vmax=4,plotnonfinite=False,marker='.')
-            axs[2].imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
+            axs[2].imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
             axs[2].set_title(actGene, style='italic')
             axs[2].axis('off')
             # plt.colorbar(tBar,ax=axs[2],fraction=0.046, pad=0.04)
@@ -254,13 +254,13 @@ print("--- %s seconds ---" % (time.time() - start_time))
 #%% show overlay of images with template
 
 plt.imshow(template['leftHem'])
-plt.imshow(allSamplesToAllen[4]['visiumTransformed'], cmap='gray',alpha=0.6)
+plt.imshow(allSamplesToAllen[4]['tissueRegistered'], cmap='gray',alpha=0.6)
 plt.axis('off')
 plt.show()
 #%% show overlay of images with template
 
-plt.imshow(allSamplesToAllen[4]['visiumTransformed'])
-plt.imshow(allSamplesToAllen[5]['visiumTransformed'], cmap='gray',alpha=0.6)
+plt.imshow(allSamplesToAllen[4]['tissueRegistered'])
+plt.imshow(allSamplesToAllen[5]['tissueRegistered'], cmap='gray',alpha=0.6)
 plt.axis('off')
 plt.show()
 #%% first test using Benjamani-Hochberg correction 0.05
@@ -363,21 +363,21 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             fig = plt.figure()
             fig.add_subplot(1,3,1)
             plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
             plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('NSD')
 
             # display mean gene count for experimental group
             fig.add_subplot(1,3,2)
             plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
             expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('SD')
             fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
             fig.add_subplot(1,3,3)
             plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
             tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             plt.title(actGene, style='italic')
             fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
@@ -496,21 +496,21 @@ for nOfGenesChecked,actGene in enumerate(geneList):
             fig = plt.figure()
             fig.add_subplot(1,3,1)
             plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
             plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('NSD')
 
             # display mean gene count for experimental group
             fig.add_subplot(1,3,2)
             plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
             expScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=maxGeneCount,plotnonfinite=False,cmap='Reds',marker='.')
             plt.title('SD')
             fig.colorbar(expScatter,fraction=0.046, pad=0.04)
 
             fig.add_subplot(1,3,3)
             plt.axis('off')
-            plt.imshow(allSamplesToAllen[4]['visiumTransformed'],cmap='gray')
+            plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
             tStatScatter = plt.scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             plt.title(actGene, style='italic')
             fig.colorbar(tStatScatter,fraction=0.046, pad=0.04)
@@ -647,14 +647,14 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             
             # fig.add_subplot(1,3,1)
             plt.axis('off')
-            axs[0].imshow(hemisphereTest[0]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[0].imshow(hemisphereTest[0]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             axs[0].set_title('NSD')
             axs[0].axis('off')
             # display mean gene count for experimental group
             # fig.add_subplot(1,3,2)
             # plt.axis('off')
-            axs[1].imshow(hemisphereTest[0]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[1].imshow(hemisphereTest[0]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             axs[1].set_title('SD')
             axs[1].axis('off')
@@ -662,7 +662,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
 
             # fig.add_subplot(1,3,3)
             # plt.axis('off')
-            axs[2].imshow(hemisphereTest[0]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[2].imshow(hemisphereTest[0]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             
             axs[2].set_title(actGene, style='italic')
@@ -801,14 +801,14 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
             
             # fig.add_subplot(1,3,1)
             plt.axis('off')
-            axs[0].imshow(hemisphereTest[0]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[0].imshow(hemisphereTest[0]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             axs[0].set_title('NSD')
             axs[0].axis('off')
             # display mean gene count for experimental group
             # fig.add_subplot(1,3,2)
             # plt.axis('off')
-            axs[1].imshow(hemisphereTest[0]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[1].imshow(hemisphereTest[0]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.8, vmin=0,vmax=3,plotnonfinite=False,cmap='Reds',marker='.')
             axs[1].set_title('SD')
             axs[1].axis('off')
@@ -816,7 +816,7 @@ for nOfGenesChecked,actGene in enumerate(allSampleGeneList):
 
             # fig.add_subplot(1,3,3)
             # plt.axis('off')
-            axs[2].imshow(hemisphereTest[0]['visiumTransformed'],cmap='gray',aspect="equal")
+            axs[2].imshow(hemisphereTest[0]['tissueRegistered'],cmap='gray',aspect="equal")
             axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.8,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
             
             axs[2].set_title(actGene, style='italic')
