@@ -123,7 +123,7 @@ def importVisiumData(sampleFolder):
             if row[1] == '1':
                 tissueSpotBarcodes.append(row[0])
                 tissuePositionsList.append(row[1:])
-    tissuePositionsList = np.array(tissuePositionsList, dtype=float)
+    tissuePositionsList = np.array(tissuePositionsList, dtype='float32')
     visiumData['tissueSpotBarcodeList'] = tissueSpotBarcodes
     visiumData['tissuePositionsList'] = tissuePositionsList
     scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
@@ -311,7 +311,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     # no need to keep the dense version in the processedVisium dictionary since the necessary information is in the ordered matrix and coordinates
     # processedVisium['tissueSpotBarcodeListSorted'] = tissueSpotBarcodeListSorted
     denseMatrix = visiumData["filteredFeatureMatrix"][2]
-    denseMatrix = denseMatrix.todense()
+    denseMatrix = denseMatrix.todense().astype('float32')
     orderedDenseMatrix = denseMatrix[:,tissueSpotBarcodeListSorted]
     countsPerSpot = np.sum(orderedDenseMatrix,axis=0)
     countsPerSpotMean = np.mean(countsPerSpot)
@@ -438,7 +438,7 @@ def runANTsToAllenRegistration(processedVisium, templateData, log2normalize=True
                 transformedTissuePositionList.append(row)
                 
 
-    transformedTissuePositionList = np.array(transformedTissuePositionList, dtype=float)
+    transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(transformedTissuePositionList, [2,3,4,5],1)
@@ -463,13 +463,13 @@ def runANTsToAllenRegistration(processedVisium, templateData, log2normalize=True
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, processedVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
         # else:
             # filteredFeatureMatrixBinaryMask.append(0)
-    registeredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype=float)
+    registeredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype='float32')
 
     # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
     if log2normalize == True:
-        tempDenseMatrix = processedVisium['filteredFeatureMatrixLog2'].todense()
+        tempDenseMatrix = processedVisium['filteredFeatureMatrixLog2'].todense().astype('float32')
     else:
-        tempDenseMatrix = processedVisium['filteredFeatureMatrix'].todense()
+        tempDenseMatrix = processedVisium['filteredFeatureMatrix'].todense().astype('float32')
     registeredData['filteredFeatureMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # write re-ordered filtered feature matrix csv to match tissue spot order
     sp_sparse.save_npz(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['filteredFeatureMatrixMasked']))        
@@ -508,7 +508,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
     # registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
     registeredData['geneListMasked'] = processedVisium['geneListMasked']
 
-    registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype=float)
+    registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
@@ -552,7 +552,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     templateRegisteredData['bestFitSampleID'] = bestSampleRegisteredToTemplate['sampleID']
     templateRegisteredData['tissueRegistered'] = sampleToTemplate.numpy()
 
-    transformedTissuePositionList = np.array(transformedTissuePositionList, dtype=float)
+    transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
     transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
@@ -575,11 +575,11 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
             filteredFeatureMatrixMaskedIdx.append(i)
             maskedTissuePositionList.append(transformedTissuePositionList[i])
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
-    templateRegisteredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype=float)
+    templateRegisteredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype='float32')
     if log2normalize == True:
-        tempDenseMatrix = registeredVisium['filteredFeatureMatrixLog2'].todense()
+        tempDenseMatrix = registeredVisium['filteredFeatureMatrixLog2'].todense().astype('float32')
     else:
-        tempDenseMatrix = registeredVisium['filteredFeatureMatrix'].todense()
+        tempDenseMatrix = registeredVisium['filteredFeatureMatrix'].todense().astype('float32')
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # imageFilename = f"os.path.join({registeredVisium['derivativesPath']},{registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png"
     imageFilename = os.path.join(registeredVisium['derivativesPath'],f"{registeredVisium['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png")
@@ -612,7 +612,7 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
     templateSpots = np.array(templateSpots)
 
     # remove non-tissue spots
-    roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
+    roundedTemplateSpots = np.array(templateSpots.round(), dtype='int32')
     ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
     digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
@@ -649,7 +649,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         actSpotCdist = sortedSpotCdist[0:kNN]
         # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
         spotMeanCdist = np.mean(actSpotCdist)
-        blankIdx = np.zeros([kNN,1], dtype=int)
+        blankIdx = np.zeros([kNN,1], dtype='int32')
         blankIdx[:] = -9999
         spotNNIdx = []
         for i in actSpotCdist:
@@ -784,7 +784,7 @@ def createRegionalDigitalSpots(regionMask, desiredSpotSize):
     templateSpots = np.array(templateSpots)
 
     # remove non-tissue spots
-    roundedTemplateSpots = np.array(templateSpots.round(), dtype=int)
+    roundedTemplateSpots = np.array(templateSpots.round(), dtype='int32')
     ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
     digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
@@ -820,7 +820,7 @@ def loadProcessedSample(locOfProcessedSample, loadLog2Norm=True):
             for row in csvreader:
                 tissuePositionList.append(row)
                 
-    tissuePositionList = np.array(tissuePositionList, dtype=float)
+    tissuePositionList = np.array(tissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     tissuePositionList[:,[0,1]] = tissuePositionList[:,[1,0]]
     processedVisium['processedTissuePositionList'] = np.delete(tissuePositionList, [2,3,4,5],1)
@@ -862,13 +862,13 @@ def loadAllenRegisteredSample(locOfRegSample, log2normalize=True):
             filteredFeatureMatrixMaskedIdx.append(i)
             maskedTissuePositionList.append(transformedTissuePositionList[i])
             # filteredFeatureMatrixMasked = np.append(filteredFeatureMatrixMasked, registeredVisium['filteredFeatureMatrixOrdered'][:,i],axis=1)
-    templateRegisteredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype=float)
+    templateRegisteredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype='float32')
     if log2normalize == True:
         filteredFeatureMatrixLog2 = sp_sparse.load_npz(os.path.join(templateRegisteredData['derivativesPath'], f"{templateRegisteredData['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
-        tempDenseMatrix = filteredFeatureMatrixLog2.todense()
+        tempDenseMatrix = filteredFeatureMatrixLog2.todense().astype('float32')
     else:
         filteredFeatureMatrix = sp_sparse.load_npz(os.path.join(templateRegisteredData['derivativesPath'], f"{templateRegisteredData['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
-        tempDenseMatrix = filteredFeatureMatrix.todense()
+        tempDenseMatrix = filteredFeatureMatrix.todense().astype('float32')
     templateRegisteredData['filteredFeatureMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     return templateRegisteredData
 
@@ -946,8 +946,8 @@ def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
                 if np.any(spots[1] < 0):
                     geneCount[spots[0]] = np.nan
                 else:
-                    spotij = np.zeros([nNearestNeighbors,2], dtype=int)
-                    spotij[:,1] = np.asarray(spots[1], dtype=int)
+                    spotij = np.zeros([nNearestNeighbors,2], dtype='int32')
+                    spotij[:,1] = np.asarray(spots[1], dtype='int32')
                     spotij[:,0] = geneIndex
                     
                     geneCount[spots[0]] = experiment[actSample]['filteredFeatureMatrixMasked'][spotij[:,0],spotij[:,1]]
@@ -968,8 +968,8 @@ def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
             else:
                 continue
                 
-        digitalSamplesControl = np.array(digitalSamplesControl, dtype=float).squeeze()
-        digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype=float).squeeze()
+        digitalSamplesControl = np.array(digitalSamplesControl, dtype='float32').squeeze()
+        digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype='float32').squeeze()
         #####################################################################################################
         # this will check that at least a certain number of spots show expression for the gene of interest  #
         # might be able to remove entirely now that FDR has been expanded                                   #
@@ -1009,10 +1009,10 @@ def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
 # this version uses processed but unregistered samples
 def selectSpotsWithGene(processedSample, geneToSelect):
     denseMatrix = processedSample['filteredFeatureMatrixLog2']
-    denseMatrix = denseMatrix.todense()
+    denseMatrix = denseMatrix.todense().astype('float32')
     geneIndex = processedSample['geneListMasked'].index(geneToSelect)
     actSpots = processedSample['filteredFeatureMatrixLog2'][geneIndex, :]
-    actSpots = actSpots.todense()
+    actSpots = actSpots.todense().astype('float32')
     posSpots = actSpots > 0
     if np.sum(actSpots) > 0:
         posSpots = np.squeeze(np.array(posSpots))
@@ -1022,3 +1022,10 @@ def selectSpotsWithGene(processedSample, geneToSelect):
         print(f"No spots in {processedSample[sampleID]} are positive for {geneToSelect}")
     return maskedMatrix, maskedTissuePositionList
            
+#%% calculate the cosine similarity of a given matrix at the coordinates given
+def cosineSimOfConnection(inputMatrix,i,j):
+    I = inputMatrix[:,i]
+    J = inputMatrix[:,j]
+    # cs = np.sum(np.dot(I,J.transpose())) / (np.sqrt(np.sum(np.square(I)))*np.sqrt(np.sum(np.square(J))))
+    cs = sp_spatial.distance.cosine(I,J)
+    return cs
