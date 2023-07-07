@@ -14,13 +14,13 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
 import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.cm as cm
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -93,7 +93,7 @@ for sampleIdx, actSample in enumerate(allSamplesToAllen):
 
 #%% calculate list of fully connected edges for single sample
 fullyConnectedEdges = []
-sampleToCluster = processedSamples[4]
+sampleToCluster = processedSamples[6]
 for i in range(sampleToCluster['filteredFeatureMatrixLog2'].shape[1]):
     for j in range(sampleToCluster['filteredFeatureMatrixLog2'].shape[1]):
         fullyConnectedEdges.append([i,j])
@@ -104,7 +104,7 @@ fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
 # calculate cosine sim for single sample
 
 start_time = time.time()
-sampleToClusterFilteredFeatureMatrix = sampleToCluster['filteredFeatureMatrixLog2'].todense().astype('float32')
+sampleToClusterFilteredFeatureMatrix = np.array(sampleToCluster['filteredFeatureMatrixLog2'].todense(),dtype='float32')
 adjacencyDataControl = [stanly.cosineSimOfConnection(sampleToClusterFilteredFeatureMatrix,I, J) for I,J in fullyConnectedEdges]
 print("--- %s seconds ---" % (time.time() - start_time))  
 
