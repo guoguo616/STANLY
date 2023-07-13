@@ -24,6 +24,7 @@ import scipy.sparse as sp_sparse
 import collections
 import tables
 import time
+import itk
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -77,11 +78,11 @@ end of code from 10x
 """
 
 """ the general workflow should go as follows:
-    1. import visium data that has been run through spaceranger pipeline
+    1. import data that has been run through spaceranger pipeline
     2. import relevant atlas images and annotations from allen atlas
-    3. prepare visium data for registration into Common Coordinate Framework (ccf)
-    4. use SyN registration from ANTs to register visium image to allen image
-    5. bring remaining visium data, such as spot coordinates, into allen space using above transformations
+    3. prepare data for registration into Common Coordinate Framework (ccf)
+    4. use SyN registration from ANTs to register histological image to allen image
+    5. bring remaining data, such as spot coordinates, into allen space using above transformations
     6. measure for nearest neighbor similarity among spots in new space and create a vector that represents the nearest neighbors from each slice
 """
 
@@ -1029,3 +1030,28 @@ def cosineSimOfConnection(inputMatrix,i,j):
     # cs = np.sum(np.dot(I,J.transpose())) / (np.sqrt(np.sum(np.square(I)))*np.sqrt(np.sum(np.square(J))))
     cs = sp_spatial.distance.cosine(I,J)
     return cs
+
+#%% downsample tif file from merscope data
+def downsampleMerfishTiff(merfishImageFilename, outputName, scale=0.01):
+    # the default scale is based on merscope claiming nanometer resolution, scaled for the ccf 10um resolution    
+    img = itk.imread(merfishImageFilename)
+    imgSize = itk.size(img)
+    imgSpacing = itk.spacing(img)
+    imgOrigin = itk.origin(img)
+    imgDimension = img.GetImageDimension()
+    outSize = [int(imgSize[d] * scale) for d in range(imgDimension)]
+    outSpacing = [imgSpacing[d] / scale for d in range(imgDimension)]
+    outOrigin = [imgOrigin[d] + 0.5 * (outSpacing[d] - imgSpacing[d])
+                      for d in range(imgDimension)]
+    
+    interpolator = itk.LinearInterpolateImageFunction.New(img)
+    
+    resampled = itk.resample_image_filter(
+        img,
+        interpolator=interpolator,
+        size=outSize,
+        output_spacing=outSpacing,
+        output_origin=outOrigin,
+    )
+    outFilename = os.path.join(outputName)
+    itk.imwrite(resampled, outFilename)

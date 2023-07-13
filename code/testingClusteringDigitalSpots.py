@@ -14,13 +14,28 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
 import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.cm as cm
+# colormap of colorblind friendly colors from https://gist.github.com/thriveth/8560036
+CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
+                  '#f781bf', '#a65628', '#984ea3',
+                  '#999999', '#e41a1c', '#dede00']
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
+# convert to rgb 
+cbRGB = []
+for h in CB_color_cycle:
+    hexNum = h.lstrip('#')
+    cbRGB.append(tuple(int(hexNum[i:i+2], 16) for i in (0, 2, 4)))
+    
+cbRGB = np.array(cbRGB)/255
+
+cbCmap = mcolors.LinearSegmentedColormap.from_list('colorblindColormap', cbRGB)
+
+
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -173,7 +188,8 @@ for actK in clusterRange:
         size_cluster_i = ith_cluster_silhouette_values.shape[0]
         y_upper = y_lower + size_cluster_i
 
-        color = cm.tab20b(float(i) / actK)
+        # color = cm.tab20b(float(i) / actK)
+        color = cbCmap(float(i) / actK)
         ax1.fill_betweenx(
             np.arange(y_lower, y_upper),
             0,
@@ -200,9 +216,9 @@ for actK in clusterRange:
     ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
 
     # 2nd Plot showing the actual clusters formed
-    colors = cm.tab20b(cluster_labels.astype(float) / actK)
+    colors = cbCmap(cluster_labels.astype(float) / actK)
     ax2.imshow(sampleToCluster['tissueProcessed'],cmap='gray_r')
-    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap='Set2')
+    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap=cbCmap)
     ax2.set_title("The visualization of the clustered data.")
     ax2.axis('off')
 
@@ -296,7 +312,7 @@ eigvalControlSortIdx = np.argsort(np.real(eigvalControl))[::-1]
 eigvecControlSort = np.real(eigvecControl[:,eigvalControlSortIdx])
 
 #%% run k means control
-clusterK = 25
+clusterK = 15
 clusters = KMeans(n_clusters=clusterK, init='random', n_init=300, tol=1e-8,).fit(np.real(eigvecControlSort[:,0:clusterK]))
 plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
 plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labels_,cmap='Set2')
@@ -318,7 +334,7 @@ eigvalExperimentalSortIdx = np.argsort(np.real(eigvalExperimental))[::-1]
 eigvecExperimentalSort = np.real(eigvecExperimental[:,eigvalExperimentalSortIdx])
 
 #%% run k means experimental
-clusterK = 25
+clusterK = 15
 clusters = KMeans(n_clusters=clusterK, init='random', n_init=300, tol=1e-8,).fit(np.real(eigvecExperimentalSort[:,0:clusterK]))
 plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
 plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labels_,cmap='tab20b')
@@ -397,7 +413,7 @@ for actK in clusterRange:
     # 2nd Plot showing the actual clusters formed
     colors = cm.tab20b(cluster_labels.astype(float) / actK)
     ax2.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray_r')
-    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='Set2')
+    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='tab20b')
     ax2.set_title("The visualization of the clustered control data.")
     ax2.axis('off')
 
@@ -483,7 +499,7 @@ for actK in clusterRange:
     # 2nd Plot showing the actual clusters formed
     colors = cm.tab20b(cluster_labels.astype(float) / actK)
     ax2.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray_r')
-    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='Set2')
+    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='tab20b')
     ax2.set_title("The visualization of the clustered Experimental data.")
     ax2.axis('off')
 
@@ -574,7 +590,7 @@ eigvalDeltaSortIdx = np.argsort(np.real(eigvalDelta))[::-1]
 eigvecDeltaSort = np.real(eigvecDelta[:,eigvalDeltaSortIdx])
 
 #%% run sillhoutte analysis on Delta clustering
-clusterRange = np.array(range(4,26))
+clusterRange = np.array(range(3,26))
 
 for actK in clusterRange:
     # Create a subplot with 1 row and 2 columns
@@ -617,7 +633,7 @@ for actK in clusterRange:
         size_cluster_i = ith_cluster_silhouette_values.shape[0]
         y_upper = y_lower + size_cluster_i
 
-        color = cm.nipy_spectral(float(i) / actK)
+        color = cm.tab20b(float(i) / actK)
         ax1.fill_betweenx(
             np.arange(y_lower, y_upper),
             0,
@@ -644,9 +660,9 @@ for actK in clusterRange:
     ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
 
     # 2nd Plot showing the actual clusters formed
-    colors = cm.nipy_spectral(cluster_labels.astype(float) / actK)
+    colors = cm.tab20b(cluster_labels.astype(float) / actK)
     ax2.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray_r')
-    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='Set2')
+    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='tab20b')
     ax2.set_title("The visualization of the clustered Delta data.")
     ax2.axis('off')
 
