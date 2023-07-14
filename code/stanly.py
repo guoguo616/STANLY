@@ -25,6 +25,7 @@ import collections
 import tables
 import time
 import itk
+import pandas as pd
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -162,7 +163,9 @@ def chooseTemplateSlice(sliceLocation):
     templateRight = cv2.normalize(templateRight, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     templateAnnotationLeft = templateAnnotationSlice[:,:570]
     templateAnnotationRight = templateAnnotationSlice[:,570:]
-
+    templateSlice = cv2.normalize(templateSlice.numpy(), None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    
+    templateData['templateWholeGauss'] = filters.gaussian(templateSlice, sigma=10)
     templateData['templateLeftGauss'] = filters.gaussian(templateLeft, sigma=10)
     templateData['templateRightGauss'] = filters.gaussian(templateRight, sigma=10)
     # templateLeftSliceGauss = filters.gaussian(templateLeftSlice, 10)
@@ -170,8 +173,10 @@ def chooseTemplateSlice(sliceLocation):
     templateData['sliceNumber'] = sliceLocation
     templateData['leftHem'] = templateLeft
     templateData['rightHem'] = templateRight
+    templateData['wholeBrain'] = templateSlice
     templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int')
     templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int')
+    templateData['wholeBrainAnnot'] = np.array(templateAnnotationSlice.numpy(), dtype='int')
     annotX = templateLeft.shape[0]
     annotY = templateLeft.shape[1]
     templateAnnotLeftRGB = np.zeros([annotX, annotY, 3])
@@ -404,24 +409,24 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True):
         #######################################################################
         # working here to add merfish updates
         #######################################################################
-        print(f"Registering {processedVisium['sampleID']}")
+        print(f"Registering {processedData['sampleID']}")
         # convert into ants image type
-        registeredData['sampleID'] = processedVisium['sampleID']
-        registeredData['derivativesPath'] = processedVisium['derivativesPath']
-        registeredData['geneListMasked'] = processedVisium['geneListMasked']
+        registeredData['sampleID'] = processedData['sampleID']
+        registeredData['derivativesPath'] = processedData['derivativesPath']
+        registeredData['geneListMasked'] = processedData['geneListMasked']
         templateAntsImage = ants.from_numpy(templateData['rightHem'])
-        sampleAntsImage = ants.from_numpy(processedVisium['tissueProcessed'])
+        sampleAntsImage = ants.from_numpy(processedData['tissueProcessed'])
         # run registration
         synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
         type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
-        syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm"))
+        syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm"))
         
         #registeredData['antsOutput'] = synXfm
         registeredData['fwdtransforms'] = synXfm['fwdtransforms']
         registeredData['invtransforms'] = synXfm['invtransforms']
 
         # apply syn transform to tissue spot coordinates
-        applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_xfm1InverseWarp.nii.gz]"
+        applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz]"
         pid = os.system(applyTransformStr)
         # program has to wait while spots are transformed by the system
         if pid:
@@ -431,7 +436,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True):
 
     
     transformedTissuePositionList = []
-    with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv"), newline='') as csvfile:
+    with open(os.path.join(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv"), newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
             next(csvreader)
             for row in csvreader:
@@ -471,12 +476,12 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True):
 
     # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
     if log2normalize == True:
-        tempDenseMatrix = processedVisium['filteredFeatureMatrixLog2'].todense().astype('float32')
+        tempDenseMatrix = processedData['geneMatrixLog2'].todense().astype('float32')
     else:
-        tempDenseMatrix = processedVisium['filteredFeatureMatrix'].todense().astype('float32')
+        tempDenseMatrix = processedData['geneMatrix'].todense().astype('float32')
     registeredData['filteredFeatureMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,filteredFeatureMatrixMaskedIdx])
     # write re-ordered filtered feature matrix csv to match tissue spot order
-    sp_sparse.save_npz(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['filteredFeatureMatrixMasked']))        
+    sp_sparse.save_npz(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['filteredFeatureMatrixMasked']))        
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['tissueRegistered'])
     
     return registeredData
@@ -1058,3 +1063,73 @@ def downsampleMerfishTiff(merfishImageFilename, outputName, scale=0.01):
     )
     outFilename = os.path.join(outputName)
     itk.imwrite(resampled, outFilename)
+    
+def importMerfishData(sampleFolder, outputPath):
+    # 
+    sampleData = {}
+    if os.path.exists(os.path.join(sampleFolder)):
+        # spatialFolder = os.path.join(sampleFolder)
+        try:
+            # need to check how the cell by gene file is usually output/named
+            os.path.isfile(glob(os.path.join(sampleFolder, '*cell_by_gene_*.csv'))[0])
+            dataFolder = sampleFolder
+            sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
+        except IndexError:
+            print("Something is wrong!")
+            # os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
+            # dataFolder = spatialFolder
+        # dataFolder = os.path.join(sampleFolder)
+    else:
+        print(f"{sampleFolder} not found!")
+    # need to look for standard outputname of tiff file for registration
+    
+    if any(glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))):
+        originalImagePath =  glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))[0]
+    elif any(glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))):
+        originalImagePath =  glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))[0]
+    else:
+        print(f"Can't find tif in {dataFolder} or {dataFolder}/images")
+    downsampledImagePath = os.path.splitext(originalImagePath)[0]
+    downsampledImagePath = downsampledImagePath + "_downsampled.tif"
+    # check if image has already been downsampled
+    if any(glob(downsampledImagePath)):
+        print(f"Loading previously downsampled image from {dataFolder}")
+    else:
+        print("Downsampling high resolution image to 10 micron resolution")
+        downsampleMerfishTiff(originalImagePath, downsampledImagePath, scale=0.01)
+    sampleData['imageData'] = io.imread(downsampledImagePath)
+    # need to convert into 0-1 
+    # sampleImageNorm = (sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData']))
+    sampleData['imageDataGray'] = np.array((sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData'])), dtype='float32')
+    
+    cellMetadataCsv = glob(os.path.join(dataFolder,"*cell_metadata*.csv"))[0]
+    tissuePositionsList = []
+    tissueSpotBarcodes = []    
+    with open(cellMetadataCsv, newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            tissueSpotBarcodes.append(row[0])
+            tissuePositionsList.append(row[3:5])
+    tissuePositionsList = np.array(tissuePositionsList, dtype='float32')
+    sampleData['tissueSpotBarcodeList'] = tissueSpotBarcodes
+    sampleData['tissuePositionsList'] = tissuePositionsList
+    ### no scale factor equivalent that I know of in merfish, but using nanometer as reference can approximate scaling so far
+    # scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
+    # sampleData['scaleFactors'] = json.loads(scaleFactorPath.read())
+    # scaleFactorPath.close()
+    geneMatrixPath = glob(os.path.join(dataFolder,"*cell_by_gene*.csv"))[0]
+    geneMatrix = []
+    with open(geneMatrixPath, newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            geneMatrix.append(np.array(row[1:], dtype='float32'))
+    sampleData['geneMatrix'] = np.array(geneMatrix, dtype='int32')
+    # the ratio of real spot diameter, 55um, by imaged resolution of spot
+    # sampleData['spotStartingResolution'] = 0.55 / visiumData["scaleFactors"]["spot_diameter_fullres"]
+    cellByGene = pd.read_csv(geneMatrixPath)
+    geneList = cellByGene.columns[1:]
+    sampleData['geneList'] = geneList
+    # plt.imshow(visiumData['imageData'])
+    return sampleData    
