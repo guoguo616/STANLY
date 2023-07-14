@@ -16,12 +16,17 @@ sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+import csv
+import cv2
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
 #%% location of merfish csv data 
-sourcedata = os.path.join('/','home','zjpeters','Documents','visiumalignment','sourcedata','merscopedata')
-locOfCellByGeneCsv = os.path.join(sourcedata,'datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_cell_by_gene_S1R1.csv')
-locOfCellMetadataCsv = os.path.join(sourcedata,'datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_cell_metadata_S1R1.csv')
-tifFilename = os.path.join(sourcedata,'datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_images_mosaic_DAPI_z0.tif')
+sourcedata = os.path.join('/','home','zjpeters','rdss_tnj','visiumalignment','sourcedata','merscopedata')
+# datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
+locOfCellByGeneCsv = os.path.join(sourcedata,'cell_by_gene_S1R1.csv')
+#datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
+locOfCellMetadataCsv = os.path.join(sourcedata,'cell_metadata_S1R1.csv')
+# datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_images_
+tifFilename = os.path.join(sourcedata,'images','mosaic_DAPI_z0.tif')
 # load data as pandas dataframe and extract list of genes
 cellByGene = pd.read_csv(locOfCellByGeneCsv)
 cellMetadata = pd.read_csv(locOfCellMetadataCsv)
@@ -69,8 +74,8 @@ def downsampleMerfishTiff(merfishImageFilename, outputName, scale=0.01):
 
 #%% using itk to load and downsample tiff
 
-stanly.downsampleMerfishTiff(tifFilename, os.path.join('/','home','zjpeters','Documents','visiumalignment','derivatives','downsampledMerfish.tif'), scale=0.01)
-testSampleImg = io.imread(os.path.join('/','home','zjpeters','Documents','visiumalignment','derivatives','downsampledMerfish.tif'), as_gray=True)
+stanly.downsampleMerfishTiff(tifFilename, os.path.join(derivatives,'downsampledMerfish.tif'), scale=0.01)
+testSampleImg = io.imread(os.path.join(derivatives,'downsampledMerfish.tif'), as_gray=True)
 
 # need to look back over code for downsampling to see why scale of 0.01 requires multiplying by scale * 9, like below
 newX = cellMetadata.center_x * 0.09
@@ -88,6 +93,7 @@ def importMerfishData(sampleFolder, outputPath):
             # need to check how the cell by gene file is usually output/named
             os.path.isfile(glob(os.path.join(sampleFolder, '*cell_by_gene_*.csv'))[0])
             dataFolder = sampleFolder
+            sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
         except IndexError:
             print("Something is wrong!")
             # os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
@@ -97,80 +103,93 @@ def importMerfishData(sampleFolder, outputPath):
         print(f"{sampleFolder} not found!")
     # need to look for standard outputname of tiff file for registration
     
-    originalImagePath =  glob(os.path.join(dataFolder,"*_images_mosaic_DAPI_z0.tif"))[0]
+    if any(glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))):
+        originalImagePath =  glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))[0]
+    elif any(glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))):
+        originalImagePath =  glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))[0]
+    else:
+        print(f"Can't find tif in {dataFolder} or {dataFolder}/images")
     downsampledImagePath = os.path.splitext(originalImagePath)[0]
     downsampledImagePath = downsampledImagePath + "_downsampled.tif"
     # check if image has already been downsampled
     if any(glob(downsampledImagePath)):
-        print(f"Loading previously downsampled image from {sampleFolder}")
+        print(f"Loading previously downsampled image from {dataFolder}")
     else:
         print("Downsampling high resolution image to 10 micron resolution")
         downsampleMerfishTiff(originalImagePath, downsampledImagePath, scale=0.01)
     sampleData['imageData'] = io.imread(downsampledImagePath)
     # need to convert into 0-1 
-    sampleImageNorm = (sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData']))
-    sampleData['imageDataGray'] = (sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData']))
-    sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
-    ###########################################################################
-    # stopped here
-    ###########################################################################
+    # sampleImageNorm = (sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData']))
+    sampleData['imageDataGray'] = np.array((sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData'])), dtype='float32')
+    
+    cellMetadataCsv = glob(os.path.join(dataFolder,"*cell_metadata*.csv"))[0]
     tissuePositionsList = []
-    tissueSpotBarcodes = []
-    with open(os.path.join(dataFolder,"tissue_positions_list.csv"), newline='') as csvfile:
+    tissueSpotBarcodes = []    
+    with open(cellMetadataCsv, newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
         for row in csvreader:
-            # checks for in tissue spots
-            if row[1] == '1':
-                tissueSpotBarcodes.append(row[0])
-                tissuePositionsList.append(row[1:])
+            tissueSpotBarcodes.append(row[0])
+            tissuePositionsList.append(row[3:5])
     tissuePositionsList = np.array(tissuePositionsList, dtype='float32')
-    visiumData['tissueSpotBarcodeList'] = tissueSpotBarcodes
-    visiumData['tissuePositionsList'] = tissuePositionsList
-    scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
-    visiumData['scaleFactors'] = json.loads(scaleFactorPath.read())
-    scaleFactorPath.close()
-    filteredFeatureMatrixPath = glob(os.path.join(dataFolder,"*filtered_feature_bc_matrix.h5"))
-    filteredFeatureMatrix = get_matrix_from_h5(os.path.join(filteredFeatureMatrixPath[0]))
-    visiumData['filteredFeatureMatrix'] = filteredFeatureMatrix
+    sampleData['tissueSpotBarcodeList'] = tissueSpotBarcodes
+    sampleData['tissuePositionsList'] = tissuePositionsList
+    ### no scale factor equivalent that I know of in merfish, but using nanometer as reference can approximate scaling so far
+    # scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
+    # sampleData['scaleFactors'] = json.loads(scaleFactorPath.read())
+    # scaleFactorPath.close()
+    geneMatrixPath = glob(os.path.join(dataFolder,"*cell_by_gene*.csv"))[0]
+    geneMatrix = []
+    with open(geneMatrixPath, newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            geneMatrix.append(np.array(row[1:], dtype='float32'))
+    sampleData['geneMatrix'] = np.array(geneMatrix, dtype='int32')
     # the ratio of real spot diameter, 55um, by imaged resolution of spot
-    visiumData['spotStartingResolution'] = 0.55 / visiumData["scaleFactors"]["spot_diameter_fullres"]
+    # sampleData['spotStartingResolution'] = 0.55 / visiumData["scaleFactors"]["spot_diameter_fullres"]
+    cellByGene = pd.read_csv(geneMatrixPath)
+    geneList = cellByGene.columns[1:]
+    sampleData['geneList'] = geneList
     # plt.imshow(visiumData['imageData'])
-    return visiumData
+    return sampleData
 
 def processMerfishData(sampleData, templateData, rotation, outputFolder, log2normalize=True):
     processedData = {}
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedData['sampleID'] = sampleData['sampleID']
-    outputPath = os.path.join(outputFolder, visiumData['sampleID'])
-    try:
-        file = open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsProcessed.csv", 'r')
-        print(f"{processedVisium['sampleID']} has already been processed! Loading data")
-        processedVisium = loadProcessedSample(outputPath)
-        return processedVisium
-    except IOError:
-        print(f"Processing {processedVisium['sampleID']}")
+    outputPath = os.path.join(outputFolder, sampleData['sampleID'])
+    #### need to create a loadProcessedMerfishData function
+    # try:
+    #     file = open(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointsProcessed.csv", 'r')
+    #     print(f"{processedData['sampleID']} has already been processed! Loading data")
+    #     processedData = loadProcessedSample(outputPath)
+    #     return processedData
+    # except IOError:
+    #     print(f"Processing {processedVisium['sampleID']}")
     if not os.path.exists(outputPath):
         os.makedirs(outputPath)
-    resolutionRatio = visiumData['spotStartingResolution'] / templateData['startingResolution']
-    processedVisium['derivativesPath'] = outputPath
+    ### need to update when we get better resolution information
+    # resolutionRatio = visiumData['spotStartingResolution'] / templateData['startingResolution']
+    processedData['derivativesPath'] = outputPath
     # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
     # processedVisium['degreesOfRotation'] = int(rotation)
     # first gaussian is to calculate otsu threshold
-    visiumGauss = filters.gaussian(visiumData['imageDataGray'], sigma=20)
-    otsuThreshold = filters.threshold_otsu(visiumGauss)
+    sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=20)
+    otsuThreshold = filters.threshold_otsu(sampleGauss)
     # changed to > for inv green channel, originally < below
-    processedVisium['visiumOtsu'] = visiumGauss > otsuThreshold
-    tissue = np.zeros(visiumGauss.shape, dtype='float32')
-    tissue[processedVisium['visiumOtsu']==True] = visiumData['imageDataGray'][processedVisium['visiumOtsu']==True]
+    processedData['visiumOtsu'] = sampleGauss > otsuThreshold
+    tissue = np.zeros(sampleGauss.shape, dtype='float32')
+    tissue[processedData['visiumOtsu']==True] = sampleData['imageDataGray'][processedData['visiumOtsu']==True]
     # second gaussian is the one used in registration
-    visiumGauss = filters.gaussian(visiumData['imageDataGray'], sigma=5)
-    tissueGauss = np.zeros(visiumGauss.shape)
-    tissueGauss[processedVisium['visiumOtsu']==True] = visiumGauss[processedVisium['visiumOtsu']==True]
+    sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=5)
+    tissueGauss = np.zeros(sampleGauss.shape)
+    tissueGauss[processedData['visiumOtsu']==True] = sampleGauss[processedData['visiumOtsu']==True]
     tissueNormalized = cv2.normalize(tissueGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    # processedVisium['resolutionRatio'] = visiumData['spotStartingResolution'] / templateData['startingResolution']
-    tissueResized = rescale(tissueNormalized,resolutionRatio)
+    # due to the large size of the tif files, the image is downsampled during the previous step
+    # tissueResized = rescale(tissueNormalized,resolutionRatio)
     if rotation < 0:
-        tissuePointsRotated = rotateTissuePoints(visiumData, rotation)
+        tissuePointsRotated = rotateTissuePoints(sampleData, rotation)
         rotation = rotation * -1
         tissueRotated = rotate(tissueResized, rotation, resize=True)
         tissueRotated = tissueRotated[:,::-1]

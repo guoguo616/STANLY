@@ -211,9 +211,10 @@ def chooseTemplateSlice(sliceLocation):
 
 # tissue coordinates should reference output of importVisiumData
 # rotation currently accepts 0,90,180,270, will take input from processedVisium
-def rotateTissuePoints(visiumData, rotation):
+def rotateTissuePoints(sampleData, rotation):
+    ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
     # scales tissue coordinates down to image resolution
-    tissuePointsResizeToHighRes = visiumData["tissuePositionsList"][0:, 3:] * visiumData["scaleFactors"]["tissue_hires_scalef"]
+    tissuePointsResizeToHighRes = sampleData["tissuePositionsList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
     # below switches x and y in order to properly rotate, this gets undone after registration
     tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
     # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
@@ -226,21 +227,21 @@ def rotateTissuePoints(visiumData, rotation):
     elif rotation == 90:
         rotMat = [[0,-1],[1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageDataGray"].shape[1]
+        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
     elif rotation == 180:
         rotMat = [[-1,0],[0,-1]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageDataGray"].shape[1]
-        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageDataGray"].shape[0]
+        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
+        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
     elif rotation == 270:
         rotMat = [[0,1],[-1,0]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + visiumData["imageDataGray"].shape[0]
+        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
     elif rotation == -180:
         rotMat = [[1,0],[0,-1]]
         tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
         # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
-        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + visiumData["imageDataGray"].shape[0]
+        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
     else:
         print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
         print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
@@ -256,7 +257,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     try:
         file = open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsProcessed.csv", 'r')
         print(f"{processedVisium['sampleID']} has already been processed! Loading data")
-        processedVisium = loadProcessedSample(outputPath)
+        processedVisium = loadProcessedVisiumSample(outputPath)
         return processedVisium
     except IOError:
         print(f"Processing {processedVisium['sampleID']}")
@@ -278,7 +279,6 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     tissueGauss = np.zeros(visiumGauss.shape)
     tissueGauss[processedVisium['visiumOtsu']==True] = visiumGauss[processedVisium['visiumOtsu']==True]
     tissueNormalized = cv2.normalize(tissueGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    # processedVisium['resolutionRatio'] = visiumData['spotStartingResolution'] / templateData['startingResolution']
     tissueResized = rescale(tissueNormalized,resolutionRatio)
     if rotation < 0:
         tissuePointsRotated = rotateTissuePoints(visiumData, rotation)
@@ -387,20 +387,23 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     return processedVisium
 
 
-def runANTsToAllenRegistration(processedVisium, templateData, log2normalize=True):
+def runANTsToAllenRegistration(processedData, templateData, log2normalize=True):
     # registeredData will contain: sampleID, derivativesPath, transformedTissuePositionList, fwdtransforms, invtransforms
     registeredData = {}
     try:
-        file = open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
-        print(f"{processedVisium['sampleID']} has already been processed and is located at: {processedVisium['derivativesPath']}")
-        print(f"Loading data for {processedVisium['sampleID']}")
-        registeredData['sampleID'] = processedVisium['sampleID']
-        registeredData['derivativesPath'] = processedVisium['derivativesPath']
-        registeredData['geneListMasked'] = processedVisium['geneListMasked']
-        registeredData['fwdtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat")]
-        registeredData['invtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1InverseWarp.nii.gz"),]
-        registeredData['tissueRegistered'] = plt.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
+        file = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
+        print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")
+        print(f"Loading data for {processedData['sampleID']}")
+        registeredData['sampleID'] = processedData['sampleID']
+        registeredData['derivativesPath'] = processedData['derivativesPath']
+        registeredData['geneListMasked'] = processedData['geneListMasked']
+        registeredData['fwdtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat")]
+        registeredData['invtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1InverseWarp.nii.gz"),]
+        registeredData['tissueRegistered'] = plt.imread(os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
     except IOError:
+        #######################################################################
+        # working here to add merfish updates
+        #######################################################################
         print(f"Registering {processedVisium['sampleID']}")
         # convert into ants image type
         registeredData['sampleID'] = processedVisium['sampleID']
@@ -799,7 +802,7 @@ def createRegionalDigitalSpots(regionMask, desiredSpotSize):
     # plt.show()
     return digitalSpots
 
-def loadProcessedSample(locOfProcessedSample, loadLog2Norm=True):
+def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
     processedVisium = {}
     processedVisium['derivativesPath'] = os.path.join(locOfProcessedSample)
     processedVisium['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
