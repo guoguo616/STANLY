@@ -395,6 +395,16 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
 def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='whole'):
     # registeredData will contain: sampleID, derivativesPath, transformedTissuePositionList, fwdtransforms, invtransforms
     registeredData = {}
+    match hemisphere:
+        case 'right':
+            templateAntsImage = ants.from_numpy(templateData['rightHem'])
+            maxWidth = templateData['rightHem'].shape[0]
+        case 'left':
+            templateAntsImage = ants.from_numpy(templateData['leftHem'])
+            maxWidth = templateData['lefttHem'].shape[0]
+        case 'whole':
+            templateAntsImage = ants.from_numpy(templateData['wholeBrain'])
+            maxWidth = templateData['wholeBrain'].shape[0]
     try:
         file = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
         print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")
@@ -414,7 +424,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         registeredData['sampleID'] = processedData['sampleID']
         registeredData['derivativesPath'] = processedData['derivativesPath']
         registeredData['geneListMasked'] = processedData['geneListMasked']
-        templateAntsImage = ants.from_numpy(templateData['rightHem'])
+        
         sampleAntsImage = ants.from_numpy(processedData['tissueProcessed'])
         # run registration
         synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
@@ -455,7 +465,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     # plt.title(processedVisium['sampleID'])
     # plt.show()
         
-    transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < registeredData['tissueRegistered'].shape[0])
+    transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < maxWidth)
     maskedTissuePositionList = []
     geneMatrixMaskedIdx = []
     for i, masked in enumerate(transformedTissuePositionListMask):
