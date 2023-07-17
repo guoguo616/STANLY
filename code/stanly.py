@@ -395,16 +395,15 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
 def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='whole'):
     # registeredData will contain: sampleID, derivativesPath, transformedTissuePositionList, fwdtransforms, invtransforms
     registeredData = {}
-    match hemisphere:
-        case 'right':
-            templateAntsImage = ants.from_numpy(templateData['rightHem'])
-            maxWidth = templateData['rightHem'].shape[0]
-        case 'left':
-            templateAntsImage = ants.from_numpy(templateData['leftHem'])
-            maxWidth = templateData['lefttHem'].shape[0]
-        case 'whole':
-            templateAntsImage = ants.from_numpy(templateData['wholeBrain'])
-            maxWidth = templateData['wholeBrain'].shape[0]
+    if hemisphere == 'right':
+        templateAntsImage = ants.from_numpy(templateData['rightHem'])
+        maxWidth = templateData['rightHem'].shape[1]
+    elif hemisphere == 'left':
+        templateAntsImage = ants.from_numpy(templateData['leftHem'])
+        maxWidth = templateData['lefttHem'].shape[1]
+    elif 'whole':
+        templateAntsImage = ants.from_numpy(templateData['wholeBrain'])
+        maxWidth = templateData['wholeBrain'].shape[1]
     try:
         file = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
         print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")

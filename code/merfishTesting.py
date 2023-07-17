@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -22,15 +22,15 @@ import cv2
 from skimage.exposure import match_histograms
 import scipy.sparse as sp_sparse
 import json
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/visiumalignment")
-sourcedata = os.path.join('/','home','zjpeters','rdss_tnj','visiumalignment','sourcedata','merscopedata')
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+sourcedata = os.path.join('/','home','zjpeters','Documents','visiumalignment','sourcedata','merscopedata')
 #%% location of merfish csv data 
 # datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
 # locOfCellByGeneCsv = glob(os.path.join(sourcedata,'*cell_by_gene*.csv'))[0]
 # #datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
 # locOfCellMetadataCsv = glob(os.path.join(sourcedata,'*cell_metadata*.csv'))[0]
 # # datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_images_
-tifFilename = glob(os.path.join(sourcedata,'images','*mosaic_DAPI_z0.tif'))[0]
+tifFilename = glob(os.path.join(sourcedata,'*mosaic_DAPI_z0.tif'))[0]
 # # load data as pandas dataframe and extract list of genes
 # cellByGene = pd.read_csv(locOfCellByGeneCsv)
 # cellMetadata = pd.read_csv(locOfCellMetadataCsv)
@@ -241,7 +241,11 @@ tifFilename = glob(os.path.join(sourcedata,'images','*mosaic_DAPI_z0.tif'))[0]
 #         "rotation": int(rotation),
 #         "otsuThreshold": float(otsuThreshold),
 #         "geneList": processedData['geneList']
-#     }
+#     }actSpots = np.array(np.squeeze(processedSample['geneMatrix'][0,:]), dtype='int32')
+plt.imshow(processedSample['tissueProcessed'], cmap='gray')
+plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=actSpots, alpha=0.8, cmap='Reds', marker='.')
+# plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
+
 #         # Serializing json
 #     # json_object = json.dumps(processedDataDict, indent=4)
      
@@ -272,14 +276,14 @@ sampleData = stanly.importMerfishData(sourcedata, derivatives)
 processedSample = stanly.processMerfishData(sampleData, templateData, 0, derivatives)
 sampleRegistered = stanly.runANTsToAllenRegistration(processedSample, templateData)
 
-actSpots = np.array(np.squeeze(sampleRegistered['geneMatrixMasked'].todense()[0,:]), dtype='int32')
+plt.imshow(sampleData['imageData'], cmap='gray')
+plt.axis(False)
+plt.show()
+plt.imshow(templateData['wholeBrain'], cmap='gray')
+plt.axis(False)
+plt.show()
+actSpots = np.array(np.squeeze(sampleRegistered['geneMatrixMasked'].todense()[95,:]), dtype='int32')
 plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
 plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, alpha=0.8, cmap='Reds', marker='.')
-# plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
-plt.show()
-
-actSpots = np.array(np.squeeze(processedSample['geneMatrix'][0,:]), dtype='int32')
-plt.imshow(processedSample['tissueProcessed'], cmap='gray')
-plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=actSpots, alpha=0.8, cmap='Reds', marker='.')
-# plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
+# plt.imshow(templateData['wholeBrain'], alpha=0.3)
 plt.show()
