@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -26,8 +26,8 @@ import time
 from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
-sourcedata = os.path.join('/','home','zjpeters','rdss_tnj','stanly','sourcedata','merscopedata')
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata','merscopedata')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
 # expected merfish data includes:
@@ -87,17 +87,23 @@ actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, sampl
 digitalGeneMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
 nControls = 0
 for actSpotIdx in range(nDigitalSpots):
-    digitalGeneColumn = np.zeros([nGenesInList,1],dtype='float32')
+    # digitalGeneColumn = np.zeros([nGenesInList,1],dtype='float32')
     nSpotsTotal=0
     spots = actNN[actSpotIdx,:]
     if np.all(spots > 0):
-        digitalGeneColumn = digitalGeneColumn + np.sum(sampleRegistered['geneMatrixMasked'][:,spots].todense().astype('float32'), axis=1)
+        digitalGeneColumn = np.median(sampleRegistered['geneMatrixMasked'][:,spots].todense().astype('float32'), axis=1)
         nSpotsTotal+=kSpots
         digitalGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalGeneColumn, nSpotsTotal),dtype='float32').flatten()
-    else:
-        digitalGeneMatrix[:,actSpotIdx] = digitalGeneColumn.flatten()
+    # else:
+    #     digitalGeneColumn = np.zeros([nGenesInList,1],dtype='float32')
+    #     digitalGeneMatrix[:,actSpotIdx] = digitalGeneColumn.flatten()
     
-
+for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
+    plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrix[geneIdx,:], marker='.', cmap='Reds')
+    plt.title(actGene)
+    plt.axis=False
+    plt.gca().invert_yaxis()
+    plt.show()
 #%% try clustering on test sample
 fullyConnectedEdges = []
 sampleToCluster = processedSample
@@ -108,7 +114,7 @@ for i in range(digitalGeneMatrix.shape[1]):
 fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
 fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
 
-# calculate cosine sim for single sample
+#%% calculate cosine sim for single sample
 
 start_time = time.time()
 sampleToClusterGeneMatrix = np.array(digitalGeneMatrix,dtype='float32')
@@ -143,7 +149,7 @@ plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labe
 
 #%% run sillhoutte analysis on control clustering
 
-clusterRange = np.array(range(4,26))
+clusterRange = np.array(range(26,50))
 
 for actK in clusterRange:
     # Create a subplot with 1 row and 2 columns

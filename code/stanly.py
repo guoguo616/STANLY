@@ -152,7 +152,7 @@ def chooseTemplateSlice(sliceLocation):
         rsapi = ReferenceSpaceApi()
         rsapi.download_volumetric_data('ara_nissl','ara_nissl_10.nrrd',10, save_file_path=os.path.join(ccfPath, 'ara_nissl_10.nrrd'))
     ara_data = ants.image_read(os.path.join(ccfPath,'ara_nissl_10.nrrd'))
-        
+    # it would probably make more sense to go back and create the whole brain and split it into two, rather than recreating all three
     annotation_data = ants.image_read(os.path.join(refDataPath,'data','ccf','annotation_10.nrrd'))
     templateData = {}
     bestSlice = sliceLocation * 10
@@ -202,6 +202,7 @@ def chooseTemplateSlice(sliceLocation):
     annotation_id = []
     annotation_name = []
     structure_id_path = []
+    color_hex = []
     with open(os.path.join(codePath,'data','allen_ccf_annotation.csv'), newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
         next(csvreader)
@@ -210,10 +211,12 @@ def chooseTemplateSlice(sliceLocation):
             annotation_id.append(row[3])
             annotation_name.append(row[4])
             structure_id_path.append(row[7])
+            color_hex.append(row[1])
 
     templateData['annotationID'] = annotation_id
     templateData['annotationName'] = annotation_name
     templateData['structureIDPath'] = structure_id_path
+    templateData['colorHex'] = color_hex
     return templateData
 
 # tissue coordinates should reference output of importVisiumData
@@ -1161,14 +1164,14 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=20)
     otsuThreshold = filters.threshold_otsu(sampleGauss)
     # changed to > for inv green channel, originally < below
-    processedData['visiumOtsu'] = sampleGauss > otsuThreshold
-    tissue = np.zeros(sampleGauss.shape, dtype='float32')
-    tissue[processedData['visiumOtsu']==True] = sampleData['imageDataGray'][processedData['visiumOtsu']==True]
+    # processedData['visiumOtsu'] = sampleGauss > otsuThreshold
+    # tissue = np.zeros(sampleGauss.shape, dtype='float32')
+    # tissue[processedData['visiumOtsu']==True] = sampleData['imageDataGray'][processedData['visiumOtsu']==True]
     # second gaussian is the one used in registration
     sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=5)
-    tissueGauss = np.zeros(sampleGauss.shape)
-    tissueGauss[processedData['visiumOtsu']==True] = sampleGauss[processedData['visiumOtsu']==True]
-    tissueNormalized = cv2.normalize(tissueGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    # tissueGauss = np.zeros(sampleGauss.shape)
+    # tissueGauss[processedData['visiumOtsu']==True] = sampleGauss[processedData['visiumOtsu']==True]
+    tissueNormalized = cv2.normalize(sampleGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     # due to the large size of the tif files, the image is downsampled during the previous step
     # tissueResized = rescale(tissueNormalized,resolutionRatio)
     # if rotation < 0:
@@ -1210,7 +1213,7 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     # writes sorted, masked, normalized filtered feature matrix to .npz file
     
     # writes image for masked greyscale tissue, as well as the processed image that will be used in registration
-    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissue.png",255*tissue)
+    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissue.png",255*processedData['tissueProcessed'])
     cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissueProcessed.png",processedData['tissueProcessed'])
     
     header=['x','y','z','t','label','comment']
