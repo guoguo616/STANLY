@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -22,15 +22,16 @@ import cv2
 from skimage.exposure import match_histograms
 import scipy.sparse as sp_sparse
 import json
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
-sourcedata = os.path.join('/','home','zjpeters','Documents','visiumalignment','sourcedata','merscopedata')
+import time
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata','merscopedata')
 #%% location of merfish csv data 
 # datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
 # locOfCellByGeneCsv = glob(os.path.join(sourcedata,'*cell_by_gene*.csv'))[0]
 # #datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
 # locOfCellMetadataCsv = glob(os.path.join(sourcedata,'*cell_metadata*.csv'))[0]
 # # datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_images_
-tifFilename = glob(os.path.join(sourcedata,'*mosaic_DAPI_z0.tif'))[0]
+# tifFilename = glob(os.path.join(sourcedata,'*mosaic_DAPI_z0.tif'))[0]
 # # load data as pandas dataframe and extract list of genes
 # cellByGene = pd.read_csv(locOfCellByGeneCsv)
 # cellMetadata = pd.read_csv(locOfCellMetadataCsv)
@@ -242,8 +243,8 @@ tifFilename = glob(os.path.join(sourcedata,'*mosaic_DAPI_z0.tif'))[0]
 #         "otsuThreshold": float(otsuThreshold),
 #         "geneList": processedData['geneList']
 #     }actSpots = np.array(np.squeeze(processedSample['geneMatrix'][0,:]), dtype='int32')
-plt.imshow(processedSample['tissueProcessed'], cmap='gray')
-plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=actSpots, alpha=0.8, cmap='Reds', marker='.')
+# plt.imshow(processedSample['tissueProcessed'], cmap='gray')
+# plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=actSpots, alpha=0.8, cmap='Reds', marker='.')
 # plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
 
 #         # Serializing json
@@ -269,7 +270,7 @@ plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample[
 #             writer.writerow(rowFormat)
 #     return processedData
 
-#%% 
+#%% align test data to allen ccf
 
 templateData = stanly.chooseTemplateSlice(90)
 sampleData = stanly.importMerfishData(sourcedata, derivatives)
@@ -284,6 +285,147 @@ plt.axis(False)
 plt.show()
 actSpots = np.array(np.squeeze(sampleRegistered['geneMatrixMasked'].todense()[95,:]), dtype='int32')
 plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
-plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, alpha=0.8, cmap='Reds', marker='.')
+plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
 # plt.imshow(templateData['wholeBrain'], alpha=0.3)
 plt.show()
+
+#%% try clustering on test sample
+fullyConnectedEdges = []
+sampleToCluster = processedSample
+for i in range(sampleToCluster['geneMatrixLog2'].shape[1]):
+    for j in range(sampleToCluster['geneMatrixLog2'].shape[1]):
+        fullyConnectedEdges.append([i,j])
+        
+fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
+fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
+
+# calculate cosine sim for single sample
+
+start_time = time.time()
+sampleToClusterGeneMatrix = np.array(sampleToCluster['geneMatrixLog2'].todense(),dtype='float32')
+adjacencyDataControl = [stanly.cosineSimOfConnection(sampleToClusterGeneMatrix,I, J) for I,J in fullyConnectedEdges]
+print("--- %s seconds ---" % (time.time() - start_time))  
+
+with open(os.path.join(derivatives,f'adjacencyDataFor{sampleToCluster["sampleID"]}DigitalSpots.csv'), 'w', encoding='UTF8') as f:
+    writer = csv.writer(f)
+    writer.writerow(adjacencyDataControl) 
+    
+# create laplacian for single sample
+WsampleToCluster= np.zeros([sampleToCluster['processedTissuePositionList'].shape[0],sampleToCluster['processedTissuePositionList'].shape[0]],dtype='float32')
+for idx, actCS in enumerate(adjacencyDataControl):
+    WsampleToCluster[fullyConnectedEdges[idx,0],fullyConnectedEdges[idx,1]] = float(actCS)
+    WsampleToCluster[fullyConnectedEdges[idx,1],fullyConnectedEdges[idx,0]] = float(actCS)
+# W = sp_sparse.coo_matrix((np.array(adjacencyDataControl), (nnEdgeList[:,0],nnEdgeList[:,1])), shape=(nnControlSortedIdx.shape[0],nnControlSortedIdx.shape[0]), dtype='float32')
+# W = W.todense()
+WsampleToCluster = (WsampleToCluster - WsampleToCluster.min())/(WsampleToCluster.max() - WsampleToCluster.min())
+WsampleToCluster[WsampleToCluster==1] = 0
+DsampleToCluster = np.diag(sum(WsampleToCluster))
+LsampleToCluster = DsampleToCluster - WsampleToCluster
+eigvalsampleToCluster,eigvecsampleToCluster = np.linalg.eig(LsampleToCluster)
+eigvalsampleToClusterSort = np.sort(np.real(eigvalsampleToCluster))[::-1]
+eigvalsampleToClusterSortIdx = np.argsort(np.real(eigvalsampleToCluster))[::-1]
+eigvecsampleToClusterSort = np.real(eigvecsampleToCluster[:,eigvalsampleToClusterSortIdx])
+
+#%% run k means and silhouette analysis for single sample
+
+clusterRange = np.array(range(4,26))
+
+for actK in clusterRange:
+    # Create a subplot with 1 row and 2 columns
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.set_size_inches(18, 7)
+
+    # The 1st subplot is the silhouette plot
+    # The silhouette coefficient can range from -1, 1 but in this example all
+    # lie within [-0.1, 1]
+    ax1.set_xlim([-1, 1])
+    # The (n_clusters+1)*10 is for inserting blank space between silhouette
+    # plots of individual clusters, to demarcate them clearly.
+    ax1.set_ylim([0, sampleToCluster['filteredFeatureMatrixLog2'].shape[1] + (actK + 1) * 10])
+
+    clusters = KMeans(n_clusters=actK, init='random', n_init=500, tol=1e-10)
+    cluster_labels = clusters.fit_predict(np.real(eigvecsampleToClusterSort[:,0:actK]))
+
+    # The silhouette_score gives the average value for all the samples.
+    # This gives a perspective into the density and separation of the formed
+    # clusters
+    silhouette_avg = silhouette_score(np.real(eigvecsampleToClusterSort[:,0:actK]), cluster_labels)
+    print(
+        "For n_clusters =",
+        actK,
+        "The average silhouette_score is :",
+        silhouette_avg,
+    )
+
+    # Compute the silhouette scores for each sample
+    sample_silhouette_values = silhouette_samples(np.real(eigvecsampleToClusterSort[:,0:actK]), cluster_labels)
+
+    y_lower = 10
+    for i in range(actK):
+        # Aggregate the silhouette scores for samples belonging to
+        # cluster i, and sort them
+        ith_cluster_silhouette_values = sample_silhouette_values[cluster_labels == i]
+
+        ith_cluster_silhouette_values.sort()
+
+        size_cluster_i = ith_cluster_silhouette_values.shape[0]
+        y_upper = y_lower + size_cluster_i
+
+        # color = cm.tab20b(float(i) / actK)
+        color = cbCmap(float(i) / actK)
+        ax1.fill_betweenx(
+            np.arange(y_lower, y_upper),
+            0,
+            ith_cluster_silhouette_values,
+            facecolor=color,
+            edgecolor=color,
+            alpha=0.7,
+        )
+
+        # Label the silhouette plots with their cluster numbers at the middle
+        ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+        # Compute the new y_lower for next plot
+        y_lower = y_upper + 10  # 10 for the 0 samples
+
+    ax1.set_title("The silhouette plot for the various clusters.")
+    ax1.set_xlabel("The silhouette coefficient values")
+    ax1.set_ylabel("Cluster label")
+
+    # The vertical line for average silhouette score of all the values
+    ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
+
+    ax1.set_yticks([])  # Clear the yaxis labels / ticks
+    ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+
+    # 2nd Plot showing the actual clusters formed
+    colors = cbCmap(cluster_labels.astype(float) / actK)
+    ax2.imshow(sampleToCluster['tissueProcessed'],cmap='gray_r')
+    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap=cbCmap)
+    ax2.set_title("The visualization of the clustered data.")
+    ax2.axis('off')
+
+    plt.suptitle(
+        f"Silhouette analysis for KMeans clustering on {sampleToCluster['sampleID']} data with n_clusters = %d"
+        % actK,
+        fontsize=14,
+        fontweight="bold",
+    )
+    plt.savefig(os.path.join(derivatives,f'clusteringAndSilhouetteSleepDep{sampleToCluster["sampleID"]}K{actK}.png'), bbox_inches='tight', dpi=300)
+    plt.show()
+
+#%% calculate a mean filtered feature matrix for control subjects
+digitalControlFilterFeatureMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
+nControls = 0
+for actSpotIdx in range(nDigitalSpots):
+    digitalControlColumn = np.zeros([nGenesInList,1],dtype='float32')
+    nSpotsTotal=0
+    for actSample in range(len(allSamplesToAllen)):
+        if experiment['experimental-group'][actSample] == 0:
+            nControls += 1
+            spots = allSamplesToAllen[actSample]['digitalSpotNearestNeighbors'][actSpotIdx,:]
+            if np.all(spots > 0):
+                digitalControlColumn = digitalControlColumn + np.sum(allSamplesToAllen[actSample]['filteredFeatureMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
+                nSpotsTotal+=kSpots
+            
+    digitalControlFilterFeatureMatrix[:,actSpotIdx] = np.array(np.divide(digitalControlColumn, nSpotsTotal),dtype='float32').flatten()

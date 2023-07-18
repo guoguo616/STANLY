@@ -596,7 +596,7 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
 
     return templateRegisteredData
 
-# create digital spots for an allen template slice
+# create digital spots for an allen template slice, with spot size defined in 10um
 def createDigitalSpots(templateRegisteredData, desiredSpotSize):
     w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
     h = desiredSpotSize    # height of pointy up hexagon
