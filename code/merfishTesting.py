@@ -35,25 +35,6 @@ sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata
 # 2. cell_by_gene.csv containing cell index and barcode in first two columns followed by columns of rna expression per gene per cell
 # 3. cell_metadata.csv containing cell index, barcode, fov, volume, center_x, center_y, min_x, min_y, max_x, max_y
 
-#%% location of merfish csv data 
-# datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
-# locOfCellByGeneCsv = glob(os.path.join(sourcedata,'*cell_by_gene*.csv'))[0]
-# #datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_
-# locOfCellMetadataCsv = glob(os.path.join(sourcedata,'*cell_metadata*.csv'))[0]
-# # datasets_mouse_brain_map_BrainReceptorShowcase_Slice1_Replicate1_images_
-# tifFilename = glob(os.path.join(sourcedata,'*mosaic_DAPI_z0.tif'))[0]
-# # load data as pandas dataframe and extract list of genes
-# cellByGene = pd.read_csv(locOfCellByGeneCsv)
-# cellMetadata = pd.read_csv(locOfCellMetadataCsv)
-# geneList = cellByGene.columns[1:]
-
-#%% display all genes
-# for actGene in geneList:
-#     plt.scatter(cellMetadata.center_x,cellMetadata.center_y, c=cellByGene[actGene], marker='.', cmap='Reds')
-#     plt.title(actGene)
-#     plt.gca().invert_yaxis()
-#     plt.show()
-
 
 
 #%% align test data to allen ccf
@@ -62,6 +43,10 @@ templateData = stanly.chooseTemplateSlice(90)
 sampleData = stanly.importMerfishData(sourcedata, derivatives)
 processedSample = stanly.processMerfishData(sampleData, templateData, 0, derivatives)
 sampleRegistered = stanly.runANTsToAllenRegistration(processedSample, templateData)
+plt.imshow(templateData['wholeBrain'], cmap='gray')
+plt.axis(False)
+plt.savefig(os.path.join(derivatives,'allen_slice_90.png'), bbox_inches='tight', dpi=300)
+plt.show()
 
 plt.imshow(sampleData['imageData'], cmap='gray')
 plt.axis(False)
@@ -75,12 +60,31 @@ plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['
 # plt.imshow(templateData['wholeBrain'], alpha=0.3)
 plt.show()
 
+#%% working on template display
+from skimage import io, filters, color, feature, morphology
+annotX = templateData['wholeBrainAnnot'].shape[0]
+annotY = templateData['wholeBrainAnnot'].shape[1]
+templateAnnotRGB = np.zeros([annotX, annotY, 3])
+templateAnnotUnique = np.unique(templateData['wholeBrainAnnot'])
+templateAnnotRenum = np.zeros(templateData['wholeBrainAnnot'].shape, dtype='int32')
+annotColormap = []
+# start at 1 to skip background 0s
+for newNum, origNum in enumerate(templateAnnotUnique[1:]):
+    templateAnnotRenum[templateData['wholeBrainAnnot'] == origNum] = newNum
+    # annotID = templateData['annotationID'].index(f'{origNum}')
+    # annotColormap.append(templateData['colorHex'][annotID])
+
+# plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
+
+plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.')
+plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray_r')
+plt.show()
 #%% test digital spot creation using merfish to perform clustering
-wholeBrainSpotSize = 15
+wholeBrainSpotSize = 5
 templateDigitalSpots = stanly.createDigitalSpots(sampleRegistered, wholeBrainSpotSize)
 nDigitalSpots = len(templateDigitalSpots)
 nGenesInList = len(sampleRegistered['geneListMasked'])
-kSpots = 16
+kSpots = 12
 actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, sampleRegistered['transformedTissuePositionList'], kSpots, wholeBrainSpotSize)
 
 #%% create digital spot gene matrix 
@@ -93,17 +97,26 @@ for actSpotIdx in range(nDigitalSpots):
     if np.all(spots > 0):
         digitalGeneColumn = np.median(sampleRegistered['geneMatrixMasked'][:,spots].todense().astype('float32'), axis=1)
         nSpotsTotal+=kSpots
-        digitalGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalGeneColumn, nSpotsTotal),dtype='float32').flatten()
+        # digitalGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalGeneColumn, nSpotsTotal),dtype='float32').flatten()
+        digitalGeneMatrix[:,actSpotIdx] = np.array(digitalGeneColumn,dtype='float32').flatten()
     # else:
     #     digitalGeneColumn = np.zeros([nGenesInList,1],dtype='float32')
     #     digitalGeneMatrix[:,actSpotIdx] = digitalGeneColumn.flatten()
-    
+
+#%% make 0 values nan
+digitalGeneMatrixNaN = np.array(digitalGeneMatrix, dtype='double')
+digitalGeneMatrixNaN[digitalGeneMatrixNaN == 0] = np.nan
 for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
-    plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrix[geneIdx,:], marker='.', cmap='Reds')
-    plt.title(actGene)
-    plt.axis=False
-    plt.gca().invert_yaxis()
-    plt.show()
+    if np.nansum(digitalGeneMatrixNaN[geneIdx,:]) > 0:
+        plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
+        plt.axis=False
+        plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray_r')
+        plt.axis=False
+        plt.title(actGene)
+        
+        # plt.gca().invert_yaxis()
+        plt.show()
+    
 #%% try clustering on test sample
 fullyConnectedEdges = []
 sampleToCluster = processedSample
@@ -234,3 +247,5 @@ for actK in clusterRange:
     plt.savefig(os.path.join(derivatives,f'clusteringAndSilhouetteMerfish{actK}.png'), bbox_inches='tight', dpi=300)
     plt.show()
     
+    
+

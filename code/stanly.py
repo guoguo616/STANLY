@@ -176,27 +176,22 @@ def chooseTemplateSlice(sliceLocation):
     templateData['leftHem'] = templateLeft
     templateData['rightHem'] = templateRight
     templateData['wholeBrain'] = templateSlice
-    templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int')
-    templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int')
-    templateData['wholeBrainAnnot'] = np.array(templateAnnotationSlice.numpy(), dtype='int')
-    annotX = templateLeft.shape[0]
-    annotY = templateLeft.shape[1]
-    templateAnnotLeftRGB = np.zeros([annotX, annotY, 3])
-    templateAnnotLeftUnique = np.unique(templateData['leftHemAnnot'])
-    templateAnnotLeftRenum = np.zeros(templateData['leftHemAnnot'].shape)
-    for newNum, origNum in enumerate(templateAnnotLeftUnique):
-        templateAnnotLeftRenum[templateData['leftHemAnnot'] == origNum] = newNum
-    # templateAnnotLeftRGB[:,:,1] = templateAnnotLeftRGB[:,:,1] - morphology.binary_dilation(feature.canny(templateAnnotLeftRenum))
-    # templateData['leftHemAnnotEdges']  = templateAnnotLeftRGB
+    templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int32')
+    templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int32')
+    templateData['wholeBrainAnnot'] = np.array(templateAnnotationSlice.numpy(), dtype='int32')
+    annotX = templateData['wholeBrainAnnot'].shape[0]
+    annotY = templateData['wholeBrainAnnot'].shape[1]
+    templateAnnotRGB = np.zeros([annotX, annotY, 3])
+    templateAnnotUnique = np.unique(templateData['wholeBrainAnnot'])
+    templateAnnotRenum = np.zeros(templateData['wholeBrainAnnot'].shape)
+    for newNum, origNum in enumerate(templateAnnotUnique):
+        templateAnnotRenum[templateData['wholeBrainAnnot'] == origNum] = newNum
+
     se = morphology.disk(2)
-    templateAnnotLeftRGB = morphology.binary_dilation(feature.canny(templateAnnotLeftRenum), footprint=se)
-    templateData['leftHemAnnotEdges']  = templateAnnotLeftRGB
-    # templateData['leftHemAnnotEdges'] = morphology.binary_dilation(feature.canny(templateAnnotLeftRenum))
-    templateAnnotRightUnique = np.unique(templateData['rightHemAnnot'])
-    templateAnnotRightRenum = np.zeros(templateData['rightHemAnnot'].shape)
-    for newNum, origNum in enumerate(templateAnnotRightUnique):
-        templateAnnotRightRenum[templateData['rightHemAnnot'] == origNum] = newNum
-    templateData['rightHemAnnotEdges'] = feature.canny(templateAnnotRightRenum)*255
+    templateAnnotRGB = morphology.binary_dilation(feature.canny(templateAnnotRenum), footprint=se)
+    templateData['wholeBrainAnnotEdges']  = templateAnnotRGB
+    templateData['leftHemAnnotEdges'] = templateAnnotRGB[:,:570]
+    templateData['rightHemAnnotEdges'] = templateAnnotRGB[:,570:]
     # currently using the 10um resolution atlas, would need to change if that changes
     templateData['startingResolution'] = 0.01
     annotation_id = []
