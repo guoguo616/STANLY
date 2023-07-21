@@ -14,7 +14,7 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/visiumalignment/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
@@ -35,7 +35,7 @@ cbRGB = np.array(cbRGB)/255
 cbCmap = mcolors.LinearSegmentedColormap.from_list('colorblindColormap', cbRGB)
 
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/visiumalignment")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
 #%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
 sampleList = []
@@ -63,7 +63,7 @@ experiment = {'sample-id': np.asarray(sampleList)[imageList],
 processedSamples = {}
 totalSpotCount = 0
 for actSample in range(len(experiment['sample-id'])):
-    sampleProcessed = stanly.loadProcessedSample(os.path.join(derivatives, experiment['sample-id'][actSample]))
+    sampleProcessed = stanly.loadProcessedVisiumSample(os.path.join(derivatives, experiment['sample-id'][actSample]))
     processedSamples[actSample] = sampleProcessed
     totalSpotCount += sampleProcessed['spotCount']
 nTotalSamples = len(processedSamples)
@@ -92,6 +92,8 @@ for i, regSample in enumerate(allSamplesToAllen):
     else:
         allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
 
+allSampleGeneListSorted = sorted(allSampleGeneList)
+
 nDigitalSpots = len(templateDigitalSpots)
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
@@ -102,15 +104,15 @@ for sampleIdx, actSample in enumerate(allSamplesToAllen):
     sortedIdxList = np.zeros(nGenesInList,dtype='int32')
     for sortedIdx, actGene in enumerate(allSampleGeneList):
         sortedIdxList[sortedIdx] = allSamplesToAllen[sampleIdx]['geneListMasked'].index(actGene)
-    allSamplesToAllen[sampleIdx]['filteredFeatureMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['filteredFeatureMatrixMasked'][sortedIdxList,:].astype('int32')
-    allSamplesToAllen[sampleIdx].pop('filteredFeatureMatrixMasked')
+    allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['filteredFeatureMatrixMasked'][sortedIdxList,:].astype('int32')
+    allSamplesToAllen[sampleIdx].pop('geneMatrixMasked')
     allSamplesToAllen[sampleIdx].pop('geneListMasked')
 
 #%% calculate list of fully connected edges for single sample
 fullyConnectedEdges = []
 sampleToCluster = processedSamples[6]
-for i in range(sampleToCluster['filteredFeatureMatrixLog2'].shape[1]):
-    for j in range(sampleToCluster['filteredFeatureMatrixLog2'].shape[1]):
+for i in range(sampleToCluster['geneMatrixLog2'].shape[1]):
+    for j in range(sampleToCluster['geneMatrixLog2'].shape[1]):
         fullyConnectedEdges.append([i,j])
         
 fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
@@ -119,7 +121,7 @@ fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
 # calculate cosine sim for single sample
 
 start_time = time.time()
-sampleToClusterFilteredFeatureMatrix = np.array(sampleToCluster['filteredFeatureMatrixLog2'].todense(),dtype='float32')
+sampleToClusterFilteredFeatureMatrix = np.array(sampleToCluster['geneMatrixLog2'].todense(),dtype='float32')
 adjacencyDataControl = [stanly.cosineSimOfConnection(sampleToClusterFilteredFeatureMatrix,I, J) for I,J in fullyConnectedEdges]
 print("--- %s seconds ---" % (time.time() - start_time))  
 

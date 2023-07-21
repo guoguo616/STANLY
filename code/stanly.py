@@ -1128,7 +1128,7 @@ def importMerfishData(sampleFolder, outputPath):
     # sampleData['spotStartingResolution'] = 0.55 / visiumData["scaleFactors"]["spot_diameter_fullres"]
     cellByGene = pd.read_csv(geneMatrixPath)
     geneList = cellByGene.columns[1:]
-    sampleData['geneList'] = geneList
+    sampleData['geneList'] = list(geneList) 
     # plt.imshow(visiumData['imageData'])
     return sampleData
 

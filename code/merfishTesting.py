@@ -108,15 +108,20 @@ digitalGeneMatrixNaN = np.array(digitalGeneMatrix, dtype='double')
 digitalGeneMatrixNaN[digitalGeneMatrixNaN == 0] = np.nan
 for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
     if np.nansum(digitalGeneMatrixNaN[geneIdx,:]) > 0:
-        plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
-        plt.axis=False
         plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray_r')
-        plt.axis=False
+        plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
         plt.title(actGene)
-        
-        # plt.gca().invert_yaxis()
         plt.show()
     
+#%% display single gene
+geneListSorted = np.sort(sampleRegistered['geneListMasked'])
+# ast: Aqp4, end: Flt1, mic: Csf1r, neu: maybe Vipr1/Vipr2, opc: Pdgfra, Pcdh15
+geneOfInterest='Pcdh15'
+geneIdx = sampleRegistered['geneListMasked'].index(geneOfInterest)
+plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray_r')
+plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
+plt.title(geneOfInterest)
+plt.show()
 #%% try clustering on test sample
 fullyConnectedEdges = []
 sampleToCluster = processedSample
