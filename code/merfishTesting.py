@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -26,8 +26,8 @@ import time
 from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
-sourcedata = os.path.join('/','home','zjpeters','rdss_tnj','stanly','sourcedata','merscopedata')
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata','merscopedata')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
 # expected merfish data includes:
@@ -60,25 +60,6 @@ plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['
 # plt.imshow(templateData['wholeBrain'], alpha=0.3)
 plt.show()
 
-#%% working on template display
-from skimage import io, filters, color, feature, morphology
-annotX = templateData['wholeBrainAnnot'].shape[0]
-annotY = templateData['wholeBrainAnnot'].shape[1]
-templateAnnotRGB = np.zeros([annotX, annotY, 3])
-templateAnnotUnique = np.unique(templateData['wholeBrainAnnot'])
-templateAnnotRenum = np.zeros(templateData['wholeBrainAnnot'].shape, dtype='int32')
-annotColormap = []
-# start at 1 to skip background 0s
-for newNum, origNum in enumerate(templateAnnotUnique[1:]):
-    templateAnnotRenum[templateData['wholeBrainAnnot'] == origNum] = newNum
-    # annotID = templateData['annotationID'].index(f'{origNum}')
-    # annotColormap.append(templateData['colorHex'][annotID])
-
-# plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
-
-plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.')
-plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray_r')
-plt.show()
 #%% test digital spot creation using merfish to perform clustering
 wholeBrainSpotSize = 5
 templateDigitalSpots = stanly.createDigitalSpots(sampleRegistered, wholeBrainSpotSize)
@@ -153,18 +134,11 @@ for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
         plt.colorbar()
         plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray', alpha=1)
         # plt.suptitle('Regional cell density',fontsize=14, horizontalalignment='center')
-        plt.title(f'Density of cells per square pixel for {actGene}')
+        plt.title(f'Density of cells expressing {actGene} per $100\mu m^2$')
         plt.axis('off')
+        plt.savefig(os.path.join(derivatives,f'cellDensity{actGene}.png'), bbox_inches='tight', dpi=300)
         plt.show()
-        
-        
-        
-        # plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
-        # plt.title(actGene)
-        # plt.axis('off')
-        # plt.savefig(os.path.join(derivatives,f'geneExpression{actGene}.png'), bbox_inches='tight', dpi=300)
-        # plt.show()
-        
+
 #%% try clustering on test sample
 fullyConnectedEdges = []
 sampleToCluster = processedSample

@@ -589,7 +589,8 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
         tempDenseMatrix = registeredVisium['geneMatrix'].todense().astype('float32')
     templateRegisteredData['geneMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,geneMatrixMaskedIdx])
     # imageFilename = f"os.path.join({registeredVisium['derivativesPath']},{registeredVisium['sampleID'])}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png"
-    imageFilename = os.path.join(registeredVisium['derivativesPath'],f"{registeredVisium['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen.png")
+    # os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"
+    imageFilename = os.path.join(registeredVisium['derivativesPath'],f"{registeredVisium['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen_slice_{templateData['sliceNumber']}.png")
     cv2.imwrite(imageFilename, templateRegisteredData['tissueRegistered'])
 
     return templateRegisteredData
@@ -838,7 +839,8 @@ def loadAllenRegisteredSample(locOfRegSample, log2normalize=True):
     templateRegisteredData['derivativesPath'] = os.path.join(locOfRegSample)
     templateRegisteredData['sampleID'] = locOfRegSample.rsplit(sep='/',maxsplit=1)[-1]
     try:
-        bestFitSample = glob(os.path.join(locOfRegSample, f"{templateRegisteredData['sampleID']}_registered_to_*_to_Allen.png"))
+        
+        bestFitSample = glob(os.path.join(locOfRegSample, f"{templateRegisteredData['sampleID']}_registered_to_*_to_Allen_slice_*.png"))
         bestFitSample = bestFitSample[0]
     except IndexError:
         print(f"No registered data found in {locOfRegSample}")
@@ -1132,6 +1134,35 @@ def importMerfishData(sampleFolder, outputPath):
     # plt.imshow(visiumData['imageData'])
     return sampleData
 
+def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
+    processedSample = {}
+    processedSample['derivativesPath'] = os.path.join(locOfProcessedSample)
+    processedSample['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
+    processedSample['tissueProcessed'] = io.imread(os.path.join(processedSample['derivativesPath'],f"{processedSample['sampleID']}_tissueProcessed.png"))
+    jsonPath = open(os.path.join(processedSample['derivativesPath'],f"{processedSample['sampleID']}_processing_information.json"))
+    processedSampleJson = json.loads(jsonPath.read())
+    processedSample['geneListMasked'] = processedSampleJson['geneList']
+    processedSample['spotCount'] = processedSampleJson['spotCount']
+    if loadLog2Norm==True:
+        geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
+        processedSample['geneMatrixLog2'] = geneMatrixLog2
+    else:
+        geneMatrix = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
+        processedSample['geneMatrix'] = geneMatrix
+    tissuePositionList = []
+    with open(os.path.join(f"{os.path.join(processedSample['derivativesPath'],processedSample['sampleID'])}_tissuePointsProcessed.csv"), newline='') as csvfile:
+            csvreader = csv.reader(csvfile, delimiter=',')
+            next(csvreader)
+            for row in csvreader:
+                tissuePositionList.append(row)
+                
+    tissuePositionList = np.array(tissuePositionList, dtype='float32')
+    # switching x,y columns back to python compatible and deleting empty columns
+    tissuePositionList[:,[0,1]] = tissuePositionList[:,[1,0]]
+    processedSample['processedTissuePositionList'] = np.delete(tissuePositionList, [2,3,4,5],1)
+    return processedSample
+
+
 def processMerfishData(sampleData, templateData, rotation, outputFolder, log2normalize=True):
     processedData = {}
     # the sampleID might have issues on non unix given the slash direction, might need to fix
@@ -1141,13 +1172,13 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     processedData['geneList'] = sampleData['geneList']
     outputPath = os.path.join(outputFolder, sampleData['sampleID'])
     #### need to create a loadProcessedMerfishData function
-    # try:
-    #     file = open(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointsProcessed.csv", 'r')
-    #     print(f"{processedData['sampleID']} has already been processed! Loading data")
-    #     processedData = loadProcessedSample(outputPath)
-    #     return processedData
-    # except IOError:
-    #     print(f"Processing {processedVisium['sampleID']}")
+    try:
+        file = open(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointsProcessed.csv", 'r')
+        print(f"{processedData['sampleID']} has already been processed! Loading data")
+        processedData = loadProcessedMerfishSample(outputPath)
+        return processedData
+    except IOError:
+        print(f"Processing {processedData['sampleID']}")
     if not os.path.exists(outputPath):
         os.makedirs(outputPath)
     ### need to update when we get better resolution information
@@ -1155,15 +1186,16 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     processedData['derivativesPath'] = outputPath
     # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
     # processedVisium['degreesOfRotation'] = int(rotation)
+    #### shouldn't need otsu for merfish, since the background has already been removed, need to confirm
     # first gaussian is to calculate otsu threshold
-    sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=20)
-    otsuThreshold = filters.threshold_otsu(sampleGauss)
+    # sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=20)
+    # otsuThreshold = filters.threshold_otsu(sampleGauss)
     # changed to > for inv green channel, originally < below
     # processedData['visiumOtsu'] = sampleGauss > otsuThreshold
     # tissue = np.zeros(sampleGauss.shape, dtype='float32')
     # tissue[processedData['visiumOtsu']==True] = sampleData['imageDataGray'][processedData['visiumOtsu']==True]
     # second gaussian is the one used in registration
-    sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=5)
+    sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=2)
     # tissueGauss = np.zeros(sampleGauss.shape)
     # tissueGauss[processedData['visiumOtsu']==True] = sampleGauss[processedData['visiumOtsu']==True]
     tissueNormalized = cv2.normalize(sampleGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
@@ -1196,15 +1228,14 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     processedDataDict = {
         "sampleID": sampleData['sampleID'],
         "rotation": int(rotation),
-        "otsuThreshold": float(otsuThreshold),
         "geneList": processedData['geneList']
     }
         # Serializing json
-    # json_object = json.dumps(processedDataDict, indent=4)
+    json_object = json.dumps(processedDataDict, indent=4)
      
     # # Writing to sample.json
-    # with open(f"{processedData['derivativesPath']}/{processedData['sampleID']}_processing_information.json", "w") as outfile:
-    #     outfile.write(json_object)
+    with open(f"{processedData['derivativesPath']}/{processedData['sampleID']}_processing_information.json", "w") as outfile:
+        outfile.write(json_object)
     # writes sorted, masked, normalized filtered feature matrix to .npz file
     
     # writes image for masked greyscale tissue, as well as the processed image that will be used in registration
