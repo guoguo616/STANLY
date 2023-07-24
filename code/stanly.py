@@ -1208,7 +1208,7 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     # writes sorted, masked, normalized filtered feature matrix to .npz file
     
     # writes image for masked greyscale tissue, as well as the processed image that will be used in registration
-    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissue.png",255*processedData['tissueProcessed'])
+    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
     cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissueProcessed.png",processedData['tissueProcessed'])
     
     header=['x','y','z','t','label','comment']

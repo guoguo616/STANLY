@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -26,8 +26,8 @@ import time
 from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
-sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata','merscopedata')
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
+sourcedata = os.path.join('/','home','zjpeters','rdss_tnj','stanly','sourcedata','merscopedata')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
 # expected merfish data includes:
@@ -111,7 +111,10 @@ for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
         plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray_r')
         plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
         plt.title(actGene)
+        plt.axis('off')
+        plt.savefig(os.path.join(derivatives,f'geneExpression{actGene}.png'), bbox_inches='tight', dpi=300)
         plt.show()
+        
     
 #%% display single gene
 geneListSorted = np.sort(sampleRegistered['geneListMasked'])
@@ -122,6 +125,46 @@ plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray_r')
 plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
 plt.title(geneOfInterest)
 plt.show()
+
+#%% display cell density
+# 114,80 is 1/10 of template image size
+nX,nY = 114,80
+xBinEdges = np.linspace(0,templateData['wholeBrain'].shape[1],nX+1)
+yBinEdges = np.linspace(0,templateData['wholeBrain'].shape[0],nY+1)
+density, yEdges, xEdges = np.histogram2d(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], bins=(xBinEdges, yBinEdges))
+
+plt.imshow(templateData['wholeBrain'])
+plt.pcolormesh(yEdges, xEdges, density.T, cmap='rainbow', alpha=0.7)
+plt.colorbar()
+plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray', alpha=1)
+# plt.suptitle('Regional cell density',fontsize=14, horizontalalignment='center')
+plt.title('Number of cells per square pixel')
+plt.axis('off')
+plt.show()
+
+#%% display cell density per gene
+
+for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
+    if np.nansum(digitalGeneMatrixNaN[geneIdx,:]) > 0:
+        actCellCoor = sampleRegistered['maskedTissuePositionList'][np.squeeze(np.array(sampleRegistered['geneMatrixMasked'][geneIdx,:].todense() > 0)),:]
+        density, yEdges, xEdges = np.histogram2d(actCellCoor[:,0],actCellCoor[:,1], bins=(xBinEdges, yBinEdges))
+        plt.imshow(templateData['wholeBrainAnnotEdges'])
+        plt.pcolormesh(yEdges, xEdges, density.T, cmap='rainbow', alpha=0.7)
+        plt.colorbar()
+        plt.imshow(templateData['wholeBrainAnnotEdges'], cmap='gray', alpha=1)
+        # plt.suptitle('Regional cell density',fontsize=14, horizontalalignment='center')
+        plt.title(f'Density of cells per square pixel for {actGene}')
+        plt.axis('off')
+        plt.show()
+        
+        
+        
+        # plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1], c=digitalGeneMatrixNaN[geneIdx,:], marker='.', cmap='Reds')
+        # plt.title(actGene)
+        # plt.axis('off')
+        # plt.savefig(os.path.join(derivatives,f'geneExpression{actGene}.png'), bbox_inches='tight', dpi=300)
+        # plt.show()
+        
 #%% try clustering on test sample
 fullyConnectedEdges = []
 sampleToCluster = processedSample
