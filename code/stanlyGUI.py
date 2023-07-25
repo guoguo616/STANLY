@@ -5,16 +5,20 @@ Created on Wed Sep  7 16:23:32 2022
 
 @author: zjpeters
 """
-# Spatial Transcriptomic Alignment Non Linearly (STANLy)
-# a gui for a series of functions meant for the alignment of and analysis of spatial transcriptomic data
-# right now build around visium, but should be applicable to any ST data that associates images and transcriptomic data
-
+# =============================================================================
+# Spatial Transcriptomic ANaLYsis (STANLY)
+# a gui for a series of functions meant for the alignment of and analysis 
+# of spatial transcriptomic data
+# =============================================================================
 
 # from tkinter import *
 import tkinter
 from tkinter import Tk, filedialog, ttk
+import sys
 # import stanlyFunctions
-from stanly import importVisiumData, chooseTemplateSlice, processVisiumData, rotateTissuePoints, runANTsToAllenRegistration
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+import stanly
+# from stanly import importVisiumData, chooseTemplateSlice, processVisiumData, rotateTissuePoints, runANTsToAllenRegistration
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 from matplotlib import pyplot as plt
@@ -87,7 +91,7 @@ def chooseTemplate():
     def selectAndQuit():
         global templateData
         global processButton
-        templateData = chooseTemplateSlice(templateSliceNumber)
+        templateData = stanly.chooseTemplateSlice(templateSliceNumber)
         templateWindow.destroy()
         processButton.config(state=tkinter.NORMAL)
         processButton.state = tkinter.NORMAL
@@ -123,7 +127,7 @@ def processClick():
     # global selectTemplateButton
     global registerClick
     global sampleWindow
-    processedSampleData = processVisiumData(sampleData, templateData, rotation)
+    processedSampleData = stanly.processVisiumData(sampleData, templateData, rotation)
     sampleImageMatrix = Image.fromarray(np.asarray(processedSampleData['tissueRotated'] * 255))
     sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
     sampleLabel.config(image=sampleImage)
@@ -184,7 +188,7 @@ def loadSample():
     global sampleWindow
     samplePath = filedialog.askdirectory()
     sampleWindow = tkinter.Toplevel(root)
-    sampleData = importVisiumData(samplePath)
+    sampleData = stanly.importVisiumData(samplePath)
     sampleImageMatrix = Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255))
     sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
     h = sampleImage.width() + 40
@@ -252,7 +256,7 @@ def loadExperiment():
     for sampleDir in os.listdir(experimentPath):
         if os.path.isdir(os.path.join(experimentPath, sampleDir)):
             rotation = 0
-            sampleData = importVisiumData(os.path.join(experimentPath, sampleDir))
+            sampleData = stanly.importVisiumData(os.path.join(experimentPath, sampleDir))
             sampleImageMatrix = Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255))
             sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
             h = sampleImage.width() + 40
@@ -274,7 +278,7 @@ def runSingleRegistration():
     global processedSampleData
     global registeredData
 
-    registeredData = runANTsToAllenRegistration(processedSampleData, templateData)
+    registeredData = stanly.runANTsToAllenRegistration(processedSampleData, templateData)
 
     return
 
