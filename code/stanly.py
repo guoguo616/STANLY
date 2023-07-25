@@ -118,7 +118,7 @@ def importVisiumData(sampleFolder):
     # visiumData['imageDataGray'] = 1 - visiumData['imageData'][:,:,2]
     visiumData['imageDataGray'] = 1 - color.rgb2gray(visiumData['imageData'])
     visiumData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
-    tissuePositionsList = []
+    tissuePositionList = []
     tissueSpotBarcodes = []
     with open(os.path.join(spatialFolder,"tissue_positions_list.csv"), newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
@@ -126,10 +126,10 @@ def importVisiumData(sampleFolder):
             # checks for in tissue spots
             if row[1] == '1':
                 tissueSpotBarcodes.append(row[0])
-                tissuePositionsList.append(row[1:])
-    tissuePositionsList = np.array(tissuePositionsList, dtype='float32')
+                tissuePositionList.append(row[1:])
+    tissuePositionList = np.array(tissuePositionList, dtype='float32')
     visiumData['tissueSpotBarcodeList'] = tissueSpotBarcodes
-    visiumData['tissuePositionsList'] = tissuePositionsList
+    visiumData['tissuePositionList'] = tissuePositionList
     scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
     visiumData['scaleFactors'] = json.loads(scaleFactorPath.read())
     scaleFactorPath.close()
@@ -219,7 +219,7 @@ def chooseTemplateSlice(sliceLocation):
 def rotateTissuePoints(sampleData, rotation):
     ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
     # scales tissue coordinates down to image resolution
-    tissuePointsResizeToHighRes = sampleData["tissuePositionsList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
+    tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
     # below switches x and y in order to properly rotate, this gets undone after registration
     tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
     # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
@@ -1069,15 +1069,20 @@ def importMerfishData(sampleFolder, outputPath):
     sampleData = {}
     if os.path.exists(os.path.join(sampleFolder)):
         # spatialFolder = os.path.join(sampleFolder)
-        try:
+        if any(glob(os.path.join(sampleFolder, '*cell_by_gene*.csv'))):
             # need to check how the cell by gene file is usually output/named
-            os.path.isfile(glob(os.path.join(sampleFolder, '*cell_by_gene_*.csv'))[0])
+            # os.path.isfile(glob(os.path.join(sampleFolder, '*cell_by_gene_*.csv'))[0])
             dataFolder = sampleFolder
             sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
-        except IndexError:
-            print("Something is wrong!")
+        elif any(glob(os.path.join(sampleFolder, 'region_0','*cell_by_gene*.csv'))):
+            
+            os.path.isfile(glob(os.path.join(sampleFolder,'region_0','*cell_by_gene*.csv'))[0])
+            dataFolder = os.path.join(sampleFolder, 'region_0')
+            sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
             # os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
             # dataFolder = spatialFolder
+        else:
+            print("Something is wrong!")
         # dataFolder = os.path.join(sampleFolder)
     else:
         print(f"{sampleFolder} not found!")
@@ -1103,17 +1108,17 @@ def importMerfishData(sampleFolder, outputPath):
     sampleData['imageDataGray'] = np.array((sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData'])), dtype='float32')
     
     cellMetadataCsv = glob(os.path.join(dataFolder,"*cell_metadata*.csv"))[0]
-    tissuePositionsList = []
+    tissuePositionList = []
     tissueSpotBarcodes = []    
     with open(cellMetadataCsv, newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
         next(csvreader)
         for row in csvreader:
             tissueSpotBarcodes.append(row[0])
-            tissuePositionsList.append(row[3:5])
-    tissuePositionsList = np.array(tissuePositionsList, dtype='float32')
+            tissuePositionList.append(row[3:5])
+    tissuePositionList = np.array(tissuePositionList, dtype='float32')
     sampleData['tissueSpotBarcodeList'] = tissueSpotBarcodes
-    sampleData['tissuePositionsList'] = tissuePositionsList
+    sampleData['tissuePositionList'] = tissuePositionList
     ### no scale factor equivalent that I know of in merfish, but using nanometer as reference can approximate scaling so far
     # scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
     # sampleData['scaleFactors'] = json.loads(scaleFactorPath.read())
@@ -1167,7 +1172,7 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     processedData = {}
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedData['sampleID'] = sampleData['sampleID']
-    processedData['tissuePositionsList'] = sampleData['tissuePositionsList']
+    processedData['tissuePositionList'] = sampleData['tissuePositionList']
     processedData['geneMatrix'] = np.transpose(sampleData['geneMatrix'])
     processedData['geneList'] = sampleData['geneList']
     outputPath = os.path.join(outputFolder, sampleData['sampleID'])
@@ -1212,7 +1217,7 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     processedData['tissueProcessed'] = match_histograms(tissueNormalized, templateData['rightHem'])
     processedData['tissueProcessed'] = processedData['tissueProcessed'] - processedData['tissueProcessed'].min()
     
-    tissuePointsResized = processedData['tissuePositionsList'] * 0.09
+    tissuePointsResized = processedData['tissuePositionList'] * 0.09
 
     processedData['geneListMasked'] = sampleData['geneList']
     processedData['processedTissuePositionList'] = tissuePointsResized

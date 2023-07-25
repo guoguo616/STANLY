@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -26,8 +26,8 @@ import time
 from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
-sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata','merscopedata')
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
+sourcedata = os.path.join('/','home','zjpeters','rdss_tnj','stanly','sourcedata','yutongSlide1Apr24')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
 # expected merfish data includes:
@@ -48,12 +48,12 @@ plt.axis(False)
 plt.savefig(os.path.join(derivatives,'allen_slice_90.png'), bbox_inches='tight', dpi=300)
 plt.show()
 
+actSpots = np.array(np.squeeze(sampleData['geneMatrix'][95,:]), dtype='int32')
 plt.imshow(sampleData['imageData'], cmap='gray')
+plt.scatter(sampleData['tissuePositionList'][:,0],sampleData['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
 plt.axis(False)
 plt.show()
-plt.imshow(templateData['wholeBrain'], cmap='gray')
-plt.axis(False)
-plt.show()
+
 actSpots = np.array(np.squeeze(sampleRegistered['geneMatrixMasked'].todense()[95,:]), dtype='int32')
 plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
 plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
