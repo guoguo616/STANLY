@@ -3,7 +3,7 @@
 """
 Created on Wed Sep  7 16:23:32 2022
 
-@author: zjpeters
+@author: Zeru Peterson, zeru-peterson@uiowa.edu https://research-git.uiowa.edu/zjpeters/STANLY
 """
 # =============================================================================
 # Spatial Transcriptomic ANaLYsis (STANLY)
@@ -30,18 +30,25 @@ import os
 from glob import glob
 # open window with set dimensions
 root = Tk()
-root.title('STANLy')
-root.geometry('300x300')
-
+root.title('STANLY')
+root.geometry('500x500')
+mainFont = tkinter.font.Font(
+    family='Helvetica',
+    size='12',
+    weight='normal',
+    slant='roman',
+    underline=0,
+    overstrike=0
+    )
 # set directory for derivatives 
 # default is set to bids format starting from code folder
-outputPath = '../derivatives'
+# outputPath = '../derivatives'
 def setOutputDirectory():
     global outputPath
     outputPath = filedialog.askdirectory()
 
 templateSlicePath = '../data/allen10umSlices'
-templateLeftSliceImages = sorted(glob(os.path.join(templateSlicePath,"*LH*.png")))
+templateSliceImages = sorted(glob(os.path.join(templateSlicePath,"*10umSlice*.png")))
 
 templateData = []
 # need to consider RH and LH
@@ -54,7 +61,7 @@ def chooseTemplate():
     templateWindow.title('Select template slice')
 
     templateSliceNumber = 70
-    actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+    actTemplateImage = ImageTk.PhotoImage(Image.open(templateSliceImages[templateSliceNumber]))
 
     templateWindow.geometry(f'{actTemplateImage.width() + 40}x{actTemplateImage.height() + 80}')
     templateLabel = tkinter.Label(templateWindow, text=f'{templateSliceNumber}',image=actTemplateImage)
@@ -66,10 +73,10 @@ def chooseTemplate():
         
         if templateSliceNumber < 131:
             templateSliceNumber = templateSliceNumber + 1
-            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateSliceImages[templateSliceNumber]))
         else:
             templateSliceNumber = 0
-            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateSliceImages[templateSliceNumber]))
         
         templateLabel.config(image=actTemplateImage)
         templateLabel.image = actTemplateImage
@@ -79,11 +86,11 @@ def chooseTemplate():
         global templateLabel
         if templateSliceNumber > -1:
             templateSliceNumber = templateSliceNumber - 1
-            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateSliceImages[templateSliceNumber]))
             
         else:
             templateSliceNumber = 131
-            actTemplateImage = ImageTk.PhotoImage(Image.open(templateLeftSliceImages[templateSliceNumber]))
+            actTemplateImage = ImageTk.PhotoImage(Image.open(templateSliceImages[templateSliceNumber]))
             
         templateLabel.config(image=actTemplateImage)
         templateLabel.image = actTemplateImage
@@ -91,17 +98,44 @@ def chooseTemplate():
     def selectAndQuit():
         global templateData
         global processButton
+        global hemisphere
+        hemisphere='whole'
+        templateData = stanly.chooseTemplateSlice(templateSliceNumber)
+        templateWindow.destroy()
+        processButton.config(state=tkinter.NORMAL)
+        processButton.state = tkinter.NORMAL
+    
+    def selectLeftAndQuit():
+        global templateData
+        global processButton
+        global hemisphere
+        hemisphere='left'
         templateData = stanly.chooseTemplateSlice(templateSliceNumber)
         templateWindow.destroy()
         processButton.config(state=tkinter.NORMAL)
         processButton.state = tkinter.NORMAL
         
-    backButton = tkinter.Button(templateWindow, text = 'Back', bd = '5', command = backClick)
-    backButton.place(x= (actTemplateImage.width())/4,y= (actTemplateImage.height() + 40))
-    nextButton = tkinter.Button(templateWindow, text = 'Next', bd = '5', command = nextClick)
-    nextButton.place(x= 3*((actTemplateImage.width())/4),y= (actTemplateImage.height() + 40))
-    selectSliceButton = tkinter.Button(templateWindow, text = 'Select slice', bd = '5', command = selectAndQuit)
-    selectSliceButton.place(x= (actTemplateImage.width())/2, y = actTemplateImage.height() + 40)
+    def selectRightAndQuit():
+        global templateData
+        global processButton
+        global hemisphere
+        hemisphere='right'
+        templateData = stanly.chooseTemplateSlice(templateSliceNumber)
+        templateWindow.destroy()
+        processButton.config(state=tkinter.NORMAL)
+        processButton.state = tkinter.NORMAL
+        
+    backButton = tkinter.Button(templateWindow, text = 'Back', bd = '5', command = backClick, font=mainFont)
+    backButton.place(x= (actTemplateImage.width()/8),y= (actTemplateImage.height() + 40))
+    nextButton = tkinter.Button(templateWindow, text = 'Next', bd = '5', command = nextClick, font=mainFont)
+    nextButton.place(x= 7*((actTemplateImage.width())/8),y= (actTemplateImage.height() + 40))
+    selectSliceButton = tkinter.Button(templateWindow, text = 'Select whole slice', bd = '5', command = selectAndQuit, font=mainFont)
+    selectSliceButton.place(x= (actTemplateImage.width()/2), y = actTemplateImage.height() + 40)
+    selectLeftSliceButton = tkinter.Button(templateWindow, text = 'Select left hemisphere', bd = '5', command = selectLeftAndQuit, font=mainFont)
+    selectLeftSliceButton.place(x= 2*(actTemplateImage.width()/8), y = actTemplateImage.height() + 40)
+    selectRightSliceButton = tkinter.Button(templateWindow, text = 'Select right hemisphere', bd = '5', command = selectLeftAndQuit, font=mainFont)
+    selectRightSliceButton.place(x= 6*(actTemplateImage.width()/8), y = actTemplateImage.height() + 40)
+
 
     # selectTemplateSliceButton = tkinter.Button(templateWindow, text = 'Select this template image?', bd = '5', command = selectAndQuit)
     # selectTemplateSliceButton.pack()
@@ -127,8 +161,12 @@ def processClick():
     # global selectTemplateButton
     global registerClick
     global sampleWindow
-    processedSampleData = stanly.processVisiumData(sampleData, templateData, rotation)
-    sampleImageMatrix = Image.fromarray(np.asarray(processedSampleData['tissueRotated'] * 255))
+    try:
+        processedSampleData = stanly.processVisiumData(sampleData, templateData, rotation, outputPath)
+    except NameError:
+        setOutputDirectory()
+        processedSampleData = stanly.processVisiumData(sampleData, templateData, rotation, outputPath)
+    sampleImageMatrix = Image.fromarray(np.asarray(processedSampleData['tissueProcessed'] * 255))
     sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
     sampleLabel.config(image=sampleImage)
     sampleLabel.image = sampleImage
@@ -136,8 +174,9 @@ def processClick():
     selectTemplateButton.destroy()
     processButton.destroy()
     # sampleWindow.geometry(f"{processedSampleData['tissueRotated'].shape[0] + 40}x{processedSampleData['tissueRotated'].shape[1] + 80}")
-    beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = registerClick)
+    beginRegistrationButton = tkinter.Button(sampleWindow, text= 'Begin registration?', bd = '5', command = registerClick, font=mainFont)
     beginRegistrationButton.place(x= 2*(sampleImage.width())/4,y= (sampleImage.height() + 40))
+    
 def resetRotationButtonClick():
     global rotation
     rotation = 0
@@ -147,14 +186,14 @@ def registerClick():
     global sampleImage
     global sampleImageMatrix
     runSingleRegistration()
-    sampleImageMatrix = Image.fromarray(np.asarray(registeredData['visiumTransformed'] * 255))
+    sampleImageMatrix = Image.fromarray(np.asarray(registeredData['tissueRegistered'] * 255))
     sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
     sampleLabel.config(image=sampleImage)
     sampleLabel.image = sampleImage
     beginRegistrationButton.destroy()
     showSpotsButton = tkinter.Button(sampleWindow, text= 'Show spots?', bd = '5', command = showSpots)
     showSpotsButton.place(x= 3*(sampleImage.width())/4,y= (sampleImage.height() + 40))
-    resetRotationButton = tkinter.Button(sampleWindow, text='Reset rotation?', bd = '5', command = resetRotationButtonClick)
+    resetRotationButton = tkinter.Button(sampleWindow, text='Reset rotation?', bd = '5', command = resetRotationButtonClick, font=mainFont)
     resetRotationButton.place(x = (sampleImage.width())/4,y= (sampleImage.height() + 40))
 def showSpots():
     # global sampleWindow
@@ -189,18 +228,18 @@ def loadSample():
     samplePath = filedialog.askdirectory()
     sampleWindow = tkinter.Toplevel(root)
     sampleData = stanly.importVisiumData(samplePath)
-    sampleImageMatrix = Image.fromarray(np.asarray(rescale(sampleData['imageData'],0.4) * 255))
+    sampleImageMatrix = Image.fromarray(np.squeeze(np.asarray(rescale(sampleData['imageData'],0.4) * 255).astype(np.uint8)))
     sampleImage = ImageTk.PhotoImage(sampleImageMatrix)
     h = sampleImage.width() + 40
     w = sampleImage.height() + 80
     sampleWindow.geometry(f'{h}x{w}')
     sampleLabel = tkinter.Label(sampleWindow,image=sampleImage)
     sampleLabel.place(x=20,y=20)
-    rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick)
+    rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick, font=mainFont)
     rotateImageButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
-    selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate)
+    selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate, font=mainFont)
     selectTemplateButton.place(x= 2*((sampleImage.width())/4),y= (sampleImage.height() + 40))
-    processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = processClick, state=tkinter.DISABLED)
+    processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = processClick, state=tkinter.DISABLED, font=mainFont)
     processButton.place(x= 3*((sampleImage.width())/4),y= (sampleImage.height() + 40))
 
     return processedSampleData
@@ -228,12 +267,7 @@ experimentalGroupList = []
 # experiment = {'sample-id': sampleList,
               # 'rotation': rotationList,
               # 'experimental-group': experimentalGroupList}
-class sampleClass:
-  def __init__(self, sampleID, rotation, experimentalGroup):
-    self.sampleID = sampleID
-    self.rotation = rotation
-    self.experimentalGroup = experimentalGroup
-    
+
 
 def addToExperiment():
     sampleList.append()
@@ -264,11 +298,11 @@ def loadExperiment():
             sampleWindow.geometry(f'{h}x{w}')
             sampleLabel = tkinter.Label(sampleWindow,image=sampleImage)
             sampleLabel.place(x=20,y=20)
-            rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick)
+            rotateImageButton = tkinter.Button(sampleWindow, text= 'Rotate 90 degrees', bd = '5', command = rotateClick, font=mainFont)
             rotateImageButton.place(x= (sampleImage.width())/4,y= (sampleImage.height() + 40))
-            selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate)
+            selectTemplateButton = tkinter.Button(sampleWindow, text = 'Choose template slice', bd = '5', command = chooseTemplate, font=mainFont)
             selectTemplateButton.place(x= 2*((sampleImage.width())/4),y= (sampleImage.height() + 40))
-            processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = processClick, state=tkinter.DISABLED)
+            processButton = tkinter.Button(sampleWindow, text = 'Process sample?', bd = '5', command = processClick, state=tkinter.DISABLED, font=mainFont)
             processButton.place(x= 3*((sampleImage.width())/4),y= (sampleImage.height() + 40))
 
     return experimentPath
@@ -287,14 +321,14 @@ def runGroupRegistration():
 
 # outputLabel = tkinter.Label(root, text='Output directory').grid(row=0, column=2)
 # outputEntry = tkinter.Entry(root, textvariable=outputPath, bd = '5').grid(row=1,column=2)
-loadSampleButton = tkinter.Button(root, text = 'Load sample', bd = '5', command = loadSample).grid(row=0,column=0)
+loadSampleButton = tkinter.Button(root, text = 'Load sample', bd = '5', command = loadSample, font=mainFont).grid(row=0,column=0)
 # Create buttons for start screen
 # loadSamplesFromTsvButton = tkinter.Button(root, text = 'Load samples from .tsv file', bd = '5', command = loadSamplesFromTsv).grid(row=1,column=0)
 
-loadExperimentButton = tkinter.Button(root, text = 'Load experiment', bd = '5', command = loadExperiment).grid(row=1,column=0)
-setDerivativesButton = tkinter.Button(root, text = 'Set output directory', bd = '5', command = setOutputDirectory).grid(row=0, column=1)
-setTemplateImageButton = tkinter.Button(root, text = 'Set template image', bd = '5', command = chooseTemplate).grid(row=3, column=0)
-startRegistrationButton = tkinter.Button(root, text = 'Start single image registration', bd = '5', command = runSingleRegistration).grid(row=1, column=1)
+loadExperimentButton = tkinter.Button(root, text = 'Load experiment', bd = '5', command = loadExperiment, font=mainFont).grid(row=1,column=0)
+setDerivativesButton = tkinter.Button(root, text = 'Set output directory', bd = '5', command = setOutputDirectory, font=mainFont).grid(row=0, column=1)
+setTemplateImageButton = tkinter.Button(root, text = 'Set template image', bd = '5', command = chooseTemplate, font=mainFont).grid(row=3, column=0)
+startRegistrationButton = tkinter.Button(root, text = 'Start single image registration', bd = '5', command = runSingleRegistration, font=mainFont).grid(row=1, column=1)
 
-quitButton = tkinter.Button(root, text="Quit", bd = '5', command=root.destroy).grid(row=3, column=1)
+quitButton = tkinter.Button(root, text="Quit", bd = '5', command=root.destroy, font=mainFont).grid(row=3, column=1)
 root.mainloop()

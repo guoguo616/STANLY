@@ -1147,7 +1147,7 @@ def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
     jsonPath = open(os.path.join(processedSample['derivativesPath'],f"{processedSample['sampleID']}_processing_information.json"))
     processedSampleJson = json.loads(jsonPath.read())
     processedSample['geneListMasked'] = processedSampleJson['geneList']
-    processedSample['spotCount'] = processedSampleJson['spotCount']
+    # processedSample['spotCount'] = processedSampleJson['spotCount']
     if loadLog2Norm==True:
         geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
         processedSample['geneMatrixLog2'] = geneMatrixLog2
