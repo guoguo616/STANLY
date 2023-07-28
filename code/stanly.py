@@ -1039,7 +1039,7 @@ def cosineSimOfConnection(inputMatrix,i,j):
     cs = sp_spatial.distance.cosine(I,J)
     return cs
 
-#%% downsample tif file from merscope data
+#%% functions for merscope data
 def downsampleMerfishTiff(merfishImageFilename, outputName, scale=0.01):
     # the default scale is based on merscope claiming nanometer resolution, scaled for the ccf 10um resolution    
     img = itk.imread(merfishImageFilename)
@@ -1192,28 +1192,9 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
     # processedVisium['degreesOfRotation'] = int(rotation)
     #### shouldn't need otsu for merfish, since the background has already been removed, need to confirm
-    # first gaussian is to calculate otsu threshold
-    # sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=20)
-    # otsuThreshold = filters.threshold_otsu(sampleGauss)
-    # changed to > for inv green channel, originally < below
-    # processedData['visiumOtsu'] = sampleGauss > otsuThreshold
-    # tissue = np.zeros(sampleGauss.shape, dtype='float32')
-    # tissue[processedData['visiumOtsu']==True] = sampleData['imageDataGray'][processedData['visiumOtsu']==True]
-    # second gaussian is the one used in registration
     sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=2)
-    # tissueGauss = np.zeros(sampleGauss.shape)
-    # tissueGauss[processedData['visiumOtsu']==True] = sampleGauss[processedData['visiumOtsu']==True]
     tissueNormalized = cv2.normalize(sampleGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    # due to the large size of the tif files, the image is downsampled during the previous step
-    # tissueResized = rescale(tissueNormalized,resolutionRatio)
-    # if rotation < 0:
-    #     tissuePointsRotated = rotateTissuePoints(sampleData, rotation)
-    #     rotation = rotation * -1
-    #     tissueRotated = rotate(tissueResized, rotation, resize=True)
-    #     tissueRotated = tissueRotated[:,::-1]
-    # else:
-    #     tissueRotated = rotate(tissueResized, rotation, resize=True)
-    #     tissuePointsRotated = rotateTissuePoints(visiumData, rotation)
+
     processedData['tissueProcessed'] = match_histograms(tissueNormalized, templateData['rightHem'])
     processedData['tissueProcessed'] = processedData['tissueProcessed'] - processedData['tissueProcessed'].min()
     
@@ -1257,3 +1238,6 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
             rowFormat = [processedData['processedTissuePositionList'][i,1]] + [processedData['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
             writer.writerow(rowFormat)
     return processedData
+
+#%% cell type identification
+
