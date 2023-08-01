@@ -76,94 +76,26 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta):
     # tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
     # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
     # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
-    rotImage = rotate(tissueImage, theta, resize=True)
-    
-    corners = [[0,0],[0,rotImage.shape[0]],[0,rotImage.shape[1]],[rotImage.shape[0],rotImage.shape[1]]]
-    # origin = np.array([tissueImage.shape[1],tissueImage.shape[0], 0])
-    # tissuePoints = np.append(tissuePoints, np.ones(tissuePoints.shape[0])[:,np.newaxis], axis=1)
-    # centeredTP = tissuePoints - origin
-    # transOriginMat =np.array([[1, 0, origin[0]],\
-    #                  [0, 1, origin[1]],\
-    #                  [0, 0, 1]])
     rad = np.deg2rad(theta)
-    # pointOfRotX = origin[0] - (origin[0]*np.cos(rad)) - (-np.sin(rad)*origin[1])
-    # pointOfRotY = origin[1] - (origin[0]*np.sin(rad)) - (np.cos(rad)*origin[1])
     rotMat = np.array([[np.cos(rad),-(np.sin(rad))],\
               [np.sin(rad),np.cos(rad)]])
-    print(f"{corners}")
-    tissuePointsRotate = np.matmul(tissuePoints, rotMat)
-    # newOrigin = np.matmul(origin, rotMat)
-    # print(f"{newOrigin}")
-    tissuePointsRotateCenter = tissuePointsRotate #+ newOrigin
+    origin = np.array([tissueImage.shape[1]/2,tissueImage.shape[0]/2])
+    rotImage = rotate(tissueImage, theta, resize=True)
+    rotOrigin = np.array([rotImage.shape[1]/2, rotImage.shape[0]/2])
+    centeredTP = tissuePoints - origin
+    
+    tissuePointsRotate = np.matmul(centeredTP, rotMat)
+    
+    tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
    
-    # corners = [[0,0],[0,tissueImage.shape[0]],[0,tissueImage.shape[1]],[tissueImage.shape[0],tissueImage.shape[1]]]
-    # origin = np.array([tissueImage.shape[1],tissueImage.shape[0], 0])
-    # tissuePoints = np.append(tissuePoints, np.ones(tissuePoints.shape[0])[:,np.newaxis], axis=1)
-    # centeredTP = tissuePoints - origin
-    # transOriginMat =np.array([[1, 0, origin[0]],\
-    #                  [0, 1, origin[1]],\
-    #                  [0, 0, 1]])
-    # rad = np.deg2rad(theta)
-    # pointOfRotX = origin[0] - (origin[0]*np.cos(rad)) - (-np.sin(rad)*origin[1])
-    # pointOfRotY = origin[1] - (origin[0]*np.sin(rad)) - (np.cos(rad)*origin[1])
-    # rotMat = np.array([[np.cos(rad),-(np.sin(rad)), pointOfRotX],\
-    #           [np.sin(rad),np.cos(rad), pointOfRotY],\
-    #               [0, 0, 1]])
-    # print(f"{tissueImage.shape}")
-    # tissuePointsRotate = np.matmul(centeredTP, rotMat)
-    # newOrigin = np.matmul(origin, rotMat)
-    # print(f"{newOrigin}")
-    # tissuePointsRotateCenter = tissuePointsRotate #+ newOrigin
-    # # if rotation == 0:
-    #     # a null step, but makes for continuous math
-    #     rotMat = [[1,0],[0,1]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
-    # elif rotation == 90:
-    #     rotMat = [[0,-1],[1,0]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
-    # elif rotation == 180:
-    #     rotMat = [[-1,0],[0,-1]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
-    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-    # elif rotation == 270:
-    #     rotMat = [[0,1],[-1,0]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
-    # elif rotation == -180:
-    #     rotMat = [[1,0],[0,-1]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
-    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-    # else:
-    #     print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
-    #     print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
     plt.imshow(rotImage, cmap='gray')
-    plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1])
+    plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1], alpha=0.3)
     plt.show()
-    return tissuePointsRotateCenter
+    return tissuePointsRotateCenter, rotImage
 
-# corners = np.array([[0,0],[0,processedSample['tissueProcessed'].shape[0]],[processedSample['tissueProcessed'].shape[1],0],[processedSample['tissueProcessed'].shape[1],processedSample['tissueProcessed'].shape[0]]])
-# plt.imshow(processedSample['tissueProcessed'])
-# plt.scatter(corners[:,0],corners[:,1])
-# plt.show()
-# degRotate = 10
-# rad = np.deg2rad(degRotate)
-# rotMat = np.array([[np.cos(rad),-(np.sin(rad))],\
-#           [np.sin(rad),np.cos(rad)]])
-# rotImage = rotate(processedSample['tissueProcessed'], degRotate, resize=True)
-# plt.imshow(rotImage)
-# x = np.matmul(corners, rotMat)
-# newImageSize = np.array([np.min(x[:,0]), np.min(x[:,1])])
-# imDiff = newImageSize - processedSample['tissueProcessed'].shape
-# plt.scatter(x[:,0],x[:,1])
 for d in range(0, 370, 15):
     degRotate = d
-    x = rotateTissuePoints(processedSample['processedTissuePositionList'], processedSample['tissueProcessed'], degRotate)
-    # rotImage = rotate(processedSample['tissueProcessed'], degRotate, resize=True)
-    
+    x,y = rotateTissuePoints(processedSample['processedTissuePositionList'], processedSample['tissueProcessed'], degRotate)
 
 #%% test digital spot creation using merfish to perform clustering
 wholeBrainSpotSize = 5

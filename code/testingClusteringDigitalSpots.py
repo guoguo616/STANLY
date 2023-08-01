@@ -36,8 +36,9 @@ cbCmap = mcolors.LinearSegmentedColormap.from_list('colorblindColormap', cbRGB)
 
 
 rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
-#%% load experiment of samples that have already been processed and registered
 template = stanly.chooseTemplateSlice(70)
+#%% load experiment of samples that have already been processed and registered
+
 sampleList = []
 templateList = []
 with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
@@ -63,7 +64,8 @@ experiment = {'sample-id': np.asarray(sampleList)[imageList],
 processedSamples = {}
 totalSpotCount = 0
 for actSample in range(len(experiment['sample-id'])):
-    sampleProcessed = stanly.loadProcessedVisiumSample(os.path.join(derivatives, experiment['sample-id'][actSample]))
+    sampleData = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+    sampleProcessed = stanly.processVisiumData(sampleData, template, experiment['rotation'][actSample], derivatives)
     processedSamples[actSample] = sampleProcessed
     totalSpotCount += sampleProcessed['spotCount']
 nTotalSamples = len(processedSamples)

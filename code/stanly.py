@@ -216,42 +216,28 @@ def chooseTemplateSlice(sliceLocation):
 
 # tissue coordinates should reference output of importVisiumData
 # rotation currently accepts 0,90,180,270, will take input from processedVisium
-def rotateTissuePoints(sampleData, rotation):
+def rotateTissuePoints(tissuePoints, tissueImage, theta):
     ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
     # scales tissue coordinates down to image resolution
-    tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
-    # below switches x and y in order to properly rotate, this gets undone after registration
-    tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
+    
     # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
     # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
-    if rotation == 0:
-        # a null step, but makes for continuous math
-        rotMat = [[1,0],[0,1]]
-        tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
-    elif rotation == 90:
-        rotMat = [[0,-1],[1,0]]
-        tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
-    elif rotation == 180:
-        rotMat = [[-1,0],[0,-1]]
-        tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
-        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-    elif rotation == 270:
-        rotMat = [[0,1],[-1,0]]
-        tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
-    elif rotation == -180:
-        rotMat = [[1,0],[0,-1]]
-        tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-        # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
-        tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-    else:
-        print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
-        print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
+    rad = np.deg2rad(theta)
+    rotMat = np.array([[np.cos(rad),-(np.sin(rad))],\
+              [np.sin(rad),np.cos(rad)]])
+    origin = np.array([tissueImage.shape[1]/2,tissueImage.shape[0]/2])
+    rotImage = rotate(tissueImage, theta, resize=True)
+    rotOrigin = np.array([rotImage.shape[1]/2, rotImage.shape[0]/2])
+    centeredTP = tissuePoints - origin
     
-    return tissuePointsResizeRotate
+    tissuePointsRotate = np.matmul(centeredTP, rotMat)
+    
+    tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
+   
+    plt.imshow(rotImage, cmap='gray')
+    plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1], alpha=0.3)
+    plt.show()
+    return tissuePointsRotateCenter, rotImage
 
 # prepares visium data for registration
 def processVisiumData(visiumData, templateData, rotation, outputFolder, log2normalize=True):
@@ -259,6 +245,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedVisium['sampleID'] = visiumData['sampleID']
     outputPath = os.path.join(outputFolder, visiumData['sampleID'])
+    
     try:
         file = open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsProcessed.csv", 'r')
         print(f"{processedVisium['sampleID']} has already been processed! Loading data")
@@ -285,18 +272,25 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     tissueGauss[processedVisium['visiumOtsu']==True] = visiumGauss[processedVisium['visiumOtsu']==True]
     tissueNormalized = cv2.normalize(tissueGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     tissueResized = rescale(tissueNormalized,resolutionRatio)
+# =============================================================================
+#   need to update the below section so that it reads LH/RH instead of -/+
+#   would allow clockwise rotation instead of only counterclockwise
+# =============================================================================
+    # tissuePointsResizeToHighRes = visiumData["tissuePositionList"][0:, 3:] * visiumData["scaleFactors"]["tissue_hires_scalef"]
+    tissuePointsResizeToHighRes = visiumData["tissuePositionList"][0:, 3:] * visiumData["scaleFactors"]["tissue_hires_scalef"] * resolutionRatio
+    tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]] 
     if rotation < 0:
-        tissuePointsRotated = rotateTissuePoints(visiumData, rotation)
+        tissuePointsRotated = rotateTissuePoints(tissuePointsResizeToHighRes, tissueResized, rotation)
         rotation = rotation * -1
         tissueRotated = rotate(tissueResized, rotation, resize=True)
         tissueRotated = tissueRotated[:,::-1]
     else:
-        tissueRotated = rotate(tissueResized, rotation, resize=True)
-        tissuePointsRotated = rotateTissuePoints(visiumData, rotation)
+        # tissueRotated = rotate(tissueResized, rotation, resize=True)
+        tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResizeToHighRes, tissueResized, rotation)
     processedVisium['tissueProcessed'] = match_histograms(tissueRotated, templateData['rightHem'])
     processedVisium['tissueProcessed'] = processedVisium['tissueProcessed'] - processedVisium['tissueProcessed'].min()
     
-    tissuePointsResized = tissuePointsRotated * resolutionRatio
+    tissuePointsResized = tissuePointsRotated
     # processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
     # processedVisium['tissuePointsResizedForTransform'][:,[0,1]] = processedVisium['tissuePointsResizedForTransform'][:,[1,0]]
     
@@ -1278,42 +1272,40 @@ def selectSpotsWithGeneList(processedSample, geneList, threshold=1):
 
 #%% updating rotateTissuePoints to take more than 0,90,180,270
 
-def rotateTissuePoints(tissuePoints, theta):
-    ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
-    # scales tissue coordinates down to image resolution
-    # tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
-    # # below switches x and y in order to properly rotate, this gets undone after registration
-    # tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
-    # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
-    # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
+# def rotateTissuePoints(tissuePoints, theta):
+#     ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
+#     # scales tissue coordinates down to image resolution
+#     # tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
+#     # # below switches x and y in order to properly rotate, this gets undone after registration
+#     # tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
     
-    rotMat = [[np.cos(theta),-(np.sin(theta))],[np.sin(theta),np.cos(theta)]]
-    tissuePointsRotate = np.matmul(tissuePoints, rotMat)
-    # if rotation == 0:
-    #     # a null step, but makes for continuous math
-    #     rotMat = [[1,0],[0,1]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
-    # elif rotation == 90:
-    #     rotMat = [[0,-1],[1,0]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
-    # elif rotation == 180:
-    #     rotMat = [[-1,0],[0,-1]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
-    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-    # elif rotation == 270:
-    #     rotMat = [[0,1],[-1,0]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
-    # elif rotation == -180:
-    #     rotMat = [[1,0],[0,-1]]
-    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
-    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-    # else:
-    #     print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
-    #     print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
+#     rotMat = [[np.cos(theta),-(np.sin(theta))],[np.sin(theta),np.cos(theta)]]
+#     tissuePointsRotate = np.matmul(tissuePoints, rotMat)
+#     # if rotation == 0:
+#     #     # a null step, but makes for continuous math
+#     #     rotMat = [[1,0],[0,1]]
+#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+#     #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
+#     # elif rotation == 90:
+#     #     rotMat = [[0,-1],[1,0]]
+#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+#     #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
+#     # elif rotation == 180:
+#     #     rotMat = [[-1,0],[0,-1]]
+#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+#     #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
+#     #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
+#     # elif rotation == 270:
+#     #     rotMat = [[0,1],[-1,0]]
+#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+#     #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
+#     # elif rotation == -180:
+#     #     rotMat = [[1,0],[0,-1]]
+#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+#     #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
+#     #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
+#     # else:
+#     #     print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
+#     #     print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
     
-    return tissuePointsRotate
+#     return tissuePointsRotate
