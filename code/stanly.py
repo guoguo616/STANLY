@@ -1087,7 +1087,10 @@ def importMerfishData(sampleFolder, outputPath):
     else:
         print(f"{sampleFolder} not found!")
     # need to look for standard outputname of tiff file for registration
-    
+    if any(glob(os.path.join(dataFolder,"images","manifest.json"))):
+        scaleFactorPath = open(os.path.join(dataFolder,"images","manifest.json"))
+        sampleData['scaleFactors'] = json.loads(scaleFactorPath.read())
+        scaleFactorPath.close()
     if any(glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))):
         originalImagePath =  glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))[0]
     elif any(glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))):
@@ -1197,8 +1200,14 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
 
     processedData['tissueProcessed'] = match_histograms(tissueNormalized, templateData['rightHem'])
     processedData['tissueProcessed'] = processedData['tissueProcessed'] - processedData['tissueProcessed'].min()
-    
-    tissuePointsResized = processedData['tissuePositionList'] * 0.09
+    if 'scaleFactors' in sampleData:
+        # tissue points do not necessarily start at [0,0], check bound
+        tissuePoints = processedData['tissuePositionList']
+        tissuePoints[:,0] = tissuePoints[:,0] + np.abs(sampleData['scaleFactors']['bbox_microns'][0])
+        tissuePoints[:,1] = tissuePoints[:,1] + np.abs(sampleData['scaleFactors']['bbox_microns'][1])
+        tissuePointsResized = tissuePoints * 0.09 # sampleData['scaleFactors']['microns_per_pixel']  
+    else:
+        tissuePointsResized = processedData['tissuePositionList'] * 0.09
 
     processedData['geneListMasked'] = sampleData['geneList']
     processedData['processedTissuePositionList'] = tissuePointsResized
@@ -1241,3 +1250,70 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
 
 #%% cell type identification
 
+def selectSpotsWithGeneList(processedSample, geneList, threshold=1):
+    # threshold decides percentage of genes in list necessary
+    geneListIdx = []
+    for actGene in geneList:
+        try:
+            geneListIdx.append(processedSample['geneListMasked'].index(actGene))
+        except ValueError:
+            print(f"No spots are positive for {actGene}!")
+    actSpots = processedSample['geneMatrixLog2'][geneListIdx, :]
+    actSpots = actSpots.todense().astype('float32')
+    posSpots = np.sum((actSpots > 0), axis=0)
+    nGenes = len(geneListIdx)
+    threshVal = round(nGenes * threshold)
+    posSpots = posSpots > threshVal
+    # posSpots = np.count_nonzero(actSpots, axis=0)
+    denseMatrix = processedSample['geneMatrixLog2'].todense().astype('float32')
+    
+    if np.sum(posSpots) > 0:
+        posSpots = np.squeeze(np.array(posSpots))
+        maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
+        maskedMatrix = denseMatrix[:,posSpots]
+    else:
+        maskedMatrix = []
+        maskedTissuePositionList = []
+    return maskedMatrix, maskedTissuePositionList
+
+#%% updating rotateTissuePoints to take more than 0,90,180,270
+
+def rotateTissuePoints(tissuePoints, theta):
+    ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
+    # scales tissue coordinates down to image resolution
+    # tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
+    # # below switches x and y in order to properly rotate, this gets undone after registration
+    # tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
+    # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
+    # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
+    
+    rotMat = [[np.cos(theta),-(np.sin(theta))],[np.sin(theta),np.cos(theta)]]
+    tissuePointsRotate = np.matmul(tissuePoints, rotMat)
+    # if rotation == 0:
+    #     # a null step, but makes for continuous math
+    #     rotMat = [[1,0],[0,1]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
+    # elif rotation == 90:
+    #     rotMat = [[0,-1],[1,0]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
+    # elif rotation == 180:
+    #     rotMat = [[-1,0],[0,-1]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
+    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
+    # elif rotation == 270:
+    #     rotMat = [[0,1],[-1,0]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
+    # elif rotation == -180:
+    #     rotMat = [[1,0],[0,-1]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
+    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
+    # else:
+    #     print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
+    #     print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
+    
+    return tissuePointsRotate

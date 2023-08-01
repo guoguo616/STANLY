@@ -27,7 +27,7 @@ from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
 rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
-sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata','merscopedata')
+sourcedata = os.path.join('/','media','zjpeters','Samsung_T5','merscope','Slide1_Apr24')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
 # expected merfish data includes:
@@ -35,17 +35,21 @@ sourcedata = os.path.join('/','home','zjpeters','Documents','stanly','sourcedata
 # 2. cell_by_gene.csv containing cell index and barcode in first two columns followed by columns of rna expression per gene per cell
 # 3. cell_metadata.csv containing cell index, barcode, fov, volume, center_x, center_y, min_x, min_y, max_x, max_y
 
-
+#load allen template
+templateData = stanly.chooseTemplateSlice(70)
 
 #%% align test data to allen ccf
 
-templateData = stanly.chooseTemplateSlice(90)
+
 sampleData = stanly.importMerfishData(sourcedata, derivatives)
 processedSample = stanly.processMerfishData(sampleData, templateData, 0, derivatives)
-sampleRegistered = stanly.runANTsToAllenRegistration(processedSample, templateData)
+# sampleRegistered = stanly.runANTsToAllenRegistration(processedSample, templateData)
 plt.imshow(templateData['wholeBrain'], cmap='gray')
-plt.axis(False)
-plt.savefig(os.path.join(derivatives,'allen_slice_90.png'), bbox_inches='tight', dpi=300)
+plt.show()
+plt.imshow(processedSample['tissueProcessed'], cmap='gray')
+plt.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
+# plt.axis(False)
+# plt.savefig(os.path.join(derivatives,'allen_slice_90.png'), bbox_inches='tight', dpi=300)
 plt.show()
 
 # actSpots = np.array(np.squeeze(sampleData['geneMatrix'][:,95]), dtype='int32')
@@ -54,11 +58,112 @@ plt.show()
 # plt.axis(False)
 # plt.show()
 
-actSpots = np.array(np.squeeze(sampleRegistered['geneMatrixMasked'].todense()[95,:]), dtype='int32')
-plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
-plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
+# actSpots = np.array(np.squeeze(sampleRegistered['geneMatrixMasked'].todense()[95,:]), dtype='int32')
+# plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
+# plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
 # plt.imshow(templateData['wholeBrain'], alpha=0.3)
 plt.show()
+
+#%% rotation testing
+def rotateTissuePoints(tissuePoints, tissueImage, theta):
+    # image shape is the [x,y] shape of the corresponding tissue image
+    # theta is the degrees of rotation, with positive degrees being anti-clockwise, negative clockwise
+    
+    ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
+    # scales tissue coordinates down to image resolution
+    # tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
+    # # below switches x and y in order to properly rotate, this gets undone after registration
+    # tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
+    # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
+    # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
+    rotImage = rotate(tissueImage, theta, resize=True)
+    
+    corners = [[0,0],[0,rotImage.shape[0]],[0,rotImage.shape[1]],[rotImage.shape[0],rotImage.shape[1]]]
+    # origin = np.array([tissueImage.shape[1],tissueImage.shape[0], 0])
+    # tissuePoints = np.append(tissuePoints, np.ones(tissuePoints.shape[0])[:,np.newaxis], axis=1)
+    # centeredTP = tissuePoints - origin
+    # transOriginMat =np.array([[1, 0, origin[0]],\
+    #                  [0, 1, origin[1]],\
+    #                  [0, 0, 1]])
+    rad = np.deg2rad(theta)
+    # pointOfRotX = origin[0] - (origin[0]*np.cos(rad)) - (-np.sin(rad)*origin[1])
+    # pointOfRotY = origin[1] - (origin[0]*np.sin(rad)) - (np.cos(rad)*origin[1])
+    rotMat = np.array([[np.cos(rad),-(np.sin(rad))],\
+              [np.sin(rad),np.cos(rad)]])
+    print(f"{corners}")
+    tissuePointsRotate = np.matmul(tissuePoints, rotMat)
+    # newOrigin = np.matmul(origin, rotMat)
+    # print(f"{newOrigin}")
+    tissuePointsRotateCenter = tissuePointsRotate #+ newOrigin
+   
+    # corners = [[0,0],[0,tissueImage.shape[0]],[0,tissueImage.shape[1]],[tissueImage.shape[0],tissueImage.shape[1]]]
+    # origin = np.array([tissueImage.shape[1],tissueImage.shape[0], 0])
+    # tissuePoints = np.append(tissuePoints, np.ones(tissuePoints.shape[0])[:,np.newaxis], axis=1)
+    # centeredTP = tissuePoints - origin
+    # transOriginMat =np.array([[1, 0, origin[0]],\
+    #                  [0, 1, origin[1]],\
+    #                  [0, 0, 1]])
+    # rad = np.deg2rad(theta)
+    # pointOfRotX = origin[0] - (origin[0]*np.cos(rad)) - (-np.sin(rad)*origin[1])
+    # pointOfRotY = origin[1] - (origin[0]*np.sin(rad)) - (np.cos(rad)*origin[1])
+    # rotMat = np.array([[np.cos(rad),-(np.sin(rad)), pointOfRotX],\
+    #           [np.sin(rad),np.cos(rad), pointOfRotY],\
+    #               [0, 0, 1]])
+    # print(f"{tissueImage.shape}")
+    # tissuePointsRotate = np.matmul(centeredTP, rotMat)
+    # newOrigin = np.matmul(origin, rotMat)
+    # print(f"{newOrigin}")
+    # tissuePointsRotateCenter = tissuePointsRotate #+ newOrigin
+    # # if rotation == 0:
+    #     # a null step, but makes for continuous math
+    #     rotMat = [[1,0],[0,1]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
+    # elif rotation == 90:
+    #     rotMat = [[0,-1],[1,0]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
+    # elif rotation == 180:
+    #     rotMat = [[-1,0],[0,-1]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
+    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
+    # elif rotation == 270:
+    #     rotMat = [[0,1],[-1,0]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
+    # elif rotation == -180:
+    #     rotMat = [[1,0],[0,-1]]
+    #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
+    #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
+    #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
+    # else:
+    #     print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
+    #     print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
+    plt.imshow(rotImage, cmap='gray')
+    plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1])
+    plt.show()
+    return tissuePointsRotateCenter
+
+# corners = np.array([[0,0],[0,processedSample['tissueProcessed'].shape[0]],[processedSample['tissueProcessed'].shape[1],0],[processedSample['tissueProcessed'].shape[1],processedSample['tissueProcessed'].shape[0]]])
+# plt.imshow(processedSample['tissueProcessed'])
+# plt.scatter(corners[:,0],corners[:,1])
+# plt.show()
+# degRotate = 10
+# rad = np.deg2rad(degRotate)
+# rotMat = np.array([[np.cos(rad),-(np.sin(rad))],\
+#           [np.sin(rad),np.cos(rad)]])
+# rotImage = rotate(processedSample['tissueProcessed'], degRotate, resize=True)
+# plt.imshow(rotImage)
+# x = np.matmul(corners, rotMat)
+# newImageSize = np.array([np.min(x[:,0]), np.min(x[:,1])])
+# imDiff = newImageSize - processedSample['tissueProcessed'].shape
+# plt.scatter(x[:,0],x[:,1])
+for d in range(0, 370, 15):
+    degRotate = d
+    x = rotateTissuePoints(processedSample['processedTissuePositionList'], processedSample['tissueProcessed'], degRotate)
+    # rotImage = rotate(processedSample['tissueProcessed'], degRotate, resize=True)
+    
 
 #%% test digital spot creation using merfish to perform clustering
 wholeBrainSpotSize = 5
@@ -96,7 +201,20 @@ for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
         plt.savefig(os.path.join(derivatives,f'geneExpression{actGene}.png'), bbox_inches='tight', dpi=300)
         plt.show()
         
-    
+#%% 
+cellTypeJson = open(os.path.join('/','home','zjpeters','Documents','stanly','data','cellTypeMarkers.json'),)
+cellTypeGeneLists = json.load(cellTypeJson)['cellTypes']
+
+for i in range(len(cellTypeGeneLists)):
+    try:
+        neuCells = stanly.selectSpotsWithGeneList(processedSample,cellTypeGeneLists[i]['topGeneList'], threshold=0.9)
+        plt.imshow(processedSample['tissueProcessed'], cmap='gray')
+        plt.scatter(neuCells[1][:,0],neuCells[1][:,1])
+        plt.title(f'{cellTypeGeneLists[i]["name"]}')
+        plt.show()
+
+    except TypeError:
+        continue    
 #%% display single gene
 geneListSorted = np.sort(sampleRegistered['geneListMasked'])
 # ast: Aqp4, end: Flt1, mic: Csf1r, neu: maybe Vipr1/Vipr2, opc: Pdgfra, Pcdh15
@@ -138,6 +256,8 @@ for geneIdx,actGene in enumerate(sampleRegistered['geneListMasked']):
         plt.axis('off')
         plt.savefig(os.path.join(derivatives,f'cellDensity{actGene}.png'), bbox_inches='tight', dpi=300)
         plt.show()
+
+
 
 #%% try clustering on test sample
 fullyConnectedEdges = []
