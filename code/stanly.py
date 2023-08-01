@@ -216,7 +216,7 @@ def chooseTemplateSlice(sliceLocation):
 
 # tissue coordinates should reference output of importVisiumData
 # rotation currently accepts 0,90,180,270, will take input from processedVisium
-def rotateTissuePoints(tissuePoints, tissueImage, theta):
+def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
     ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
     # scales tissue coordinates down to image resolution
     
@@ -227,11 +227,13 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta):
               [np.sin(rad),np.cos(rad)]])
     origin = np.array([tissueImage.shape[1]/2,tissueImage.shape[0]/2])
     rotImage = rotate(tissueImage, theta, resize=True)
+    if flip==True:
+        rotImage = rotImage[:,::-1]
+        rotMat = np.array([[-np.cos(rad),(np.sin(rad))],\
+                  [np.sin(rad),np.cos(rad)]])
     rotOrigin = np.array([rotImage.shape[1]/2, rotImage.shape[0]/2])
     centeredTP = tissuePoints - origin
-    
     tissuePointsRotate = np.matmul(centeredTP, rotMat)
-    
     tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
    
     plt.imshow(rotImage, cmap='gray')
@@ -240,7 +242,7 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta):
     return tissuePointsRotateCenter, rotImage
 
 # prepares visium data for registration
-def processVisiumData(visiumData, templateData, rotation, outputFolder, log2normalize=True):
+def processVisiumData(visiumData, templateData, rotation, outputFolder, log2normalize=True, flip=False):
     processedVisium = {}
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedVisium['sampleID'] = visiumData['sampleID']
@@ -279,11 +281,11 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     # tissuePointsResizeToHighRes = visiumData["tissuePositionList"][0:, 3:] * visiumData["scaleFactors"]["tissue_hires_scalef"]
     tissuePointsResizeToHighRes = visiumData["tissuePositionList"][0:, 3:] * visiumData["scaleFactors"]["tissue_hires_scalef"] * resolutionRatio
     tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]] 
-    if rotation < 0:
-        tissuePointsRotated = rotateTissuePoints(tissuePointsResizeToHighRes, tissueResized, rotation)
-        rotation = rotation * -1
-        tissueRotated = rotate(tissueResized, rotation, resize=True)
-        tissueRotated = tissueRotated[:,::-1]
+    if flip==True:
+        tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResizeToHighRes, tissueResized, rotation, flip=True)
+        # rotation = rotation * -1
+        # tissueRotated = rotate(tissueResized, rotation, resize=True)
+        # tissueRotated = tissueRotated[:,::-1]
     else:
         # tissueRotated = rotate(tissueResized, rotation, resize=True)
         tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResizeToHighRes, tissueResized, rotation)
