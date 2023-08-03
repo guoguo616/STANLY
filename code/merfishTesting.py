@@ -38,11 +38,10 @@ sourcedata = os.path.join('/','media','zjpeters','Samsung_T5','merscope','Slide1
 #load allen template
 templateData = stanly.chooseTemplateSlice(70)
 
-#%% align test data to allen ccf
-
+#%% import and align sample data to allen ccf
 
 sampleData = stanly.importMerfishData(sourcedata, derivatives)
-processedSample = stanly.processMerfishData(sampleData, templateData, 0, derivatives)
+processedSample = stanly.processMerfishData(sampleData, templateData, 210, derivatives)
 # sampleRegistered = stanly.runANTsToAllenRegistration(processedSample, templateData)
 plt.imshow(templateData['wholeBrain'], cmap='gray')
 plt.show()
@@ -51,6 +50,7 @@ plt.scatter(processedSample['processedTissuePositionList'][:,0], processedSample
 # plt.axis(False)
 # plt.savefig(os.path.join(derivatives,'allen_slice_90.png'), bbox_inches='tight', dpi=300)
 plt.show()
+
 
 # actSpots = np.array(np.squeeze(sampleData['geneMatrix'][:,95]), dtype='int32')
 # plt.imshow(sampleData['imageData'], cmap='gray')
@@ -62,41 +62,17 @@ plt.show()
 # plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
 # plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
 # plt.imshow(templateData['wholeBrain'], alpha=0.3)
-plt.show()
 
-#%% rotation testing
-def rotateTissuePoints(tissuePoints, tissueImage, theta):
-    # image shape is the [x,y] shape of the corresponding tissue image
-    # theta is the degrees of rotation, with positive degrees being anti-clockwise, negative clockwise
-    
-    ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
-    # scales tissue coordinates down to image resolution
-    # tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
-    # # below switches x and y in order to properly rotate, this gets undone after registration
-    # tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
-    # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
-    # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
-    rad = np.deg2rad(theta)
-    rotMat = np.array([[np.cos(rad),-(np.sin(rad))],\
-              [np.sin(rad),np.cos(rad)]])
-    origin = np.array([tissueImage.shape[1]/2,tissueImage.shape[0]/2])
-    rotImage = rotate(tissueImage, theta, resize=True)
-    rotOrigin = np.array([rotImage.shape[1]/2, rotImage.shape[0]/2])
-    centeredTP = tissuePoints - origin
-    
-    tissuePointsRotate = np.matmul(centeredTP, rotMat)
-    
-    tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
-   
-    plt.imshow(rotImage, cmap='gray')
-    plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1], alpha=0.3)
-    plt.show()
-    return tissuePointsRotateCenter, rotImage
-
-for d in range(0, 370, 15):
-    degRotate = d
-    x,y = rotateTissuePoints(processedSample['processedTissuePositionList'], processedSample['tissueProcessed'], degRotate)
-
+#%% function for using a lasso tool
+from matplotlib.widgets import LassoSelector
+def regionPolygon(coor):
+    coorList = []
+    coorList.append(coor)
+    return coorList
+lineProperties={'color':'red', 'linewidth':4,'alpha':0.8}
+fig, ax = plt.subplots()
+ax.imshow(processedSample['tissueProcessed'], cmap='gray')
+lasso = LassoSelector(ax, onselect=regionPolygon, button=1)
 #%% test digital spot creation using merfish to perform clustering
 wholeBrainSpotSize = 5
 templateDigitalSpots = stanly.createDigitalSpots(sampleRegistered, wholeBrainSpotSize)

@@ -48,28 +48,24 @@ with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
         sampleList.append(row[0])
         templateList.append(row[1:])
 
+sampleList = np.array(sampleList)
 templateList = np.array(templateList, dtype='int')
-
-# run edge detection on annotation image
-# start by renumbering annotated version so it doesn't have large numbers
-
-# list of good images
+# list of samples to include
 imageList = [0,1,2,3,4,5,6,7,10,11,12,13,15]
 
 experiment = {'sample-id': np.asarray(sampleList)[imageList],
                     'template-slice': templateList[imageList,0],
                     'rotation': templateList[imageList,1],
                     'experimental-group': templateList[imageList,2],
-                    'flip': templateList[imageList,3]
-                    }
+                    'flip': templateList[imageList,3]}
+
 
 processedSamples = {}
 totalSpotCount = 0
 for actSample in range(len(experiment['sample-id'])):
     sampleData = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
-    if experiment['flip'][actSample]==0:
-        flipBool=False
-    elif experiment['flip'][actSample]==1:
+    flipBool=False
+    if experiment['flip'][actSample]==1:
         flipBool=True
     sampleProcessed = stanly.processVisiumData(sampleData, template, experiment['rotation'][actSample], derivatives, flip=flipBool)
     processedSamples[actSample] = sampleProcessed
@@ -78,11 +74,17 @@ nTotalSamples = len(processedSamples)
 spotCountMean = totalSpotCount / nTotalSamples
 print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
 
+bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template, hemisphere='rightHem')
+
+experimentalResults = {}
+for actSample in range(len(processedSamples)):
+    sampleRegistered = stanly.runANTsInterSampleRegistration(processedSamples[actSample], processedSamples[4])
+    experimentalResults[actSample] = sampleRegistered
+
 allSamplesToAllen = {}
-for actSample in range(len(experiment['sample-id'])):
-    sampleRegistered = stanly.runANTsToAllenRegistration(processedSample, templateData)
-    sampleRegistered = stanly.loadAllenRegisteredSample(os.path.join(derivatives, experiment['sample-id'][actSample]))
-    allSamplesToAllen[actSample] = sampleRegistered
+for actSample in range(len(experimentalResults)):
+    regSampleToTemplate = stanly.applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template, hemisphere='rightHem')
+    allSamplesToAllen[actSample] = regSampleToTemplate
 
 
 #%% create digital spots for whole slice and find nearest neighbors

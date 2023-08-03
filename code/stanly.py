@@ -236,9 +236,9 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
     tissuePointsRotate = np.matmul(centeredTP, rotMat)
     tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
    
-    plt.imshow(rotImage, cmap='gray')
-    plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1], alpha=0.3)
-    plt.show()
+    # plt.imshow(rotImage, cmap='gray')
+    # plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1], alpha=0.3)
+    # plt.show()
     return tissuePointsRotateCenter, rotImage
 
 # prepares visium data for registration
@@ -274,28 +274,17 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     tissueGauss[processedVisium['visiumOtsu']==True] = visiumGauss[processedVisium['visiumOtsu']==True]
     tissueNormalized = cv2.normalize(tissueGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     tissueResized = rescale(tissueNormalized,resolutionRatio)
-# =============================================================================
-#   need to update the below section so that it reads LH/RH instead of -/+
-#   would allow clockwise rotation instead of only counterclockwise
-# =============================================================================
     # tissuePointsResizeToHighRes = visiumData["tissuePositionList"][0:, 3:] * visiumData["scaleFactors"]["tissue_hires_scalef"]
     tissuePointsResizeToHighRes = visiumData["tissuePositionList"][0:, 3:] * visiumData["scaleFactors"]["tissue_hires_scalef"] * resolutionRatio
     tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]] 
     if flip==True:
         tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResizeToHighRes, tissueResized, rotation, flip=True)
-        # rotation = rotation * -1
-        # tissueRotated = rotate(tissueResized, rotation, resize=True)
-        # tissueRotated = tissueRotated[:,::-1]
     else:
-        # tissueRotated = rotate(tissueResized, rotation, resize=True)
         tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResizeToHighRes, tissueResized, rotation)
     processedVisium['tissueProcessed'] = match_histograms(tissueRotated, templateData['rightHem'])
     processedVisium['tissueProcessed'] = processedVisium['tissueProcessed'] - processedVisium['tissueProcessed'].min()
     
-    tissuePointsResized = tissuePointsRotated
-    # processedVisium['tissuePointsResizedForTransform'] = processedVisium['tissuePointsRotated'] * processedVisium['resolutionRatio']
-    # processedVisium['tissuePointsResizedForTransform'][:,[0,1]] = processedVisium['tissuePointsResizedForTransform'][:,[1,0]]
-    
+    tissuePointsResized = tissuePointsRotated    
     geneMatrixGeneList = []
     for geneName in visiumData['geneMatrix'][0]['name']:
         geneMatrixGeneList.append(geneName.decode())
@@ -386,18 +375,18 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     return processedVisium
 
 
-def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='whole'):
+def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='wholeBrain'):
     # registeredData will contain: sampleID, derivativesPath, transformedTissuePositionList, fwdtransforms, invtransforms
     registeredData = {}
-    if hemisphere == 'right':
-        templateAntsImage = ants.from_numpy(templateData['rightHem'])
-        maxWidth = templateData['rightHem'].shape[1]
-    elif hemisphere == 'left':
-        templateAntsImage = ants.from_numpy(templateData['leftHem'])
-        maxWidth = templateData['lefttHem'].shape[1]
-    elif 'whole':
-        templateAntsImage = ants.from_numpy(templateData['wholeBrain'])
-        maxWidth = templateData['wholeBrain'].shape[1]
+    # if hemisphere == 'rightHem':
+    templateAntsImage = ants.from_numpy(templateData[hemisphere])
+    maxWidth = templateData[hemisphere].shape[1]
+    # elif hemisphere == 'leftHem':
+    #     templateAntsImage = ants.from_numpy(templateData['leftHem'])
+    #     maxWidth = templateData['lefttHem'].shape[1]
+    # elif 'wholeBrain':
+    #     templateAntsImage = ants.from_numpy(templateData['wholeBrain'])
+    #     maxWidth = templateData['wholeBrain'].shape[1]
     try:
         file = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
         print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")
@@ -533,10 +522,10 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
 
     return registeredData
     
-def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, templateData, log2normalize=True):
+def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, templateData, log2normalize=True, hemisphere='wholeBrain'):
     # if not os.exists(f"{os.path.join(registeredVisium['derivativesPath'],registeredVisium['sampleID'])}_tissuePointOrderedFeatureMatrixTemplateMasked.csv"):
         
-    templateAntsImage = ants.from_numpy(templateData['rightHem'])
+    templateAntsImage = ants.from_numpy(templateData[hemisphere])
     sampleAntsImage = ants.from_numpy(registeredVisium['tissueRegistered'])
     sampleToTemplate = ants.apply_transforms( fixed=templateAntsImage, moving=sampleAntsImage, transformlist=bestSampleRegisteredToTemplate['fwdtransforms'])
     
@@ -1189,24 +1178,25 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     # resolutionRatio = visiumData['spotStartingResolution'] / templateData['startingResolution']
     processedData['derivativesPath'] = outputPath
     # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
-    # processedVisium['degreesOfRotation'] = int(rotation)
+    processedData['degreesOfRotation'] = int(rotation)
     #### shouldn't need otsu for merfish, since the background has already been removed, need to confirm
     sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=2)
     tissueNormalized = cv2.normalize(sampleGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
-    processedData['tissueProcessed'] = match_histograms(tissueNormalized, templateData['rightHem'])
-    processedData['tissueProcessed'] = processedData['tissueProcessed'] - processedData['tissueProcessed'].min()
+    tissueHistMatch = match_histograms(tissueNormalized, templateData['rightHem'])
+    tissueHistMatch = tissueHistMatch - tissueHistMatch.min()
     if 'scaleFactors' in sampleData:
-        # tissue points do not necessarily start at [0,0], check bound
+        # tissue points do not necessarily start at [0,0], check bounding box
         tissuePoints = processedData['tissuePositionList']
         tissuePoints[:,0] = tissuePoints[:,0] + np.abs(sampleData['scaleFactors']['bbox_microns'][0])
         tissuePoints[:,1] = tissuePoints[:,1] + np.abs(sampleData['scaleFactors']['bbox_microns'][1])
         tissuePointsResized = tissuePoints * 0.09 # sampleData['scaleFactors']['microns_per_pixel']  
     else:
         tissuePointsResized = processedData['tissuePositionList'] * 0.09
-
+    tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResized, tissueHistMatch, rotation)
+    processedData['tissueProcessed'] = tissueRotated
     processedData['geneListMasked'] = sampleData['geneList']
-    processedData['processedTissuePositionList'] = tissuePointsResized
+    processedData['processedTissuePositionList'] = tissuePointsRotated
     if log2normalize==True:
         processedData['geneMatrixLog2'] = sp_sparse.csc_matrix(np.log2((processedData['geneMatrix'] + 1)))
         sp_sparse.save_npz(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointOrderedGeneMatrixLog2Normalized.npz", processedData['geneMatrixLog2'])
