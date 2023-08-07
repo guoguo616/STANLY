@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -26,7 +26,7 @@ import time
 from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
 sourcedata = os.path.join('/','media','zjpeters','Samsung_T5','merscope','Slide1_Apr24')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
@@ -66,6 +66,7 @@ plt.show()
 #%% function for using a lasso tool
 from matplotlib.widgets import LassoSelector
 def regionPolygon(coor):
+    global coorList
     coorList = []
     coorList.append(coor)
     return coorList
