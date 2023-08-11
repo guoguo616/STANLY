@@ -399,7 +399,7 @@ def runANTsToAllenRegistration(processedVisium, templateData, log2normalize=True
         registeredData['fwdtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat")]
         registeredData['invtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1InverseWarp.nii.gz"),]
         registeredData['tissueRegistered'] = plt.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
-    except IOError:
+    except Exception as e:
         print(f"Registering {processedVisium['sampleID']}")
         # convert into ants image type
         registeredData['sampleID'] = processedVisium['sampleID']
