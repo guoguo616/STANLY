@@ -115,7 +115,7 @@ for sampleIdx, actSample in enumerate(allSamplesToAllen):
     sortedIdxList = np.zeros(nGenesInList,dtype='int32')
     for sortedIdx, actGene in enumerate(allSampleGeneList):
         sortedIdxList[sortedIdx] = allSamplesToAllen[sampleIdx]['geneListMasked'].index(actGene)
-    allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['filteredFeatureMatrixMasked'][sortedIdxList,:].astype('int32')
+    allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['geneMatrixMasked'][sortedIdxList,:].astype('int32')
     allSamplesToAllen[sampleIdx].pop('geneMatrixMasked')
     allSamplesToAllen[sampleIdx].pop('geneListMasked')
 
@@ -171,7 +171,7 @@ for actK in clusterRange:
     ax1.set_xlim([-1, 1])
     # The (n_clusters+1)*10 is for inserting blank space between silhouette
     # plots of individual clusters, to demarcate them clearly.
-    ax1.set_ylim([0, sampleToCluster['filteredFeatureMatrixLog2'].shape[1] + (actK + 1) * 10])
+    ax1.set_ylim([0, sampleToCluster['geneMatrixLog2'].shape[1] + (actK + 1) * 10])
 
     clusters = KMeans(n_clusters=actK, init='random', n_init=500, tol=1e-10)
     cluster_labels = clusters.fit_predict(np.real(eigvecsampleToClusterSort[:,0:actK]))
@@ -245,7 +245,7 @@ for actK in clusterRange:
     plt.show()
 
 #%% calculate a mean filtered feature matrix for control subjects
-digitalControlFilterFeatureMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
+digitalControlGeneMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
 nControls = 0
 for actSpotIdx in range(nDigitalSpots):
     digitalControlColumn = np.zeros([nGenesInList,1],dtype='float32')
@@ -255,13 +255,13 @@ for actSpotIdx in range(nDigitalSpots):
             nControls += 1
             spots = allSamplesToAllen[actSample]['digitalSpotNearestNeighbors'][actSpotIdx,:]
             if np.all(spots > 0):
-                digitalControlColumn = digitalControlColumn + np.sum(allSamplesToAllen[actSample]['filteredFeatureMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
+                digitalControlColumn = digitalControlColumn + np.sum(allSamplesToAllen[actSample]['geneMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
                 nSpotsTotal+=kSpots
             
-    digitalControlFilterFeatureMatrix[:,actSpotIdx] = np.array(np.divide(digitalControlColumn, nSpotsTotal),dtype='float32').flatten()
+    digitalControlGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalControlColumn, nSpotsTotal),dtype='float32').flatten()
 
 #%% calculate a mean filtered feature matrix for Experimental subjects
-digitalExperimentalFilterFeatureMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
+digitalExperimentalGeneMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
 nExperimentals = 0
 for actSpotIdx in range(nDigitalSpots):
     digitalExperimentalColumn = np.zeros([nGenesInList,1],dtype='float32')
@@ -271,10 +271,10 @@ for actSpotIdx in range(nDigitalSpots):
             nExperimentals += 1
             spots = allSamplesToAllen[actSample]['digitalSpotNearestNeighbors'][actSpotIdx,:]
             if np.all(spots > 0):
-                digitalExperimentalColumn = digitalExperimentalColumn + np.sum(allSamplesToAllen[actSample]['filteredFeatureMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
+                digitalExperimentalColumn = digitalExperimentalColumn + np.sum(allSamplesToAllen[actSample]['geneMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
                 nSpotsTotal+=kSpots
             
-    digitalExperimentalFilterFeatureMatrix[:,actSpotIdx] = np.array(np.divide(digitalExperimentalColumn, nSpotsTotal),dtype='float32').flatten()
+    digitalExperimentalGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalExperimentalColumn, nSpotsTotal),dtype='float32').flatten()
 
 
 #%% calculate fully connected cosine sim for mean filtered feature matrix
