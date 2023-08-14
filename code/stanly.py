@@ -397,7 +397,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         registeredData['fwdtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat")]
         registeredData['invtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1InverseWarp.nii.gz"),]
         registeredData['tissueRegistered'] = plt.imread(os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
-    except IOError:
+    except Exception as e:
         #######################################################################
         # working here to add merfish updates
         #######################################################################
