@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -26,7 +26,7 @@ import time
 from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
 sourcedata = os.path.join('/','media','zjpeters','Samsung_T5','merscope','Slide1_Apr24')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
@@ -64,101 +64,97 @@ plt.show()
 # plt.imshow(templateData['wholeBrain'], alpha=0.3)
 
 #%% function for using a lasso tool
-from matplotlib.widgets import LassoSelector
-def regionPolygon(coor):
-    global coorList
-    coorList = []
-    coorList.append(coor)
-    print(coor)
-    return coorList
-lineProperties={'color':'red', 'linewidth':4,'alpha':0.8}
-fig, ax = plt.subplots()
-ax.imshow(processedSample['tissueProcessed'], cmap='gray')
-ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
-lasso = LassoSelector(ax, onselect=regionPolygon, button=1)
 
-#%% using example script from matplotlib page 
+# def regionPolygon(coor):
+#     global coorList
+#     coorList = []
+#     coorList.append(coor)
+#     print(coor)
+#     return coorList
+# lineProperties={'color':'red', 'linewidth':4,'alpha':0.8}
+# fig, ax = plt.subplots()
+# ax.imshow(processedSample['tissueProcessed'], cmap='gray')
+# ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
+# lasso = LassoSelector(ax, onselect=regionPolygon, button=1)
+
+#%% build MaskedSampleData using example script from matplotlib page 
 # https://matplotlib.org/stable/gallery/widgets/lasso_selector_demo_sgskip.html
-from matplotlib.path import Path
 
-class SelectFromCollection:
+class MaskedSampleData:
     """
-    Select indices from a matplotlib collection using `LassoSelector`.
-
-    Selected indices are saved in the `ind` attribute. This tool fades out the
-    points that are not part of the selection (i.e., reduces their alpha
-    values). If your collection has alpha < 1, this tool will permanently
-    alter the alpha values.
-
-    Note that this tool selects collection objects based on their *origins*
-    (i.e., `offsets`).
-
+    Choose cells for a sample using the LassoSelector from matplotlib
+    
     Parameters
     ----------
-    ax : `~matplotlib.axes.Axes`
-        Axes to interact with.
-    collection : `matplotlib.collections.Collection` subclass
-        Collection you want to select from.
-    alpha_other : 0 <= float <= 1
-        To highlight a selection, this tool sets all selected points to an
-        alpha value of 1 and non-selected points to *alpha_other*.
+    processedSample : a processed version of spatial transcriptomic/genomic data
     """
-
-    def __init__(self, ax, collection, alpha_other=0.1):
-        self.canvas = ax.figure.canvas
-        self.collection = collection
+    maskedData = {}    
+    def __init__(self, processedSample, alpha_other=0.1):
+        self.fig, self.ax = plt.subplots()
+        self.ax.imshow(processedSample['tissueProcessed'], cmap='gray')
+        self.pts = self.ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
+        self.canvas = self.ax.figure.canvas
+        # self.collection = collection
         self.alpha_other = alpha_other
-
-        self.xys = collection.get_offsets()
-        self.Npts = len(self.xys)
+        self.tissuePositionList = processedSample['processedTissuePositionList']
+        self.xys = self.pts.get_offsets()
+        self.Npts = len(self.tissuePositionList)
 
         # Ensure that we have separate colors for each object
-        self.fc = collection.get_facecolors()
+        self.fc = self.pts.get_facecolors()
         if len(self.fc) == 0:
             raise ValueError('Collection must have a facecolor')
         elif len(self.fc) == 1:
             self.fc = np.tile(self.fc, (self.Npts, 1))
 
-        self.lasso = LassoSelector(ax, onselect=self.onselect)
-        self.ind = []
-
+        self.lasso = LassoSelector(self.ax, onselect=self.onselect)
+        self.maskedTissuePositionList = []
+        self.fig.canvas.mpl_connect("key_press_event", self.acceptCells)
+        self.ax.set_title("Press enter to use selected cells, press esc to start over")
+        plt.show()
     def onselect(self, verts):
         path = Path(verts)
-        self.ind = np.nonzero(path.contains_points(self.xys))[0]
+        self.maskedTissuePositionList = np.nonzero(path.contains_points(self.xys))[0]
         self.fc[:, -1] = self.alpha_other
-        self.fc[self.ind, -1] = 1
-        self.collection.set_facecolors(self.fc)
+        self.fc[self.maskedTissuePositionList, -1] = 1
+        self.pts.set_facecolors(self.fc)
         self.canvas.draw_idle()
 
     def disconnect(self):
         self.lasso.disconnect_events()
         self.fc[:, -1] = 1
-        self.collection.set_facecolors(self.fc)
+        self.pts.set_facecolors(self.fc)
         self.canvas.draw_idle()
+        
+    def acceptCells(self, event):
+        if event.key == "enter":
+            print("Selected points:")
+            print(self.xys[self.maskedTissuePositionList])
+            self.disconnect()
+            plt.close(self.fig)
+        elif event.key == "escape":
+            print("Restarting selection process")
+            self.disconnect()
+            plt.close('all')
+            self.__init__(processedSample)
+            
+    
+selector = MaskedSampleData(processedSample)
 
-# subplot_kw = dict(xlim=(0, 1), ylim=(0, 1), autoscale_on=False)
+# def accept(event):
+#     if event.key == "enter":
+#         print("Selected points:")
+#         print(selector.xys[selector.ind])
+#         selector.disconnect()
+#         ax.set_title("")
+#         fig.canvas.close()
+    
+        
 
-# fig, ax = plt.subplots(subplot_kw=subplot_kw)
+# fig.canvas.mpl_connect("key_press_event", accept)
+# ax.set_title("Press enter to accept selected points.")
 
-fig, ax = plt.subplots()
-ax.imshow(processedSample['tissueProcessed'], cmap='gray')
-pts = ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
-
-# pts = ax.scatter(data[:, 0], data[:, 1], s=80)
-selector = SelectFromCollection(ax, pts)
-
-def accept(event):
-    if event.key == "enter":
-        print("Selected points:")
-        print(selector.xys[selector.ind])
-        selector.disconnect()
-        ax.set_title("")
-        fig.canvas.close()
-
-fig.canvas.mpl_connect("key_press_event", accept)
-ax.set_title("Press enter to accept selected points.")
-
-plt.show()
+# plt.show()
 #%% test digital spot creation using merfish to perform clustering
 wholeBrainSpotSize = 5
 templateDigitalSpots = stanly.createDigitalSpots(sampleRegistered, wholeBrainSpotSize)
