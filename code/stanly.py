@@ -28,6 +28,8 @@ import tables
 import time
 import itk
 import pandas as pd
+from matplotlib.widgets import LassoSelector
+from matplotlib.path import Path
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -1262,42 +1264,72 @@ def selectSpotsWithGeneList(processedSample, geneList, threshold=1):
         maskedTissuePositionList = []
     return maskedMatrix, maskedTissuePositionList
 
-#%% updating rotateTissuePoints to take more than 0,90,180,270
+#%% used example script from matplotlib page as template for below
+# https://matplotlib.org/stable/gallery/widgets/lasso_selector_demo_sgskip.html
+class SelectUsingLasso:
+    """
+    Parameters
+    ----------
+    processedSample : takes a processed sample (visium or merfish) and plots
+        to allow using the lasso tool to select spots of interest
+    """
 
-# def rotateTissuePoints(tissuePoints, theta):
-#     ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
-#     # scales tissue coordinates down to image resolution
-#     # tissuePointsResizeToHighRes = sampleData["tissuePositionList"][0:, 3:] * sampleData["scaleFactors"]["tissue_hires_scalef"]
-#     # # below switches x and y in order to properly rotate, this gets undone after registration
-#     # tissuePointsResizeToHighRes[:,[0,1]] = tissuePointsResizeToHighRes[:,[1,0]]  
+    def __init__(self, processedSample, alpha_unselected=0.1):
+        self.img = processedSample['tissueProcessed']
+        self.fig, self.ax = plt.subplots()
+        self.ax.imshow(self.img, cmap='gray')
+        self.pts = self.ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
+        self.canvas = self.ax.figure.canvas
+        # self.pts = self.pts
+        self.alpha_unselected = alpha_unselected
+        self.xys = self.pts.get_offsets()
+        self.Npts = len(self.xys)
+
+        # Ensure that we have separate colors for each object
+        self.fc = self.pts.get_facecolors()
+        if len(self.fc) == 0:
+            raise ValueError('Collection must have a facecolor')
+        elif len(self.fc) == 1:
+            self.fc = np.tile(self.fc, (self.Npts, 1))
+
+        self.lasso = LassoSelector(self.ax, onselect=self.onselect)
+        self.ind = []
+        self.fig.canvas.mpl_connect("key_press_event", self.accept)
+        self.ax.set_title("Press enter to accept selected points.")
+
+    def onselect(self, verts):
+        path = Path(verts)
+        self.ind = np.nonzero(path.contains_points(self.xys))[0]
+        self.fc[:, -1] = self.alpha_unselected
+        self.fc[self.ind, -1] = 1
+        self.pts.set_facecolors(self.fc)
+        imageX,imageY = np.meshgrid(np.arange(self.img.shape[1]),np.arange(self.img.shape[0]))
+        imageX,imageY = imageX.flatten(), imageY.flatten()
+        points = np.vstack((imageX, imageY)).T
+        containPoints = path.contains_points(points)
+        self.imageMask = containPoints.reshape((self.img.shape[0],self.img.shape[1]))
+        self.canvas.draw_idle()
+        
+
+    def disconnect(self):
+        self.lasso.disconnect_events()
+        self.fc[:, -1] = 1
+        self.pts.set_facecolors(self.fc)
+        self.canvas.draw_idle()
+        
+    def outputMaskedSpots(self):
+        self.maskedSpots = self.xys[self.ind]
+        # return self.maskedSpots
     
-#     rotMat = [[np.cos(theta),-(np.sin(theta))],[np.sin(theta),np.cos(theta)]]
-#     tissuePointsRotate = np.matmul(tissuePoints, rotMat)
-#     # if rotation == 0:
-#     #     # a null step, but makes for continuous math
-#     #     rotMat = [[1,0],[0,1]]
-#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-#     #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0]
-#     # elif rotation == 90:
-#     #     rotMat = [[0,-1],[1,0]]
-#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-#     #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[1]
-#     # elif rotation == 180:
-#     #     rotMat = [[-1,0],[0,-1]]
-#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-#     #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[1]
-#     #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-#     # elif rotation == 270:
-#     #     rotMat = [[0,1],[-1,0]]
-#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-#     #     tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] + sampleData["imageDataGray"].shape[0]
-#     # elif rotation == -180:
-#     #     rotMat = [[1,0],[0,-1]]
-#     #     tissuePointsResizeRotate = np.matmul(tissuePointsResizeToHighRes, rotMat)
-#     #     # tissuePointsResizeRotate[:,0] = tissuePointsResizeRotate[:,0] #+ visiumData["imageDataGray"].shape[1]
-#     #     tissuePointsResizeRotate[:,1] = tissuePointsResizeRotate[:,1] + sampleData["imageDataGray"].shape[0]
-#     # else:
-#     #     print("Incorrect rotation! Please enter: 0, 90, 180, or 270")
-#     #     print("To flip image across axis, use a - before the rotation, i.e. -180 to rotate an image 180 degrees and flip across hemisphere")
+    def outputMaskedImage(self, processedSample):
+        self.maskedImage = self.img * self.imageMask
     
-#     return tissuePointsRotate
+    def accept(self, event):
+        global maskedSpots
+        if event.key == "enter":
+            print("Selected points:")
+            print(self.xys[self.ind])
+            self.disconnect()
+            self.ax.set_title("")
+            plt.close()
+        
