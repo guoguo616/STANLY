@@ -7,7 +7,9 @@ This project has been created and maintained by Zeru Peterson at the University 
 
 @author: Zeru Peterson, zeru-peterson@uiowa.edu https://research-git.uiowa.edu/zjpeters/STANLY
 """
-# data being read in includes: json, h5, csv, nrrd, jpg, and svg
+__version__ = '0.0.1'
+__author__ = 'Zeru Peterson'
+# data being read in includes: json, h5, csv, nrrd, jpg, tiff, and svg
 import os
 from skimage import io, filters, color, feature, morphology
 from skimage.transform import rescale, rotate
@@ -35,8 +37,6 @@ codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
 del refDataPath[-1]
 refDataPath = os.path.join('/',*refDataPath)
-# need to think about best way to load allen data given the size
-# ara_nissl_10 is 10 um, ara_nissl_100 is 100um
 
 """ notes about visium data:
     there are a total of 4,992 possible spots on a slide
@@ -83,9 +83,9 @@ end of code from 10x
 """
 
 """ the general workflow should go as follows:
-    1. import data that has been run through spaceranger pipeline
+    1. import spatial transcriptomic/genomic data
     2. import relevant atlas images and annotations from allen atlas
-    3. prepare data for registration into Common Coordinate Framework (ccf)
+    3. prepare data for registration into Common Coordinate Framework (CCF)
     4. use SyN registration from ANTs to register histological image to allen image
     5. bring remaining data, such as spot coordinates, into allen space using above transformations
     6. measure for nearest neighbor similarity among spots in new space and create a vector that represents the nearest neighbors from each slice
@@ -93,7 +93,7 @@ end of code from 10x
 
 def importVisiumData(sampleFolder):
     # this currently assumes that sampleFolder contains spatial folder and the
-    # filtered_feature_bc_matrix.h5 output from space ranger
+    # filtered_feature_bc_matrix.h5 output from space ranger, but includes some attempts to resolve
     visiumData = {}
     if os.path.exists(os.path.join(sampleFolder,"spatial")):
         spatialFolder = os.path.join(sampleFolder,"spatial")
@@ -390,19 +390,19 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     #     templateAntsImage = ants.from_numpy(templateData['wholeBrain'])
     #     maxWidth = templateData['wholeBrain'].shape[1]
     try:
-<<<<<<< HEAD
-        file = open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
-        print(f"{processedVisium['sampleID']} has already been processed and is located at: {processedVisium['derivativesPath']}")
-        print(f"Loading data for {processedVisium['sampleID']}")
-        registeredData['sampleID'] = processedVisium['sampleID']
-        registeredData['derivativesPath'] = processedVisium['derivativesPath']
-        registeredData['geneListMasked'] = processedVisium['geneListMasked']
-        registeredData['fwdtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat")]
-        registeredData['invtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1InverseWarp.nii.gz"),]
-        registeredData['tissueRegistered'] = plt.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
-    except Exception as e:
-        print(f"Registering {processedVisium['sampleID']}")
-=======
+# <<<<<<< HEAD
+#         file = open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
+#         print(f"{processedVisium['sampleID']} has already been processed and is located at: {processedVisium['derivativesPath']}")
+#         print(f"Loading data for {processedVisium['sampleID']}")
+#         registeredData['sampleID'] = processedVisium['sampleID']
+#         registeredData['derivativesPath'] = processedVisium['derivativesPath']
+#         registeredData['geneListMasked'] = processedVisium['geneListMasked']
+#         registeredData['fwdtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat")]
+#         registeredData['invtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1InverseWarp.nii.gz"),]
+#         registeredData['tissueRegistered'] = plt.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
+#     except Exception as e:
+#         print(f"Registering {processedVisium['sampleID']}")
+# =======
         file = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
         print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")
         print(f"Loading data for {processedData['sampleID']}")
@@ -417,7 +417,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         # working here to add merfish updates
         #######################################################################
         print(f"Registering {processedData['sampleID']}")
->>>>>>> merfishTesting
+# >>>>>>> merfishTesting
         # convert into ants image type
         registeredData['sampleID'] = processedData['sampleID']
         registeredData['derivativesPath'] = processedData['derivativesPath']

@@ -38,20 +38,20 @@ STANLY was built with modularity involved, which is why we built the code around
 
 # Participants file
 
-Also inside of the rawdata folder you will need to create a .tsv file listing information about your samples including the sample ID, degrees of affine rotation [0,+/-90,+/-180,+/-270], and experimental group [0,1].
+Also inside of the rawdata folder you will need to create a .tsv file listing information about your samples including the sample ID, degrees of affine rotation, experimental group [0,1], and whether or not the sample should be flipped across the hemisphere [0,1].
 ```
-participant_id  deg_rot sleep_dep
-sample-01 270  1
-sample-02 270 0
-sample-03 270  1
+participant_id  deg_rot sleep_dep flip
+sample-01       270     1           0
+sample-02       270     0           0
+sample-03       270     1           0
 ... ... ...
-sample-16 -180  1
+sample-16       180    1           1
 ```
-The degrees of affine rotation is the degrees of counter-clockwise rotation that it takes to bring a coronal slice into the same orientation as the template to be registered to. Additionally, to flip the hemisphere of a slice, add a `-` before the degrees of rotation, as with sample-16 above.
+The degrees of affine rotation is the degrees of counter-clockwise rotation that it takes to bring a coronal slice into the same orientation as the template to be registered to. Additionally, to flip the hemisphere of a slice, set the value in the final column to 1, as with sample-16 above. These will all be inputs to the `processVisiumData` or `processMerfishData` functions. ***Text of image will be updated soon, the images showing -180 rotation are now 180 + flip***
 ![Image shows three examples of rotation performed in STANLY. First row, with the superior side of the mouse brain facing the right side of the screen a 90 degree counter-clockwise rotation is performed so that the superior side is facing the top of the screen. Second row, with the superior side of the mouse brain facing the left side of the screen a 270 degree counter-clockwise rotation is performed so that the superior side is facing the top of the screen. Third row, with the superior side of the mouse brain facing the bottom side of the screen a -180 degree counter-clockwise rotation is performed so that the superior side is facing the top of the screen and additionally the slice has been flipped across the left-right axis. All images are displayed in radiological orientation.](/source/images/rotationExplainer.png)*Examples for describing rotation in participants.tsv*
 # Importing data
 
-Create a python script in a code editor (I use Spyder through Anaconda) and save it inside your code folder. This will be the script you use to process your data. Assuming you have downloaded the STANLY code and stored it somewhere you can easily access and import it, the first command we will use from STANLY will be to set the experimental folder for your analysis by running the `setExperimentalFolder` command.
+Create a python script in a code editor (I use Spyder through Anaconda) and save it inside your code folder. This will be the script you use to process your data. Assuming you have downloaded the STANLY code and stored it somewhere you can easily access and import it, the first command we will use from STANLY will be to set the experimental folder for your analysis by running the `setExperimentalFolder` command as shown below. (Alternately, you can set your `rawdata` and `derivatives` variables manually by using `os.path.join()` to assign a folder to each.)
 ```python
 import os
 from matplotlib import pyplot as plt
@@ -72,8 +72,8 @@ If you have already removed any excluded samples from your `participants.tsv` fi
 
 # Loading the template and processing samples
 
-STANLY has been built using the Allen Common Coordinate Framework (CCF) template image for registration of coronal brain slices from the mouse. To find the correct slice for alignment the user should look through the [Interactive Atlas Viewer](http://atlas.brain-map.org/atlas?atlas=1#atlas=1) and use the number of the slice listed below the image as the input for `chooseTemplateSlice` in STANLY. When run, this will first check if the user has already downloaded the reference data and if not download it. This may take awhile, so be patient during the loading. Once loaded, it will have the image data for the appropriate Nissl stained image as well as the annotation information provided by the Allen Institute. The next step is to process all of the samples imported above. We can do this all using a loop like so:
-
+STANLY has been built using the Allen Common Coordinate Framework (CCF) template image for registration of coronal brain slices from the mouse. To find the correct slice for alignment the user should look through the [Interactive Atlas Viewer](http://atlas.brain-map.org/atlas?atlas=1#atlas=1) and use the number of the slice listed below the image as the input for `chooseTemplateSlice` in STANLY. When run, this will first check if the user has already downloaded the reference data and if not download it. This may take awhile, so be patient during the loading. Once loaded, it will have the image data for the appropriate Nissl stained image as well as the annotation information provided by the Allen Institute. The next step is to process all of the samples imported above and output the processed data into our `derivatives` folder. We can do this all using a loop like so:
+*Note: if you want to flip one of your samples, you can add `flip=True` option to the `processVisiumData` function*
 ```python
  template = stanly.chooseTemplateSlice(70)
 
@@ -81,7 +81,7 @@ STANLY has been built using the Allen Common Coordinate Framework (CCF) template
 totalSpotCount = 0
 for actSample in range(len(experiment['sample-id'])):
     sample = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
-    sampleProcessed = stanly.processVisiumData(sample, template, experiment['rotation'][actSample])
+    sampleProcessed = stanly.processVisiumData(sample, template, experiment['rotation'][actSample], derivatives)
     processedSamples[actSample] = sampleProcessed
     totalSpotCount += sampleProcessed['spotCount']
 nTotalSamples = len(processedSamples)
@@ -89,14 +89,14 @@ spotCountMean = totalSpotCount / nTotalSamples
 print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
  ```
 
- This loop additionally calculates the average number of spots from all samples for a sanity check. Will also show the image of spot-wise z-scores for total gene count.
+This loop additionally calculates the average number of spots from all samples for a sanity check. Will also show the image of spot-wise z-scores for total gene count.
 
 # Register best fit image to template and apply transformation to remaining samples
 
-From your experiment, select one sample with good image quality to be your "best fit" image for registration. This image will be registered to the Allen CCF template image using the `runANTsToAllenRegistration` function, and all other images will subsequently be registered to this best fit using the `runANTsInterSampleRegistration` function, and have the best fit-to-Allen transformation applied to their images and spots using the `applyAntsTransformations` function. For this data, the sample we selected as best fit is sample-05 (which has a Python index of [4] in our `processedSamples` variable created above).
+From your experiment, select one sample with good image quality to be your "best fit" image for registration. This image will be registered to the Allen CCF template image using the `runANTsToAllenRegistration` function, and all other images will subsequently be registered to this best fit using the `runANTsInterSampleRegistration` function, and have the best fit-to-Allen transformation applied to their images and spots using the `applyAntsTransformations` function. For this data, the sample we selected as best fit is sample-05 (which has a Python index of [4] in our `processedSamples` variable created above). If your data contains only data from a particular hemisphere, you will want to use one of the options `hemisphere='rightHem'`, `hemisphere='leftHem'`, or `hemisphere='wholeBrain'` (now default) to the `runANTsToAllenRegistration` and `applyAntsTransformations`.
 
 ```python
-bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template)
+bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template, hemisphere='rightHem')
 
 experimentalResults = {}
 for actSample in range(len(processedSamples)):
