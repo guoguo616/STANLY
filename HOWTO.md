@@ -5,9 +5,13 @@ The STANLY codebase is built in such a way that a user can either use it to regi
 Yann Vanrobaeys, Zeru Peterson, Emily Walsh, Snehajyoti Chatterjee, Li-Chun Lin, Lisa Lyons, Thomas Nickl-Jockschat, Ted Abel
 bioRxiv 2023.01.18.524406; doi: https://doi.org/10.1101/2023.01.18.524406
 
+This HOWTO focuses on analysis of Visium data, we will be adding MERFISH data to this soon.
 # Dependencies
 
 List of dependencies can be found in requirements.txt. Additionally, this assumes you have run the Space Ranger pipeline on your Visium data.
+
+For installing pyvips in anaconda, had to use the informatio on this page: https://anaconda.org/conda-forge/pyvips
+Specifically the command: `conda install -c "conda-forge/label/cf202003" pyvips`
 
 # Data Structure
 

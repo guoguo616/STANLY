@@ -19,10 +19,31 @@ import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.cm as cm
+# colormap of colorblind friendly colors from https://gist.github.com/thriveth/8560036
+CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
+                  '#f781bf', '#a65628', '#984ea3',
+                  '#999999', '#e41a1c', '#dede00']
 
+# convert to rgb 
+cbRGB = []
+for h in CB_color_cycle:
+    hexNum = h.lstrip('#')
+    cbRGB.append(tuple(int(hexNum[i:i+2], 16) for i in (0, 2, 4)))
+    
+cbRGB = np.array(cbRGB)/255
+
+<<<<<<< HEAD
 rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
 #%% load experiment of samples that have already been processed and registered
+=======
+cbCmap = mcolors.LinearSegmentedColormap.from_list('colorblindColormap', cbRGB)
+
+
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+>>>>>>> merfishTesting
 template = stanly.chooseTemplateSlice(70)
+#%% load experiment of samples that have already been processed and registered
+
 sampleList = []
 templateList = []
 with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
@@ -32,33 +53,43 @@ with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
         sampleList.append(row[0])
         templateList.append(row[1:])
 
+sampleList = np.array(sampleList)
 templateList = np.array(templateList, dtype='int')
-
-# run edge detection on annotation image
-# start by renumbering annotated version so it doesn't have large numbers
-
-# list of good images
+# list of samples to include
 imageList = [0,1,2,3,4,5,6,7,10,11,12,13,15]
 
 experiment = {'sample-id': np.asarray(sampleList)[imageList],
                     'template-slice': templateList[imageList,0],
                     'rotation': templateList[imageList,1],
-                    'experimental-group': templateList[imageList,2]}
+                    'experimental-group': templateList[imageList,2],
+                    'flip': templateList[imageList,3]}
+
 
 processedSamples = {}
 totalSpotCount = 0
 for actSample in range(len(experiment['sample-id'])):
-    sampleProcessed = stanly.loadProcessedSample(os.path.join(derivatives, experiment['sample-id'][actSample]))
+    sampleData = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+    flipBool=False
+    if experiment['flip'][actSample]==1:
+        flipBool=True
+    sampleProcessed = stanly.processVisiumData(sampleData, template, experiment['rotation'][actSample], derivatives, flip=flipBool)
     processedSamples[actSample] = sampleProcessed
     totalSpotCount += sampleProcessed['spotCount']
 nTotalSamples = len(processedSamples)
 spotCountMean = totalSpotCount / nTotalSamples
 print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
 
+bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template, hemisphere='rightHem')
+
+experimentalResults = {}
+for actSample in range(len(processedSamples)):
+    sampleRegistered = stanly.runANTsInterSampleRegistration(processedSamples[actSample], processedSamples[4])
+    experimentalResults[actSample] = sampleRegistered
+
 allSamplesToAllen = {}
-for actSample in range(len(experiment['sample-id'])):
-    sampleRegistered = stanly.loadAllenRegisteredSample(os.path.join(derivatives, experiment['sample-id'][actSample]))
-    allSamplesToAllen[actSample] = sampleRegistered
+for actSample in range(len(experimentalResults)):
+    regSampleToTemplate = stanly.applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template, hemisphere='rightHem')
+    allSamplesToAllen[actSample] = regSampleToTemplate
 
 
 #%% create digital spots for whole slice and find nearest neighbors
@@ -77,6 +108,8 @@ for i, regSample in enumerate(allSamplesToAllen):
     else:
         allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
 
+allSampleGeneListSorted = sorted(allSampleGeneList)
+
 nDigitalSpots = len(templateDigitalSpots)
 nSampleExperimental = sum(experiment['experimental-group'])
 nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
@@ -87,15 +120,15 @@ for sampleIdx, actSample in enumerate(allSamplesToAllen):
     sortedIdxList = np.zeros(nGenesInList,dtype='int32')
     for sortedIdx, actGene in enumerate(allSampleGeneList):
         sortedIdxList[sortedIdx] = allSamplesToAllen[sampleIdx]['geneListMasked'].index(actGene)
-    allSamplesToAllen[sampleIdx]['filteredFeatureMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['filteredFeatureMatrixMasked'][sortedIdxList,:].astype('int32')
-    allSamplesToAllen[sampleIdx].pop('filteredFeatureMatrixMasked')
+    allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['geneMatrixMasked'][sortedIdxList,:].astype('int32')
+    allSamplesToAllen[sampleIdx].pop('geneMatrixMasked')
     allSamplesToAllen[sampleIdx].pop('geneListMasked')
 
 #%% calculate list of fully connected edges for single sample
 fullyConnectedEdges = []
 sampleToCluster = processedSamples[6]
-for i in range(sampleToCluster['filteredFeatureMatrixLog2'].shape[1]):
-    for j in range(sampleToCluster['filteredFeatureMatrixLog2'].shape[1]):
+for i in range(sampleToCluster['geneMatrixLog2'].shape[1]):
+    for j in range(sampleToCluster['geneMatrixLog2'].shape[1]):
         fullyConnectedEdges.append([i,j])
         
 fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
@@ -104,7 +137,7 @@ fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
 # calculate cosine sim for single sample
 
 start_time = time.time()
-sampleToClusterFilteredFeatureMatrix = np.array(sampleToCluster['filteredFeatureMatrixLog2'].todense(),dtype='float32')
+sampleToClusterFilteredFeatureMatrix = np.array(sampleToCluster['geneMatrixLog2'].todense(),dtype='float32')
 adjacencyDataControl = [stanly.cosineSimOfConnection(sampleToClusterFilteredFeatureMatrix,I, J) for I,J in fullyConnectedEdges]
 print("--- %s seconds ---" % (time.time() - start_time))  
 
@@ -143,7 +176,7 @@ for actK in clusterRange:
     ax1.set_xlim([-1, 1])
     # The (n_clusters+1)*10 is for inserting blank space between silhouette
     # plots of individual clusters, to demarcate them clearly.
-    ax1.set_ylim([0, sampleToCluster['filteredFeatureMatrixLog2'].shape[1] + (actK + 1) * 10])
+    ax1.set_ylim([0, sampleToCluster['geneMatrixLog2'].shape[1] + (actK + 1) * 10])
 
     clusters = KMeans(n_clusters=actK, init='random', n_init=500, tol=1e-10)
     cluster_labels = clusters.fit_predict(np.real(eigvecsampleToClusterSort[:,0:actK]))
@@ -173,7 +206,8 @@ for actK in clusterRange:
         size_cluster_i = ith_cluster_silhouette_values.shape[0]
         y_upper = y_lower + size_cluster_i
 
-        color = cm.tab20b(float(i) / actK)
+        # color = cm.tab20b(float(i) / actK)
+        color = cbCmap(float(i) / actK)
         ax1.fill_betweenx(
             np.arange(y_lower, y_upper),
             0,
@@ -200,9 +234,9 @@ for actK in clusterRange:
     ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
 
     # 2nd Plot showing the actual clusters formed
-    colors = cm.tab20b(cluster_labels.astype(float) / actK)
+    colors = cbCmap(cluster_labels.astype(float) / actK)
     ax2.imshow(sampleToCluster['tissueProcessed'],cmap='gray_r')
-    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap='Set2')
+    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap=cbCmap)
     ax2.set_title("The visualization of the clustered data.")
     ax2.axis('off')
 
@@ -216,7 +250,7 @@ for actK in clusterRange:
     plt.show()
 
 #%% calculate a mean filtered feature matrix for control subjects
-digitalControlFilterFeatureMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
+digitalControlGeneMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
 nControls = 0
 for actSpotIdx in range(nDigitalSpots):
     digitalControlColumn = np.zeros([nGenesInList,1],dtype='float32')
@@ -226,13 +260,13 @@ for actSpotIdx in range(nDigitalSpots):
             nControls += 1
             spots = allSamplesToAllen[actSample]['digitalSpotNearestNeighbors'][actSpotIdx,:]
             if np.all(spots > 0):
-                digitalControlColumn = digitalControlColumn + np.sum(allSamplesToAllen[actSample]['filteredFeatureMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
+                digitalControlColumn = digitalControlColumn + np.sum(allSamplesToAllen[actSample]['geneMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
                 nSpotsTotal+=kSpots
             
-    digitalControlFilterFeatureMatrix[:,actSpotIdx] = np.array(np.divide(digitalControlColumn, nSpotsTotal),dtype='float32').flatten()
+    digitalControlGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalControlColumn, nSpotsTotal),dtype='float32').flatten()
 
 #%% calculate a mean filtered feature matrix for Experimental subjects
-digitalExperimentalFilterFeatureMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
+digitalExperimentalGeneMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
 nExperimentals = 0
 for actSpotIdx in range(nDigitalSpots):
     digitalExperimentalColumn = np.zeros([nGenesInList,1],dtype='float32')
@@ -242,10 +276,10 @@ for actSpotIdx in range(nDigitalSpots):
             nExperimentals += 1
             spots = allSamplesToAllen[actSample]['digitalSpotNearestNeighbors'][actSpotIdx,:]
             if np.all(spots > 0):
-                digitalExperimentalColumn = digitalExperimentalColumn + np.sum(allSamplesToAllen[actSample]['filteredFeatureMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
+                digitalExperimentalColumn = digitalExperimentalColumn + np.sum(allSamplesToAllen[actSample]['geneMatrixMaskedSorted'][:,spots].todense().astype('float32'), axis=1)
                 nSpotsTotal+=kSpots
             
-    digitalExperimentalFilterFeatureMatrix[:,actSpotIdx] = np.array(np.divide(digitalExperimentalColumn, nSpotsTotal),dtype='float32').flatten()
+    digitalExperimentalGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalExperimentalColumn, nSpotsTotal),dtype='float32').flatten()
 
 
 #%% calculate fully connected cosine sim for mean filtered feature matrix
@@ -296,7 +330,7 @@ eigvalControlSortIdx = np.argsort(np.real(eigvalControl))[::-1]
 eigvecControlSort = np.real(eigvecControl[:,eigvalControlSortIdx])
 
 #%% run k means control
-clusterK = 25
+clusterK = 15
 clusters = KMeans(n_clusters=clusterK, init='random', n_init=300, tol=1e-8,).fit(np.real(eigvecControlSort[:,0:clusterK]))
 plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
 plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labels_,cmap='Set2')
@@ -318,7 +352,7 @@ eigvalExperimentalSortIdx = np.argsort(np.real(eigvalExperimental))[::-1]
 eigvecExperimentalSort = np.real(eigvecExperimental[:,eigvalExperimentalSortIdx])
 
 #%% run k means experimental
-clusterK = 25
+clusterK = 15
 clusters = KMeans(n_clusters=clusterK, init='random', n_init=300, tol=1e-8,).fit(np.real(eigvecExperimentalSort[:,0:clusterK]))
 plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
 plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labels_,cmap='tab20b')
@@ -397,7 +431,7 @@ for actK in clusterRange:
     # 2nd Plot showing the actual clusters formed
     colors = cm.tab20b(cluster_labels.astype(float) / actK)
     ax2.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray_r')
-    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='Set2')
+    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='tab20b')
     ax2.set_title("The visualization of the clustered control data.")
     ax2.axis('off')
 
@@ -483,7 +517,7 @@ for actK in clusterRange:
     # 2nd Plot showing the actual clusters formed
     colors = cm.tab20b(cluster_labels.astype(float) / actK)
     ax2.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray_r')
-    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='Set2')
+    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='tab20b')
     ax2.set_title("The visualization of the clustered Experimental data.")
     ax2.axis('off')
 
@@ -574,7 +608,7 @@ eigvalDeltaSortIdx = np.argsort(np.real(eigvalDelta))[::-1]
 eigvecDeltaSort = np.real(eigvecDelta[:,eigvalDeltaSortIdx])
 
 #%% run sillhoutte analysis on Delta clustering
-clusterRange = np.array(range(4,26))
+clusterRange = np.array(range(3,26))
 
 for actK in clusterRange:
     # Create a subplot with 1 row and 2 columns
@@ -617,7 +651,7 @@ for actK in clusterRange:
         size_cluster_i = ith_cluster_silhouette_values.shape[0]
         y_upper = y_lower + size_cluster_i
 
-        color = cm.nipy_spectral(float(i) / actK)
+        color = cm.tab20b(float(i) / actK)
         ax1.fill_betweenx(
             np.arange(y_lower, y_upper),
             0,
@@ -644,9 +678,9 @@ for actK in clusterRange:
     ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
 
     # 2nd Plot showing the actual clusters formed
-    colors = cm.nipy_spectral(cluster_labels.astype(float) / actK)
+    colors = cm.tab20b(cluster_labels.astype(float) / actK)
     ax2.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray_r')
-    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='Set2')
+    ax2.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=colors,cmap='tab20b')
     ax2.set_title("The visualization of the clustered Delta data.")
     ax2.axis('off')
 
