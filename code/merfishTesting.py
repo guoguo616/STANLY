@@ -13,7 +13,7 @@ import pandas as pd
 from skimage.transform import rescale, rotate, resize
 import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from glob import glob
 from skimage import io, filters, color, feature, morphology
@@ -27,8 +27,8 @@ from sklearn.cluster import KMeans
 import matplotlib.cm as cm
 from sklearn.metrics import silhouette_samples, silhouette_score
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
-sourcedata = os.path.join('/','media','zjpeters','Samsung_T5','merscope','Slide1_Apr24')
+rawdata, derivatives = stanly.setExperimentalFolder("/media/zjpeters/Samsung_T5/merscope/")
+sourcedata = os.path.join(rawdata,'Slide1_Apr24')
 
 # starting from the importVisiumData and processVisiumData function, create merfish equivalents
 # expected merfish data includes:
@@ -44,115 +44,260 @@ templateData = stanly.chooseTemplateSlice(70)
 sampleData = stanly.importMerfishData(sourcedata, derivatives)
 processedSample = stanly.processMerfishData(sampleData, templateData, 210, derivatives)
 # sampleRegistered = stanly.runANTsToAllenRegistration(processedSample, templateData)
-plt.imshow(templateData['wholeBrain'], cmap='gray')
-plt.show()
-plt.imshow(processedSample['tissueProcessed'], cmap='gray')
-plt.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
+# plt.imshow(templateData['wholeBrain'], cmap='gray')
+# plt.show()
+# plt.imshow(processedSample['tissueProcessed'], cmap='gray')
+# plt.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
 # plt.axis(False)
 # plt.savefig(os.path.join(derivatives,'allen_slice_90.png'), bbox_inches='tight', dpi=300)
-plt.show()
-
-
-# actSpots = np.array(np.squeeze(sampleData['geneMatrix'][:,95]), dtype='int32')
-# plt.imshow(sampleData['imageData'], cmap='gray')
-# plt.scatter(sampleData['tissuePositionList'][:,0],sampleData['tissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
-# plt.axis(False)
 # plt.show()
 
-# actSpots = np.array(np.squeeze(sampleRegistered['geneMatrixMasked'].todense()[95,:]), dtype='int32')
-# plt.imshow(sampleRegistered['tissueRegistered'], cmap='gray')
-# plt.scatter(sampleRegistered['maskedTissuePositionList'][:,0],sampleRegistered['maskedTissuePositionList'][:,1], c=actSpots, cmap='Reds', marker='.', alpha=0.3)
-# plt.imshow(templateData['wholeBrain'], alpha=0.3)
 
-#%% using example script from matplotlib page 
-# https://matplotlib.org/stable/gallery/widgets/lasso_selector_demo_sgskip.html
-# class SelectUsingLasso:
-#     """
-#     Parameters
-#     ----------
-#     processedSample : takes a processed sample (visium or merfish) and plots
-#         to allow using the lasso tool to select spots of interest
-#     """
+#%% split two samples from one image using lasso tool
 
-#     def __init__(self, processedSample, alpha_unselected=0.1):
+selectorRight = stanly.SelectUsingLasso(processedSample)
+#%%
+selectorRight.outputMaskedSpots()
+selectorRight.outputMaskedImage(processedSample)
+rightHem = selectorRight.outputMaskedSample(processedSample, 'rightHem')
+# = selector.maskedSpots
+#%% load experiment of samples that have already been processed and registered
+
+# sampleList = []
+# templateList = []
+# with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
+#     tsvreader = csv.reader(tsvfile, delimiter='\t')
+#     next(tsvreader)
+#     for row in tsvreader:
+#         sampleList.append(row[0])
+#         templateList.append(row[1:])
+
+# sampleList = np.array(sampleList)
+# templateList = np.array(templateList, dtype='int')
+# # list of samples to include
+# imageList = [0,1,2,3,4,5,6,7,10,11,12,13,15]
+
+# experiment = {'sample-id': np.asarray(sampleList)[imageList],
+#                     'template-slice': templateList[imageList,0],
+#                     'rotation': templateList[imageList,1],
+#                     'experimental-group': templateList[imageList,2],
+#                     'flip': templateList[imageList,3]}
+
+
+
+totalSpotCount = 0
+# for actSample in range(len(experiment['sample-id'])):
+#     sampleData = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
+#     flipBool=False
+#     if experiment['flip'][actSample]==1:
+#         flipBool=True
+#     sampleProcessed = stanly.processVisiumData(sampleData, template, experiment['rotation'][actSample], derivatives, flip=flipBool)
+# processedSampleRight = {}
+# processedSampleRight['degreesOfRotation']  = processedSample['degreesOfRotation']
+# processedSampleRight['derivativesPath'] = f"{processedSample['derivativesPath']}_rightHem"
+# processedSampleRight['geneList'] = processedSample['geneList']
+# processedSampleRight['geneListMasked'] = processedSample['geneListMasked']
+# processedSampleRight['geneMatrix'] = processedSample['geneMatrix'][:,selectorRight.ind]
+# processedSampleRight['geneMatrixLog2'] = processedSample['geneMatrixLog2'].todense()
+# processedSampleRight['geneMatrixLog2'] = processedSampleRight['geneMatrixLog2'][:,selectorRight.ind]
+# processedSampleRight['processedTissuePositionList'] = selectorRight.maskedSpots
+# processedSampleRight['sampleID'] = f"{processedSample['sampleID']}_rightHem"
+# processedSampleRight['tissuePositionList'] = processedSample['tissuePositionList']
+# processedSampleRight['tissueProcessed'] = selectorRight.maskedImage
+
+#%%
+selectorLeft = stanly.SelectUsingLasso(processedSample)
+
+#%%
+selectorLeft.outputMaskedSpots()
+selectorLeft.outputMaskedImage(processedSample)
+leftHem = selectorLeft.outputMaskedSample(processedSample, 'leftHem')
+# processedSampleLeft = {}
+# processedSampleLeft['degreesOfRotation']  = processedSample['degreesOfRotation']
+# processedSampleLeft['derivativesPath'] = f"{processedSample['derivativesPath']}_LeftHem"
+# processedSampleLeft['geneList'] = processedSample['geneList']
+# processedSampleLeft['geneListMasked'] = processedSample['geneListMasked']
+# processedSampleLeft['geneMatrix'] = processedSample['geneMatrix'][:,selectorLeft.ind]
+# processedSampleLeft['geneMatrixLog2'] = processedSample['geneMatrixLog2'].todense()
+# processedSampleLeft['geneMatrixLog2'] = processedSampleLeft['geneMatrixLog2'][:,selectorLeft.ind]
+# processedSampleLeft['processedTissuePositionList'] = selectorLeft.maskedSpots
+# processedSampleLeft['sampleID'] = f"{processedSample['sampleID']}_LeftHem"
+# processedSampleLeft['tissuePositionList'] = processedSample['tissuePositionList']
+# processedSampleLeft['tissueProcessed'] = selectorLeft.maskedImage
+
+#%% register processed samples
+bestSampleToTemplate = stanly.runANTsToAllenRegistration(rightHem, templateData, hemisphere='rightHem')
+
+#%% test digital spot creation using merfish to perform clustering
+wholeBrainSpotSize = 10
+templateDigitalSpots = stanly.createDigitalSpots(bestSampleToTemplate, wholeBrainSpotSize)
+nDigitalSpots = len(templateDigitalSpots)
+nGenesInList = len(bestSampleToTemplate['geneListMasked'])
+kSpots = 12
+actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, bestSampleToTemplate['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+
+#%% create digital spot gene matrix 
+digitalGeneMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
+nControls = 0
+for actSpotIdx in range(nDigitalSpots):
+    # digitalGeneColumn = np.zeros([nGenesInList,1],dtype='float32')
+    nSpotsTotal=0
+    spots = actNN[actSpotIdx,:]
+    if np.all(spots > 0):
+        digitalGeneColumn = np.median(bestSampleToTemplate['geneMatrixMasked'][:,spots].todense().astype('float32'), axis=1)
+        nSpotsTotal+=kSpots
+        # digitalGeneMatrix[:,actSpotIdx] = np.array(np.divide(digitalGeneColumn, nSpotsTotal),dtype='float32').flatten()
+        digitalGeneMatrix[:,actSpotIdx] = np.array(digitalGeneColumn,dtype='float32').flatten()
+#%% calculate list of fully connected edges for single sample
+fullyConnectedEdges = []
+sampleToCluster = processedSampleRight
+for i in range(sampleToCluster['geneMatrixLog2'].shape[1]):
+    for j in range(sampleToCluster['geneMatrixLog2'].shape[1]):
+        fullyConnectedEdges.append([i,j])
         
-#         self.fig, self.ax = plt.subplots()
-#         self.ax.imshow(processedSample['tissueProcessed'], cmap='gray')
-#         self.pts = self.ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
-#         self.canvas = self.ax.figure.canvas
-#         # self.pts = self.pts
-#         self.alpha_unselected = alpha_unselected
-#         self.xys = self.pts.get_offsets()
-#         self.Npts = len(self.xys)
+fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
+fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
 
-#         # Ensure that we have separate colors for each object
-#         self.fc = self.pts.get_facecolors()
-#         if len(self.fc) == 0:
-#             raise ValueError('Collection must have a facecolor')
-#         elif len(self.fc) == 1:
-#             self.fc = np.tile(self.fc, (self.Npts, 1))
+# calculate cosine sim for single sample
 
-#         self.lasso = LassoSelector(self.ax, onselect=self.onselect)
-#         self.ind = []
-#         self.fig.canvas.mpl_connect("key_press_event", self.accept)
-#         self.ax.set_title("Press enter to accept selected points.")
+start_time = time.time()
+sampleToClusterFilteredFeatureMatrix = np.array(sampleToCluster['geneMatrixLog2'].todense(),dtype='float32')
+adjacencyDataControl = [stanly.cosineSimOfConnection(sampleToClusterFilteredFeatureMatrix,I, J) for I,J in fullyConnectedEdges]
+print("--- %s seconds ---" % (time.time() - start_time))  
 
-#     def onselect(self, verts):
-#         path = Path(verts)
-#         self.ind = np.nonzero(path.contains_points(self.xys))[0]
-#         self.fc[:, -1] = self.alpha_unselected
-#         self.fc[self.ind, -1] = 1
-#         self.pts.set_facecolors(self.fc)
-#         imageX,imageY = np.meshgrid(np.arange(processedSample['tissueProcessed'].shape[1]),np.arange(processedSample['tissueProcessed'].shape[0]))
-#         imageX,imageY = imageX.flatten(), imageY.flatten()
-#         points = np.vstack((imageX, imageY)).T
-#         containPoints = path.contains_points(points)
-#         self.imageMask = containPoints.reshape((processedSample['tissueProcessed'].shape[0],processedSample['tissueProcessed'].shape[1]))
-#         self.canvas.draw_idle()
-        
-
-#     def disconnect(self):
-#         self.lasso.disconnect_events()
-#         self.fc[:, -1] = 1
-#         self.pts.set_facecolors(self.fc)
-#         self.canvas.draw_idle()
-        
-#     def outputMaskedSpots(self):
-#         self.maskedSpots = self.xys[self.ind]
-#         # return self.maskedSpots
+with open(os.path.join(derivatives,f'adjacencyDataFor{sampleToCluster["sampleID"]}DigitalSpots.csv'), 'w', encoding='UTF8') as f:
+    writer = csv.writer(f)
+    writer.writerow(adjacencyDataControl) 
     
-#     def outputMaskedImage(self):
-#         self.maskedImage = processedSample['tissueProcessed'] * self.imageMask
-    
-#     def accept(self, event):
-#         global maskedSpots
-#         if event.key == "enter":
-#             print("Selected points:")
-#             print(selector.xys[selector.ind])
-#             selector.disconnect()
-#             self.ax.set_title("")
-#             plt.close()
-        
-    
+# create laplacian for single sample
+WsampleToCluster= np.zeros([sampleToCluster['processedTissuePositionList'].shape[0],sampleToCluster['processedTissuePositionList'].shape[0]],dtype='float32')
+for idx, actCS in enumerate(adjacencyDataControl):
+    WsampleToCluster[fullyConnectedEdges[idx,0],fullyConnectedEdges[idx,1]] = float(actCS)
+    WsampleToCluster[fullyConnectedEdges[idx,1],fullyConnectedEdges[idx,0]] = float(actCS)
+# W = sp_sparse.coo_matrix((np.array(adjacencyDataControl), (nnEdgeList[:,0],nnEdgeList[:,1])), shape=(nnControlSortedIdx.shape[0],nnControlSortedIdx.shape[0]), dtype='float32')
+# W = W.todense()
+WsampleToCluster = (WsampleToCluster - WsampleToCluster.min())/(WsampleToCluster.max() - WsampleToCluster.min())
+WsampleToCluster[WsampleToCluster==1] = 0
+DsampleToCluster = np.diag(sum(WsampleToCluster))
+LsampleToCluster = DsampleToCluster - WsampleToCluster
+eigvalsampleToCluster,eigvecsampleToCluster = np.linalg.eig(LsampleToCluster)
+eigvalsampleToClusterSort = np.sort(np.real(eigvalsampleToCluster))[::-1]
+eigvalsampleToClusterSortIdx = np.argsort(np.real(eigvalsampleToCluster))[::-1]
+eigvecsampleToClusterSort = np.real(eigvecsampleToCluster[:,eigvalsampleToClusterSortIdx])
 
-selector = stanly.SelectUsingLasso(processedSample)
-selector.outputMaskedSpots()
-selector.outputMaskedImage(processedSample)
-test = selector.maskedSpots
-# maskedSpots = []
-# def accept(event):
-#     global maskedSpots
-#     if event.key == "enter":
-#         print("Selected points:")
-#         print(selector.xys[selector.ind])
-#         selector.disconnect()
-#         ax.set_title("")
-#         fig.canvas.close()
-    
-# fig.canvas.mpl_connect("key_press_event", accept)
-# ax.set_title("Press enter to accept selected points.")
+#%% run k means and silhouette analysis for single sample
 
-# plt.show()
+clusterRange = np.array(range(4,26))
+
+for actK in clusterRange:
+    # Create a subplot with 1 row and 2 columns
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.set_size_inches(18, 7)
+
+    # The 1st subplot is the silhouette plot
+    # The silhouette coefficient can range from -1, 1 but in this example all
+    # lie within [-0.1, 1]
+    ax1.set_xlim([-1, 1])
+    # The (n_clusters+1)*10 is for inserting blank space between silhouette
+    # plots of individual clusters, to demarcate them clearly.
+    ax1.set_ylim([0, sampleToCluster['geneMatrixLog2'].shape[1] + (actK + 1) * 10])
+
+    clusters = KMeans(n_clusters=actK, init='random', n_init=500, tol=1e-10)
+    cluster_labels = clusters.fit_predict(np.real(eigvecsampleToClusterSort[:,0:actK]))
+
+    # The silhouette_score gives the average value for all the samples.
+    # This gives a perspective into the density and separation of the formed
+    # clusters
+    silhouette_avg = silhouette_score(np.real(eigvecsampleToClusterSort[:,0:actK]), cluster_labels)
+    print(
+        "For n_clusters =",
+        actK,
+        "The average silhouette_score is :",
+        silhouette_avg,
+    )
+
+    # Compute the silhouette scores for each sample
+    sample_silhouette_values = silhouette_samples(np.real(eigvecsampleToClusterSort[:,0:actK]), cluster_labels)
+
+    y_lower = 10
+    for i in range(actK):
+        # Aggregate the silhouette scores for samples belonging to
+        # cluster i, and sort them
+        ith_cluster_silhouette_values = sample_silhouette_values[cluster_labels == i]
+
+        ith_cluster_silhouette_values.sort()
+
+        size_cluster_i = ith_cluster_silhouette_values.shape[0]
+        y_upper = y_lower + size_cluster_i
+
+        # color = cm.tab20b(float(i) / actK)
+        color = cbCmap(float(i) / actK)
+        ax1.fill_betweenx(
+            np.arange(y_lower, y_upper),
+            0,
+            ith_cluster_silhouette_values,
+            facecolor=color,
+            edgecolor=color,
+            alpha=0.7,
+        )
+
+        # Label the silhouette plots with their cluster numbers at the middle
+        ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+        # Compute the new y_lower for next plot
+        y_lower = y_upper + 10  # 10 for the 0 samples
+
+    ax1.set_title("The silhouette plot for the various clusters.")
+    ax1.set_xlabel("The silhouette coefficient values")
+    ax1.set_ylabel("Cluster label")
+
+    # The vertical line for average silhouette score of all the values
+    ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
+
+    ax1.set_yticks([])  # Clear the yaxis labels / ticks
+    ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+
+    # 2nd Plot showing the actual clusters formed
+    colors = cbCmap(cluster_labels.astype(float) / actK)
+    ax2.imshow(sampleToCluster['tissueProcessed'],cmap='gray_r')
+    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap=cbCmap)
+    ax2.set_title("The visualization of the clustered data.")
+    ax2.axis('off')
+
+    plt.suptitle(
+        f"Silhouette analysis for KMeans clustering on {sampleToCluster['sampleID']} data with n_clusters = %d"
+        % actK,
+        fontsize=14,
+        fontweight="bold",
+    )
+    plt.savefig(os.path.join(derivatives,f'clusteringAndSilhouetteSleepDep{sampleToCluster["sampleID"]}K{actK}.png'), bbox_inches='tight', dpi=300)
+    plt.show()
+
+#%% test selector
+testSelector = stanly.SelectUsingLasso(processedSample)
+
+#%% 
+processedSamples = {}
+processedSamples[0] = processedSampleRight
+processedSamples[1] = processedSampleLeft
+# totalSpotCount += sampleProcessed['spotCount']
+nTotalSamples = len(processedSamples)
+# spotCountMean = totalSpotCount / nTotalSamples
+# print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
+
+bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[0], templateData, hemisphere='rightHem')
+
+experimentalResults = {}
+for actSample in range(len(processedSamples)):
+    sampleRegistered = stanly.runANTsInterSampleRegistration(processedSamples[actSample], processedSamples[4])
+    experimentalResults[actSample] = sampleRegistered
+
+allSamplesToAllen = {}
+for actSample in range(len(experimentalResults)):
+    regSampleToTemplate = stanly.applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template, hemisphere='rightHem')
+    allSamplesToAllen[actSample] = regSampleToTemplate
+
+
 #%% test digital spot creation using merfish to perform clustering
 wholeBrainSpotSize = 5
 templateDigitalSpots = stanly.createDigitalSpots(sampleRegistered, wholeBrainSpotSize)

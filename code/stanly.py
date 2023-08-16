@@ -649,7 +649,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         spotNNIdx = []
         for i in actSpotCdist:
             if spotMeanCdist < (spotDist * 3):
-                actNNIdx = np.where(spotCdist == i)[0]
+                actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
                 spotNNIdx.append(actNNIdx[:])
             else:
                 # should probably change this from 0s to something like -1
@@ -1306,10 +1306,8 @@ class SelectUsingLasso:
         imageX,imageY = np.meshgrid(np.arange(self.img.shape[1]),np.arange(self.img.shape[0]))
         imageX,imageY = imageX.flatten(), imageY.flatten()
         points = np.vstack((imageX, imageY)).T
-        containPoints = path.contains_points(points)
-        self.imageMask = containPoints.reshape((self.img.shape[0],self.img.shape[1]))
+        self.maskPoints = path.contains_points(points)
         self.canvas.draw_idle()
-        
 
     def disconnect(self):
         self.lasso.disconnect_events()
@@ -1322,13 +1320,44 @@ class SelectUsingLasso:
         # return self.maskedSpots
     
     def outputMaskedImage(self, processedSample):
+        self.imageMask = self.maskPoints.reshape((self.img.shape[0],self.img.shape[1]))
         self.maskedImage = self.img * self.imageMask
+
+    def outputMaskedSample(self, processedSample, maskName):
+        processedSampleMasked = {}
+        processedSampleMasked['sampleID'] = f"{processedSample['sampleID']}_{maskName}"
+        processedSampleMasked['degreesOfRotation']  = processedSample['degreesOfRotation']
+        processedSampleMasked['derivativesPath'] = f"{processedSample['derivativesPath']}_{maskName}"
+        if not os.path.exists(processedSampleMasked['derivativesPath']):
+            os.makedirs(processedSampleMasked['derivativesPath'])
+        processedSampleMasked['geneList'] = processedSample['geneList']
+        processedSampleMasked['geneListMasked'] = processedSample['geneListMasked']
+        processedSampleMasked['geneMatrix'] = processedSample['geneMatrix'][:,self.ind]
+        denseMatrix = processedSample['geneMatrixLog2'].todense()
+        processedSampleMasked['geneMatrixLog2'] = sp_sparse.csc_matrix(denseMatrix[:,self.ind])
+        sp_sparse.save_npz(f"{os.path.join(processedSampleMasked['derivativesPath'],processedSampleMasked['sampleID'])}_tissuePointOrderedGeneMatrixLog2Normalized.npz", processedSampleMasked['geneMatrixLog2'])
+        processedSampleMasked['processedTissuePositionList'] = self.maskedSpots
+        processedSampleMasked['tissuePositionList'] = processedSample['tissuePositionList']
+        processedSampleMasked['tissueProcessed'] = self.maskedImage
+        # cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
+        cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissueProcessed.png",processedSampleMasked['tissueProcessed'])
+        header=['x','y','z','t','label','comment']
+        rowFormat = []
+        # the x and y are swapped between ants and numpy, but this is so far dealt with within the code
+        with open(f"{os.path.join(processedSampleMasked['derivativesPath'],processedSampleMasked['sampleID'])}_tissuePointsProcessed.csv", 'w', encoding='UTF8') as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            for i in range(len(processedSampleMasked['processedTissuePositionList'])):
+                rowFormat = [processedSampleMasked['processedTissuePositionList'][i,1]] + [processedSampleMasked['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
+                writer.writerow(rowFormat)
     
+        return processedSampleMasked
+        
     def accept(self, event):
         global maskedSpots
         if event.key == "enter":
-            print("Selected points:")
-            print(self.xys[self.ind])
+            # print("Selected points:")
+            # print(self.xys[self.ind])
             self.disconnect()
             self.ax.set_title("")
             plt.close()
