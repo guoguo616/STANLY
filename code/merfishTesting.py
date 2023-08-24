@@ -61,49 +61,9 @@ selectorRight.outputMaskedSpots()
 selectorRight.outputMaskedImage(processedSample)
 rightHem = selectorRight.outputMaskedSample(processedSample, 'rightHem')
 # = selector.maskedSpots
-#%% load experiment of samples that have already been processed and registered
-
-# sampleList = []
-# templateList = []
-# with open(os.path.join(rawdata,"participants.tsv"), newline='') as tsvfile:
-#     tsvreader = csv.reader(tsvfile, delimiter='\t')
-#     next(tsvreader)
-#     for row in tsvreader:
-#         sampleList.append(row[0])
-#         templateList.append(row[1:])
-
-# sampleList = np.array(sampleList)
-# templateList = np.array(templateList, dtype='int')
-# # list of samples to include
-# imageList = [0,1,2,3,4,5,6,7,10,11,12,13,15]
-
-# experiment = {'sample-id': np.asarray(sampleList)[imageList],
-#                     'template-slice': templateList[imageList,0],
-#                     'rotation': templateList[imageList,1],
-#                     'experimental-group': templateList[imageList,2],
-#                     'flip': templateList[imageList,3]}
-
-
 
 totalSpotCount = 0
-# for actSample in range(len(experiment['sample-id'])):
-#     sampleData = stanly.importVisiumData(os.path.join(rawdata, experiment['sample-id'][actSample]))
-#     flipBool=False
-#     if experiment['flip'][actSample]==1:
-#         flipBool=True
-#     sampleProcessed = stanly.processVisiumData(sampleData, template, experiment['rotation'][actSample], derivatives, flip=flipBool)
-# processedSampleRight = {}
-# processedSampleRight['degreesOfRotation']  = processedSample['degreesOfRotation']
-# processedSampleRight['derivativesPath'] = f"{processedSample['derivativesPath']}_rightHem"
-# processedSampleRight['geneList'] = processedSample['geneList']
-# processedSampleRight['geneListMasked'] = processedSample['geneListMasked']
-# processedSampleRight['geneMatrix'] = processedSample['geneMatrix'][:,selectorRight.ind]
-# processedSampleRight['geneMatrixLog2'] = processedSample['geneMatrixLog2'].todense()
-# processedSampleRight['geneMatrixLog2'] = processedSampleRight['geneMatrixLog2'][:,selectorRight.ind]
-# processedSampleRight['processedTissuePositionList'] = selectorRight.maskedSpots
-# processedSampleRight['sampleID'] = f"{processedSample['sampleID']}_rightHem"
-# processedSampleRight['tissuePositionList'] = processedSample['tissuePositionList']
-# processedSampleRight['tissueProcessed'] = selectorRight.maskedImage
+
 
 #%%
 selectorLeft = stanly.SelectUsingLasso(processedSample)
@@ -111,31 +71,65 @@ selectorLeft = stanly.SelectUsingLasso(processedSample)
 #%%
 selectorLeft.outputMaskedSpots()
 selectorLeft.outputMaskedImage(processedSample)
+selectorLeft.flip()
 leftHem = selectorLeft.outputMaskedSample(processedSample, 'leftHem')
-# processedSampleLeft = {}
-# processedSampleLeft['degreesOfRotation']  = processedSample['degreesOfRotation']
-# processedSampleLeft['derivativesPath'] = f"{processedSample['derivativesPath']}_LeftHem"
-# processedSampleLeft['geneList'] = processedSample['geneList']
-# processedSampleLeft['geneListMasked'] = processedSample['geneListMasked']
-# processedSampleLeft['geneMatrix'] = processedSample['geneMatrix'][:,selectorLeft.ind]
-# processedSampleLeft['geneMatrixLog2'] = processedSample['geneMatrixLog2'].todense()
-# processedSampleLeft['geneMatrixLog2'] = processedSampleLeft['geneMatrixLog2'][:,selectorLeft.ind]
-# processedSampleLeft['processedTissuePositionList'] = selectorLeft.maskedSpots
-# processedSampleLeft['sampleID'] = f"{processedSample['sampleID']}_LeftHem"
-# processedSampleLeft['tissuePositionList'] = processedSample['tissuePositionList']
-# processedSampleLeft['tissueProcessed'] = selectorLeft.maskedImage
 
+#%% 
+plt.imshow(leftHem['tissueProcessed'])
+plt.scatter(leftHem['processedTissuePositionList'][:,0], leftHem['processedTissuePositionList'][:,1])
+plt.show()
+plt.imshow(rightHem['tissueProcessed'])
+plt.scatter(rightHem['processedTissuePositionList'][:,0], rightHem['processedTissuePositionList'][:,1])
+plt.show()
 #%% register processed samples
 bestSampleToTemplate = stanly.runANTsToAllenRegistration(rightHem, templateData, hemisphere='rightHem')
+
+#%%
+processedSamples = {}
+processedSamples[0] = rightHem
+processedSamples[1] = leftHem
+
+experimentalResults = {}
+for actSample in range(len(processedSamples)):
+    sampleRegistered = stanly.runANTsInterSampleRegistration(processedSamples[actSample], processedSamples[0])
+    experimentalResults[actSample] = sampleRegistered
+
+allSamplesToAllen = {}
+for actSample in range(len(experimentalResults)):
+    regSampleToTemplate = stanly.applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, templateData, hemisphere='rightHem')
+    allSamplesToAllen[actSample] = regSampleToTemplate
+
 
 #%% test digital spot creation using merfish to perform clustering
 wholeBrainSpotSize = 10
 templateDigitalSpots = stanly.createDigitalSpots(bestSampleToTemplate, wholeBrainSpotSize)
 nDigitalSpots = len(templateDigitalSpots)
 nGenesInList = len(bestSampleToTemplate['geneListMasked'])
-kSpots = 12
-actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, bestSampleToTemplate['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+kSpots = 7
+#actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, bestSampleToTemplate['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
+for i, regSample in enumerate(allSamplesToAllen):        
+    actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+    allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype='int32')
+    # creates a list of genes present in all samples
+    if i == 0:
+        continue
+    else:
+        allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
 
+nDigitalSpots = len(templateDigitalSpots)
+nSampleExperimental = 1 # sum(experiment['experimental-group'])
+nSampleControl = 1 # len(experiment['experimental-group']) - nSampleExperimental
+nGenesInList = len(allSampleGeneList)
+
+for sampleIdx, actSample in enumerate(allSamplesToAllen):
+    allSamplesToAllen[sampleIdx]['allSampleGeneList'] = allSampleGeneList 
+    sortedIdxList = np.zeros(nGenesInList,dtype='int32')
+    for sortedIdx, actGene in enumerate(allSampleGeneList):
+        sortedIdxList[sortedIdx] = allSamplesToAllen[sampleIdx]['geneListMasked'].index(actGene)
+    allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['geneMatrixMasked'][sortedIdxList,:].astype('int32')
+    allSamplesToAllen[sampleIdx].pop('geneMatrixMasked')
+    allSamplesToAllen[sampleIdx].pop('geneListMasked')
 #%% create digital spot gene matrix 
 digitalGeneMatrix = np.zeros([nGenesInList,nDigitalSpots],dtype='float32')
 nControls = 0

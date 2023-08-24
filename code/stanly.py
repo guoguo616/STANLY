@@ -249,7 +249,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedVisium['sampleID'] = visiumData['sampleID']
     outputPath = os.path.join(outputFolder, visiumData['sampleID'])
-    
+    processedVisium['sourceType'] = 'visium'
     try:
         file = open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsProcessed.csv", 'r')
         print(f"{processedVisium['sampleID']} has already been processed! Loading data")
@@ -811,6 +811,7 @@ def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
     processedVisium = {}
     processedVisium['derivativesPath'] = os.path.join(locOfProcessedSample)
     processedVisium['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
+    processedVisium['sourceType'] = 'visium'
     processedVisium['tissueProcessed'] = io.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissueProcessed.png"))
     jsonPath = open(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_processing_information.json"))
     processedSampleJson = json.loads(jsonPath.read())
@@ -1147,6 +1148,7 @@ def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
     processedSample = {}
     processedSample['derivativesPath'] = os.path.join(locOfProcessedSample)
     processedSample['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
+    processedSample['sourceType'] = 'merfish'
     processedSample['tissueProcessed'] = io.imread(os.path.join(processedSample['derivativesPath'],f"{processedSample['sampleID']}_tissueProcessed.png"))
     jsonPath = open(os.path.join(processedSample['derivativesPath'],f"{processedSample['sampleID']}_processing_information.json"))
     processedSampleJson = json.loads(jsonPath.read())
@@ -1176,6 +1178,7 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     processedData = {}
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedData['sampleID'] = sampleData['sampleID']
+    processedData['sourceType'] = 'merfish'
     processedData['tissuePositionList'] = sampleData['tissuePositionList']
     processedData['geneMatrix'] = np.transpose(sampleData['geneMatrix'])
     processedData['geneList'] = sampleData['geneList']
@@ -1336,36 +1339,52 @@ class SelectUsingLasso:
     def outputMaskedImage(self, processedSample):
         self.imageMask = self.maskPoints.reshape((self.img.shape[0],self.img.shape[1]))
         self.maskedImage = self.img * self.imageMask
+        
+    def flip(self):
+        self.maskedImage = self.maskedImage[:,::-1]
+        self.maskedSpots = self.maskedSpots * [-1,1]
+        self.maskedSpots[:,0] = self.maskedSpots[:,0] + self.maskedImage.shape[0]
 
     def outputMaskedSample(self, processedSample, maskName):
+        
         processedSampleMasked = {}
         processedSampleMasked['sampleID'] = f"{processedSample['sampleID']}_{maskName}"
         processedSampleMasked['degreesOfRotation']  = processedSample['degreesOfRotation']
         processedSampleMasked['derivativesPath'] = f"{processedSample['derivativesPath']}_{maskName}"
-        if not os.path.exists(processedSampleMasked['derivativesPath']):
+        processedSampleMasked['sourceType'] = processedSample['sourceType']
+        if os.path.exists(processedSampleMasked['derivativesPath']):
+            print(f"Sample has already been created using the name {processedSampleMasked['sampleID']}")
+            print(f"Now loading {processedSampleMasked['sampleID']}")
+            print(f"If you want to create a new sample, either rename the mask or delete previous version")
+            if processedSampleMasked['sourceType'] == 'merfish':
+                processedSampleMasked = loadProcessedMerfishSample(processedSampleMasked['derivativesPath'])
+            elif processedSampleMasked['sourceType'] == 'visium':
+                processedSampleMasked = loadProcessedVisiumSample(processedSampleMasked['derivativesPath'])
+        else:
             os.makedirs(processedSampleMasked['derivativesPath'])
-        processedSampleMasked['geneList'] = processedSample['geneList']
-        processedSampleMasked['geneListMasked'] = processedSample['geneListMasked']
-        processedSampleMasked['geneMatrix'] = processedSample['geneMatrix'][:,self.ind]
-        denseMatrix = processedSample['geneMatrixLog2'].todense()
-        processedSampleMasked['geneMatrixLog2'] = sp_sparse.csc_matrix(denseMatrix[:,self.ind])
-        sp_sparse.save_npz(f"{os.path.join(processedSampleMasked['derivativesPath'],processedSampleMasked['sampleID'])}_tissuePointOrderedGeneMatrixLog2Normalized.npz", processedSampleMasked['geneMatrixLog2'])
-        processedSampleMasked['processedTissuePositionList'] = self.maskedSpots
-        processedSampleMasked['tissuePositionList'] = processedSample['tissuePositionList']
-        processedSampleMasked['tissueProcessed'] = self.maskedImage
-        # cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
-        cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissueProcessed.png",processedSampleMasked['tissueProcessed'])
-        header=['x','y','z','t','label','comment']
-        rowFormat = []
-        # the x and y are swapped between ants and numpy, but this is so far dealt with within the code
-        with open(f"{os.path.join(processedSampleMasked['derivativesPath'],processedSampleMasked['sampleID'])}_tissuePointsProcessed.csv", 'w', encoding='UTF8') as f:
-            writer = csv.writer(f)
-            writer.writerow(header)
-            for i in range(len(processedSampleMasked['processedTissuePositionList'])):
-                rowFormat = [processedSampleMasked['processedTissuePositionList'][i,1]] + [processedSampleMasked['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
-                writer.writerow(rowFormat)
-    
+            processedSampleMasked['geneList'] = processedSample['geneList']
+            processedSampleMasked['geneListMasked'] = processedSample['geneListMasked']
+            processedSampleMasked['geneMatrix'] = processedSample['geneMatrix'][:,self.ind]
+            denseMatrix = processedSample['geneMatrixLog2'].todense()
+            processedSampleMasked['geneMatrixLog2'] = sp_sparse.csc_matrix(denseMatrix[:,self.ind])
+            sp_sparse.save_npz(f"{os.path.join(processedSampleMasked['derivativesPath'],processedSampleMasked['sampleID'])}_tissuePointOrderedGeneMatrixLog2Normalized.npz", processedSampleMasked['geneMatrixLog2'])
+            processedSampleMasked['processedTissuePositionList'] = self.maskedSpots
+            processedSampleMasked['tissuePositionList'] = processedSample['tissuePositionList']
+            processedSampleMasked['tissueProcessed'] = self.maskedImage
+            # cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
+            cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissueProcessed.png",processedSampleMasked['tissueProcessed'])
+            header=['x','y','z','t','label','comment']
+            rowFormat = []
+            # the x and y are swapped between ants and numpy, but this is so far dealt with within the code
+            with open(f"{os.path.join(processedSampleMasked['derivativesPath'],processedSampleMasked['sampleID'])}_tissuePointsProcessed.csv", 'w', encoding='UTF8') as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+                for i in range(len(processedSampleMasked['processedTissuePositionList'])):
+                    rowFormat = [processedSampleMasked['processedTissuePositionList'][i,1]] + [processedSampleMasked['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
+                    writer.writerow(rowFormat)
+        
         return processedSampleMasked
+        
         
     def accept(self, event):
         global maskedSpots
