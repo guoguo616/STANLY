@@ -670,6 +670,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
                 spotNNIdx = blankIdx
             
         allMeanCdists.append(spotMeanCdist)
+        print(spotNNIdx)
         allSpotNN.append(np.array(spotNNIdx))
         
     allSpotNN = np.squeeze(np.array(allSpotNN))
@@ -1372,6 +1373,18 @@ class SelectUsingLasso:
             processedSampleMasked['tissuePositionList'] = processedSample['tissuePositionList']
             processedSampleMasked['tissueProcessed'] = self.maskedImage
             # cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
+            # writes json containing general info and masked gene list
+            processedDataDict = {
+                "sampleID": processedSampleMasked['sampleID'],
+                "rotation": int(processedSample['degreesOfRotation']),
+                "geneList": processedSampleMasked['geneList']
+            }
+                # Serializing json
+            json_object = json.dumps(processedDataDict, indent=4)
+             
+            # # Writing to sample.json
+            with open(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_processing_information.json", "w") as outfile:
+                outfile.write(json_object)
             cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissueProcessed.png",processedSampleMasked['tissueProcessed'])
             header=['x','y','z','t','label','comment']
             rowFormat = []
