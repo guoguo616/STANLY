@@ -652,6 +652,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     # finds distance between current spot and list
     allSpotNN = []
     allMeanCdists = []
+    z = 0
     for actSpot in digitalSpots:
         spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
         sortedSpotCdist = np.sort(spotCdist, axis=0)
@@ -661,8 +662,9 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         blankIdx = np.zeros([kNN,1], dtype='int32')
         blankIdx[:] = -9999
         spotNNIdx = []
+        print(z)
         for i in actSpotCdist:
-            if spotMeanCdist < (spotDist * 3):
+            if spotMeanCdist < (spotDist * 3) and np.all(i):
                 actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
                 spotNNIdx.append(actNNIdx[:])
             else:
@@ -672,7 +674,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         allMeanCdists.append(spotMeanCdist)
         print(spotNNIdx)
         allSpotNN.append(np.array(spotNNIdx))
-        
+        z = z + 1
     allSpotNN = np.squeeze(np.array(allSpotNN))
     # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
@@ -1292,8 +1294,10 @@ class SelectUsingLasso:
         to allow using the lasso tool to select spots of interest
     """
 
-    def __init__(self, processedSample, alpha_unselected=0.1):
+    def __init__(self, processedSample, maskName, alpha_unselected=0.1):
         self.img = processedSample['tissueProcessed']
+        self.id = f"{processedSample['sampleID']}_{maskName}"
+        self.derivatives = f"{processedSample['derivativesPath']}_{maskName}"
         self.fig, self.ax = plt.subplots()
         self.ax.imshow(self.img, cmap='gray')
         self.pts = self.ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
@@ -1346,12 +1350,12 @@ class SelectUsingLasso:
         self.maskedSpots = self.maskedSpots * [-1,1]
         self.maskedSpots[:,0] = self.maskedSpots[:,0] + self.maskedImage.shape[0]
 
-    def outputMaskedSample(self, processedSample, maskName):
+    def outputMaskedSample(self, processedSample):
         
         processedSampleMasked = {}
-        processedSampleMasked['sampleID'] = f"{processedSample['sampleID']}_{maskName}"
+        processedSampleMasked['sampleID'] = self.id
         processedSampleMasked['degreesOfRotation']  = processedSample['degreesOfRotation']
-        processedSampleMasked['derivativesPath'] = f"{processedSample['derivativesPath']}_{maskName}"
+        processedSampleMasked['derivativesPath'] = self.derivatives
         processedSampleMasked['sourceType'] = processedSample['sourceType']
         if os.path.exists(processedSampleMasked['derivativesPath']):
             print(f"Sample has already been created using the name {processedSampleMasked['sampleID']}")
