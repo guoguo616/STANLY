@@ -892,10 +892,11 @@ def viewGeneInProcessedVisium(processedSample, geneName):
     try:
         geneIndex = processedSample['geneListMasked'].index(geneName)
         actSpots = processedSample['geneMatrixLog2'][geneIndex, :]
+        plt.figure()
         plt.imshow(processedSample['tissueProcessed'], cmap='gray')
         plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
         plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
-        plt.colorbar()
+        # plt.colorbar()
         # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
         plt.show()
     except(ValueError):
@@ -1038,8 +1039,8 @@ def selectSpotsWithGene(processedSample, geneToSelect):
            
 #%% calculate the cosine similarity of a given matrix at the coordinates given
 def cosineSimOfConnection(inputMatrix,i,j):
-    I = inputMatrix[:,i]
-    J = inputMatrix[:,j]
+    I = np.ravel(inputMatrix[:,i])
+    J = np.ravel(inputMatrix[:,j])
     # cs = np.sum(np.dot(I,J.transpose())) / (np.sqrt(np.sum(np.square(I)))*np.sqrt(np.sum(np.square(J))))
     cs = sp_spatial.distance.cosine(I,J)
     return cs
