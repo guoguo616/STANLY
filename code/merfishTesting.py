@@ -14,7 +14,7 @@ import scipy
 # from skimage.transform import rescale, rotate, resize
 # import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from glob import glob
 # from skimage import io, filters, color, feature, morphology
@@ -262,7 +262,7 @@ for i, regSample in enumerate(allSamplesToAllen):
 nDigitalSpots = len(templateDigitalSpots)
 nSampleExperimental = 1 # sum(experiment['experimental-group'])
 nSampleControl = 1 # len(experiment['experimental-group']) - nSampleExperimental
-nGenesInList = len(allSampleGeneList)
+nGenesInList = len(allSampleGeneList)actSpotCdist
 
 for sampleIdx, actSample in enumerate(allSamplesToAllen):
     allSamplesToAllen[sampleIdx]['allSampleGeneList'] = allSampleGeneList 

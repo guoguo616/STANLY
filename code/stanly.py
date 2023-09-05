@@ -662,17 +662,24 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         blankIdx = np.zeros([kNN,1], dtype='int32')
         blankIdx[:] = -9999
         spotNNIdx = []
-        print(z)
-        for i in actSpotCdist:
+        spotIter = iter(actSpotCdist)
+        for i in spotIter:
             if spotMeanCdist < (spotDist * 3) and np.all(i):
-                actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
-                spotNNIdx.append(actNNIdx[:])
+                # this adjusts in the case that multiple spots have the same cdist
+                if len(np.where(spotCdist == i)[0]) > 1:
+                    actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
+                    for j in range(len(np.where(spotCdist == i)[0])):
+                        spotNNIdx.append(np.array([actNNIdx[j]], dtype='int32'))
+                        # print(actNNIdx[j])
+                    next(spotIter)
+                else:
+                    actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
+                    spotNNIdx.append(actNNIdx[:])
             else:
                 # should probably change this from 0s to something like -1
                 spotNNIdx = blankIdx
-            
         allMeanCdists.append(spotMeanCdist)
-        print(spotNNIdx)
+        # print(spotNNIdx)
         allSpotNN.append(np.array(spotNNIdx))
         z = z + 1
     allSpotNN = np.squeeze(np.array(allSpotNN))
@@ -1157,6 +1164,7 @@ def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
     jsonPath = open(os.path.join(processedSample['derivativesPath'],f"{processedSample['sampleID']}_processing_information.json"))
     processedSampleJson = json.loads(jsonPath.read())
     processedSample['geneListMasked'] = processedSampleJson['geneList']
+    processedSample['degreesOfRotation'] = processedSampleJson['rotation']
     # processedSample['spotCount'] = processedSampleJson['spotCount']
     if loadLog2Norm==True:
         geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedGeneMatrixLog2Normalized.npz"))
@@ -1186,6 +1194,7 @@ def processMerfishData(sampleData, templateData, rotation, outputFolder, log2nor
     processedData['tissuePositionList'] = sampleData['tissuePositionList']
     processedData['geneMatrix'] = np.transpose(sampleData['geneMatrix'])
     processedData['geneList'] = sampleData['geneList']
+    processedData['degreeesOfRotation'] = rotation
     outputPath = os.path.join(outputFolder, sampleData['sampleID'])
     #### need to create a loadProcessedMerfishData function
     try:
