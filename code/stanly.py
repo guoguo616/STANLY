@@ -1158,10 +1158,10 @@ def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
     processedSample['geneListMasked'] = processedSampleJson['geneList']
     # processedSample['spotCount'] = processedSampleJson['spotCount']
     if loadLog2Norm==True:
-        geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
+        geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedGeneMatrixLog2Normalized.npz"))
         processedSample['geneMatrixLog2'] = geneMatrixLog2
     else:
-        geneMatrix = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
+        geneMatrix = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedGeneMatrix.npz"))
         processedSample['geneMatrix'] = geneMatrix
     tissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedSample['derivativesPath'],processedSample['sampleID'])}_tissuePointsProcessed.csv"), newline='') as csvfile:
