@@ -92,6 +92,13 @@ end of code from 10x
 """
 
 def importVisiumData(sampleFolder):
+    """
+    Imports individual Visium experiment from location
+
+    Parameters
+    ----------
+    sampleFolder : directory containing Visium data
+    """
     # this currently assumes that sampleFolder contains spatial folder and the
     # filtered_feature_bc_matrix.h5 output from space ranger, but includes some attempts to resolve
     visiumData = {}
@@ -103,7 +110,6 @@ def importVisiumData(sampleFolder):
         except IndexError:
             os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
             dataFolder = spatialFolder
-        # dataFolder = os.path.join(sampleFolder)
     elif os.path.exists(os.path.join(sampleFolder,"outs","spatial")):
         spatialFolder = os.path.join(sampleFolder,"outs","spatial")
         try:
@@ -112,12 +118,10 @@ def importVisiumData(sampleFolder):
         except IndexError:
             os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
             dataFolder = spatialFolder
-        # dataFolder = os.path.join(sampleFolder,"outs")
     else:
         print("Something isn't working!")
     
     visiumData['imageData'] = io.imread(os.path.join(spatialFolder,"tissue_hires_image.png"))
-    # visiumData['imageDataGray'] = 1 - visiumData['imageData'][:,:,2]
     visiumData['imageDataGray'] = 1 - color.rgb2gray(visiumData['imageData'])
     visiumData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
     tissuePositionList = []
@@ -140,11 +144,18 @@ def importVisiumData(sampleFolder):
     visiumData['geneMatrix'] = geneMatrix
     # the ratio of real spot diameter, 55um, by imaged resolution of spot
     visiumData['spotStartingResolution'] = 0.55 / visiumData["scaleFactors"]["spot_diameter_fullres"]
-    # plt.imshow(visiumData['imageData'])
     return visiumData
 
-# use to select which allen slice to align visium data to and import relevant data
 def chooseTemplateSlice(sliceLocation):
+    """
+    Choose template slice to align data to
+    ----------
+    Chooses a single slice from the Allen Common Coordinate Framework (CCF) to use in image registration.
+    ----------
+    Parameters
+    sliceLocation : int
+        The slice number from the CCF you wish to load
+    """
     ccfPath = os.path.join(refDataPath,'data','ccf')
     # checks if ccf data has been downloaded already and downloads it if it hasn't
     if not os.path.exists(ccfPath):
@@ -172,8 +183,6 @@ def chooseTemplateSlice(sliceLocation):
     templateData['templateWholeGauss'] = filters.gaussian(templateSlice, sigma=10)
     templateData['templateLeftGauss'] = filters.gaussian(templateLeft, sigma=10)
     templateData['templateRightGauss'] = filters.gaussian(templateRight, sigma=10)
-    # templateLeftSliceGauss = filters.gaussian(templateLeftSlice, 10)
-    # templateRightSliceGauss = filters.gaussian(templateRightSlice, 10)
     templateData['sliceNumber'] = sliceLocation
     templateData['leftHem'] = templateLeft
     templateData['rightHem'] = templateRight
@@ -194,7 +203,7 @@ def chooseTemplateSlice(sliceLocation):
     templateData['wholeBrainAnnotEdges']  = templateAnnotRGB
     templateData['leftHemAnnotEdges'] = templateAnnotRGB[:,:570]
     templateData['rightHemAnnotEdges'] = templateAnnotRGB[:,570:]
-    # currently using the 10um resolution atlas, would need to change if that changes
+    # uses the 10 micron CCF
     templateData['startingResolution'] = 0.01
     annotation_id = []
     annotation_name = []
@@ -216,12 +225,19 @@ def chooseTemplateSlice(sliceLocation):
     templateData['colorHex'] = color_hex
     return templateData
 
-# tissue coordinates should reference output of importVisiumData
-# rotation currently accepts 0,90,180,270, will take input from processedVisium
 def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
-    ## need to add merfish compatibility, which shouldn't be hard, just adjusting tissue position list info
-    # scales tissue coordinates down to image resolution
-    
+    """
+    Rotate tissue coordinates and image by theta degrees
+    ----------
+    Parameters
+    tissuePoints : list
+        List of 2D coordinates to be rotated
+    tissueImage : 2D image
+    theta : int
+        Degrees to rotate tissue points and image
+    flip : bool
+        Set as true to flip image across L/R axis, default=False
+    """
     # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
     # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
     rad = np.deg2rad(theta)
@@ -237,14 +253,24 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
     centeredTP = tissuePoints - origin
     tissuePointsRotate = np.matmul(centeredTP, rotMat)
     tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
-   
-    # plt.imshow(rotImage, cmap='gray')
-    # plt.scatter(tissuePointsRotateCenter[:,0],tissuePointsRotateCenter[:,1], alpha=0.3)
-    # plt.show()
     return tissuePointsRotateCenter, rotImage
 
 # prepares visium data for registration
 def processVisiumData(visiumData, templateData, rotation, outputFolder, log2normalize=True, flip=False):
+    """
+    Perform processing on Visium data to prepare for analysis
+    ----------
+    visiumData : output of importVisiumData
+    templateData : output of chooseTemplateSlice
+    rotation : int
+        degrees of rotation to bring sample into roughly CCF space
+    outputFolder : directory
+        Location for storing output data
+    log2normalize : bool
+        Tells function whether to log2normalize gene matrix, default=True
+    flip : bool
+        Set as true to flip image across L/R axis, default=False
+    """
     processedVisium = {}
     # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedVisium['sampleID'] = visiumData['sampleID']
