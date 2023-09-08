@@ -14,7 +14,7 @@ import scipy
 # from skimage.transform import rescale, rotate, resize
 # import itk
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from glob import glob
 # from skimage import io, filters, color, feature, morphology
@@ -40,32 +40,34 @@ sourcedata = os.path.join(rawdata,'Slide1_Apr24')
 #load allen template
 templateData = stanly.chooseTemplateSlice(70)
 
-#%% import and align sample data to allen ccf
+# # import and align sample data to allen ccf
 
-sampleData = stanly.importMerfishData(sourcedata, derivatives)
-processedSample = stanly.processMerfishData(sampleData, templateData, 210, derivatives)
+# sampleData = stanly.importMerfishData(sourcedata, derivatives)
+# processedSample = stanly.processMerfishData(sampleData, templateData, 210, derivatives)
 
-#%% split two samples from one image using lasso tool
+# #%% split two samples from one image using lasso tool
 
-selectorRight = stanly.SelectUsingLasso(processedSample, 'rightHem')
-#%%
-selectorRight.outputMaskedSpots()
-selectorRight.outputMaskedImage(processedSample)
-rightHem = selectorRight.outputMaskedSample(processedSample)
-# = selector.maskedSpots
+# selectorRight = stanly.SelectUsingLasso(processedSample, 'rightHem')
+# #%%
+# selectorRight.outputMaskedSpots()
+# selectorRight.outputMaskedImage(processedSample)
+# rightHem = selectorRight.outputMaskedSample(processedSample)
+# # = selector.maskedSpots
 
-# totalSpotCount = 0
+# # totalSpotCount = 0
 
 
-#%%
-selectorLeft = stanly.SelectUsingLasso(processedSample,'leftHem')
+# #%%
+# selectorLeft = stanly.SelectUsingLasso(processedSample,'leftHem')
 
-#%%
-selectorLeft.outputMaskedSpots()
-selectorLeft.outputMaskedImage(processedSample)
-selectorLeft.flip()
-leftHem = selectorLeft.outputMaskedSample(processedSample)
+# #%%
+# selectorLeft.outputMaskedSpots()
+# selectorLeft.outputMaskedImage(processedSample)
+# selectorLeft.flip()
+# leftHem = selectorLeft.outputMaskedSample(processedSample)
 
+rightHem = stanly.loadProcessedMerfishSample('/media/zjpeters/Samsung_T5/merscope/derivatives/Slide1_Apr24_rightHem')
+leftHem = stanly.loadProcessedMerfishSample('/media/zjpeters/Samsung_T5/merscope/derivatives/Slide1_Apr24_leftHem')
 #%% register processed samples
 bestSampleToTemplate = stanly.runANTsToAllenRegistration(rightHem, templateData, hemisphere='rightHem')
 

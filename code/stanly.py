@@ -404,17 +404,20 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
 
 
 def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='wholeBrain'):
-    # registeredData will contain: sampleID, derivativesPath, transformedTissuePositionList, fwdtransforms, invtransforms
+    """
+    Register spatial transcriptomic data to template data
+    ----------
+    Parameters:
+    processedData : dict output from processXData
+    templateData : dict output from chooseTemplateSlice
+    log2normalize : bool
+        Tells function whether to log2normalize gene matrix, default=True
+    hemisphere : str
+        String identifying which hemisphere of the atlas to align to. 'leftHem', 'rightHem', 'wholeBrain' default='wholeBrain'
+    """
     registeredData = {}
-    # if hemisphere == 'rightHem':
     templateAntsImage = ants.from_numpy(templateData[hemisphere])
     maxWidth = templateData[hemisphere].shape[1]
-    # elif hemisphere == 'leftHem':
-    #     templateAntsImage = ants.from_numpy(templateData['leftHem'])
-    #     maxWidth = templateData['lefttHem'].shape[1]
-    # elif 'wholeBrain':
-    #     templateAntsImage = ants.from_numpy(templateData['wholeBrain'])
-    #     maxWidth = templateData['wholeBrain'].shape[1]
     try:
 # <<<<<<< HEAD
 #         file = open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
@@ -455,7 +458,6 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
         syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm"))
         
-        #registeredData['antsOutput'] = synXfm
         registeredData['fwdtransforms'] = synXfm['fwdtransforms']
         registeredData['invtransforms'] = synXfm['invtransforms']
 
@@ -473,21 +475,11 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
             next(csvreader)
             for row in csvreader:
                 transformedTissuePositionList.append(row)
-                
-
+        
     transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(transformedTissuePositionList, [2,3,4,5],1)
-
-    # plt.imshow(registeredData['tissueRegistered'])
-    # plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
-    # plt.show()
-    
-    # plt.imshow(registeredData['tissueRegistered'],cmap='gray')
-    # plt.imshow(templateData['rightHem'], alpha=0.3)
-    # plt.title(processedVisium['sampleID'])
-    # plt.show()
         
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < maxWidth)
     maskedTissuePositionList = []
@@ -505,13 +497,22 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     else:
         tempDenseMatrix = processedData['geneMatrix'].todense().astype('float32')
     registeredData['geneMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,geneMatrixMaskedIdx])
-    # write re-ordered filtered feature matrix csv to match tissue spot order
+    # write re-ordered gene matrix csv to match tissue spot order
     sp_sparse.save_npz(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['geneMatrixMasked']))        
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['tissueRegistered'])
     
     return registeredData
 
 def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2normalize=True):
+    """ 
+    Register one processed spatial transcriptomic sample to another
+    ----------
+    Parameters:
+    processedData : dict output from processXData
+    sampleToRegisterTo : dict output from processXData
+    log2normalized : bool
+        bool identifying whether log2normalization was performed default=True
+    """
     # convert into ants image type
     registeredData = {}
     templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueProcessed'])
@@ -520,7 +521,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
     type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
     syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
-    # registeredData['antsOutput'] = synXfm
+    
     registeredData['sampleID'] = processedVisium['sampleID']
     registeredData['derivativesPath'] = processedVisium['derivativesPath']
     applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz"
@@ -528,9 +529,6 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
     pid = os.system(applyTransformStr)
     if pid:
         os.wait()
-    #     print("Applying transformation to spots")
-    # else:
-    #     print("Finished transforming spots!")
     transformedTissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv"), newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
@@ -539,14 +537,11 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
                 transformedTissuePositionList.append(row)
                 
     registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
-    # registeredData['filteredFeatureMatrixGeneList'] = processedVisium['filteredFeatureMatrixGeneList']
     registeredData['geneListMasked'] = processedVisium['geneListMasked']
-
     registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
-    # registeredData['tissueSpotBarcodeList'] = processedVisium['tissueSpotBarcodeList']
     if log2normalize==True:
         registeredData['geneMatrixLog2'] = processedVisium['geneMatrixLog2']
     else:
@@ -624,6 +619,17 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
 
 # create digital spots for an allen template slice, with spot size defined in 10um
 def createDigitalSpots(templateRegisteredData, desiredSpotSize):
+    """ 
+    Create digital spots of a particular spacing for a spatial transcriptomic sample
+    ----------
+    This function is used to create honeycomb packed spots spaced at (10um * desiredSpotSize)
+    on center from each other. 
+    ----------
+    Parameters:
+    templateRegisteredData : dict output from processXData, runANTsToAllenRegistration, runANTsInterSampleRegistration, etc
+    desiredSpotSize : int
+        Value defining the distance between spots where final distance is 10*desiredSpotSize micron on center
+    """
     w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
     h = desiredSpotSize    # height of pointy up hexagon
     currentX = 0
@@ -648,14 +654,12 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
 
     # remove non-tissue spots
     roundedTemplateSpots = np.array(templateSpots.round(), dtype='int32')
-    ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
     digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
         if templateRegisteredData['tissueRegistered'][roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
             digitalSpots.append(templateSpots[row])
             
     digitalSpots = np.array(digitalSpots)
-    # uncomment following 3 lines to see the digital template spots
     plt.imshow(templateRegisteredData['tissueRegistered'])
     plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
     plt.show()
@@ -672,21 +676,32 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
             writer.writerow(rowFormat)
     return digitalSpots
 
-# find nearest neighbor in digital allen spots for each sample spot
-# kNN assuming 1 spot with 6 neighbors
 def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spotDist):
+    """ 
+    find nearest neighbor digital spots for each spot in a spatial transcriptomic sample
+    ----------
+    Parameters:
+    digitalSpots : list of coordinates
+        List of coordinates given as an output of createDigitalSpots
+    templateRegisteredSpots : list of coordinates
+        List of template registered spot coordinates
+    kNN : number of desired nearest neighbors per spot
+    spotDist : int
+        Value defining the distance between spots where final distance is 10*desiredSpotSize micron on center
+    """
     # finds distance between current spot and list
     allSpotNN = []
     allMeanCdists = []
     z = 0
+    blankIdx = np.zeros([kNN,1], dtype='int32')
+    blankIdx[:] = -9999
     for actSpot in digitalSpots:
         spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
         sortedSpotCdist = np.sort(spotCdist, axis=0)
         actSpotCdist = sortedSpotCdist[0:kNN]
         # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
         spotMeanCdist = np.mean(actSpotCdist)
-        blankIdx = np.zeros([kNN,1], dtype='int32')
-        blankIdx[:] = -9999
+        
         spotNNIdx = []
         spotIter = iter(actSpotCdist)
         for i in spotIter:
@@ -697,18 +712,21 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
                     for j in range(len(np.where(spotCdist == i)[0])):
                         spotNNIdx.append(np.array([actNNIdx[j]], dtype='int32'))
                         # print(actNNIdx[j])
-                    next(spotIter)
+                    try:
+                        next(spotIter)
+                    except StopIteration:
+                        pass    
                 else:
                     actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
                     spotNNIdx.append(actNNIdx[:])
             else:
-                # should probably change this from 0s to something like -1
                 spotNNIdx = blankIdx
+        print(spotNNIdx)
         allMeanCdists.append(spotMeanCdist)
-        # print(spotNNIdx)
         allSpotNN.append(np.array(spotNNIdx))
         z = z + 1
-    allSpotNN = np.squeeze(np.array(allSpotNN))
+    
+    allSpotNN = np.array(allSpotNN)
     # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
 
