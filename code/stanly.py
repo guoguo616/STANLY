@@ -692,8 +692,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     # finds distance between current spot and list
     allSpotNN = []
     allMeanCdists = []
-    z = 0
-    blankIdx = np.zeros([kNN,1], dtype='int32')
+    blankIdx = np.zeros(kNN, dtype='int32')
     blankIdx[:] = -9999
     for actSpot in digitalSpots:
         spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
@@ -716,7 +715,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
                     actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
                     for j in range(len(np.where(spotCdist == i)[0])):
                         spotNNIdx.append(np.array([actNNIdx[j]], dtype='int32'))
-                        # print(actNNIdx[j])
+                        print(actNNIdx[j])
                         try:
                             next(spotIter)
                         except StopIteration:
@@ -724,14 +723,13 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
             else:
                 spotNNIdx = blankIdx
             
-            try:
-                next(spotIter)
-            except StopIteration:
-                pass  
+            # try:
+            #     next(spotIter)
+            # except StopIteration:
+            #     pass  
         # print(spotNNIdx)
-        allMeanCdists.append(spotMeanCdist)
-        allSpotNN.append(np.array(spotNNIdx))
-        z = z + 1
+            allMeanCdists.append(spotMeanCdist)
+            allSpotNN.append(np.array(spotNNIdx))
     print(allSpotNN)
     allSpotNN = np.array(allSpotNN)
     # should be able to add threshold that removes any spots with a mean cdist > some value
