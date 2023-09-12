@@ -93,7 +93,7 @@ templateDigitalSpots = stanly.createDigitalSpots(allSamplesToAllen[0], wholeBrai
 
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
 for i, regSample in enumerate(allSamplesToAllen):        
-    actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+    actNN, actCDist = stanly.findDigitalNearestNeighbors(allSamplesToAllen[i]['maskedTissuePositionList'], templateDigitalSpots, kSpots, wholeBrainSpotSize)
     allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype='int32')
     # creates a list of genes present in all samples
     if i == 0:
