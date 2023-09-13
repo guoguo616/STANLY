@@ -701,25 +701,25 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
         spotMeanCdist = np.mean(actSpotCdist)
         
-        spotNNIdx = []
+        
         spotIter = iter(actSpotCdist)
         # print(actSpotCdist)
         for i in spotIter:
             if spotMeanCdist < (spotDist * 3) and np.all(i):
+                spotNNIdx = []
                 # this adjusts in the case that multiple spots have the same cdist
-                if len(np.where(spotCdist == i)[0]) == 1:
-                    actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
+                actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
+                # print(actNNIdx)
+                if len(actNNIdx) == 1:
                     spotNNIdx.append(actNNIdx[:])
-                      
                 else:
-                    actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
-                    for j in range(len(np.where(spotCdist == i)[0])):
+                    for j in range(len(actNNIdx)):
                         spotNNIdx.append(np.array([actNNIdx[j]], dtype='int32'))
-                        print(actNNIdx[j])
-                        try:
-                            next(spotIter)
-                        except StopIteration:
-                            pass                
+                    
+                    try:
+                        next(spotIter)
+                    except StopIteration:
+                        pass                
             else:
                 spotNNIdx = blankIdx
             
@@ -730,7 +730,11 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
         # print(spotNNIdx)
             allMeanCdists.append(spotMeanCdist)
             allSpotNN.append(np.array(spotNNIdx))
-    print(allSpotNN)
+    # print(allSpotNN)
+    with open("/home/zjpeters/Documents/stanly/derivatives/merfishTest_digitalSpotNearestNeighbors.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        for i in range(len(allSpotNN)):
+            writer.writerow(allSpotNN)
     allSpotNN = np.array(allSpotNN)
     # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
