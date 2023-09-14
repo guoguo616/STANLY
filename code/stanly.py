@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-""".
+"""
 STANLY is a code base built in order to process and analyze various types of 
 spatial transcriptomic data. This includes masking using images, spots, cells, etc.
 This project has been created and maintained by Zeru Peterson at the University of Iowa
@@ -695,6 +695,7 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     blankIdx = np.zeros(kNN, dtype='int32')
     blankIdx[:] = -9999
     for actSpot in digitalSpots:
+        
         spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
         sortedSpotCdist = np.sort(spotCdist, axis=0)
         actSpotCdist = sortedSpotCdist[0:kNN]

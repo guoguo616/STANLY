@@ -91,6 +91,7 @@ wholeBrainSpotSize = 10
 kSpots = 7
 templateDigitalSpots = stanly.createDigitalSpots(allSamplesToAllen[0], wholeBrainSpotSize)
 
+#%%
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
 for i, regSample in enumerate(allSamplesToAllen):        
     actNN, actCDist = stanly.findDigitalNearestNeighbors(allSamplesToAllen[i]['maskedTissuePositionList'], templateDigitalSpots, kSpots, wholeBrainSpotSize)
