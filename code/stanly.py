@@ -676,6 +676,69 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
             writer.writerow(rowFormat)
     return digitalSpots
 
+# def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spotDist):
+#     """ 
+#     find nearest neighbor digital spots for each spot in a spatial transcriptomic sample
+#     ----------
+#     Parameters:
+#     digitalSpots : list of coordinates
+#         List of coordinates given as an output of createDigitalSpots
+#     templateRegisteredSpots : list of coordinates
+#         List of template registered spot coordinates
+#     kNN : number of desired nearest neighbors per spot
+#     spotDist : int
+#         Value defining the distance between spots where final distance is 10*desiredSpotSize micron on center
+#     """
+#     # finds distance between current spot and list
+#     allSpotNN = []
+#     allMeanCdists = []
+#     blankIdx = np.zeros(kNN, dtype='int32')
+#     blankIdx[:] = -9999
+#     for actSpot in digitalSpots:
+        
+#         spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
+#         sortedSpotCdist = np.sort(spotCdist, axis=0)
+#         actSpotCdist = sortedSpotCdist[0:kNN]
+#         # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
+#         spotMeanCdist = np.mean(actSpotCdist)
+        
+        
+#         spotIter = iter(actSpotCdist)
+#         # print(actSpotCdist)
+#         for i in spotIter:
+#             if spotMeanCdist < (spotDist * 3) and np.all(i):
+#                 spotNNIdx = []
+#                 # this adjusts in the case that multiple spots have the same cdist
+#                 actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
+#                 # print(actNNIdx)
+#                 if len(actNNIdx) == 1:
+#                     spotNNIdx.append(actNNIdx[:])
+#                 else:
+#                     for j in range(len(actNNIdx)):
+#                         spotNNIdx.append(np.array([actNNIdx[j]], dtype='int32'))
+                    
+#                     try:
+#                         next(spotIter)
+#                     except StopIteration:
+#                         pass                
+#             else:
+#                 spotNNIdx = blankIdx
+            
+#             # try:
+#             #     next(spotIter)
+#             # except StopIteration:
+#             #     pass  
+#         # print(spotNNIdx)
+#             allMeanCdists.append(spotMeanCdist)
+#             allSpotNN.append(np.array(spotNNIdx))
+#     # print(allSpotNN)
+#     with open("/home/zjpeters/Documents/stanly/derivatives/merfishTest_digitalSpotNearestNeighbors.csv", 'w', encoding='UTF8') as f:
+#         writer = csv.writer(f)
+#         for i in range(len(allSpotNN)):
+#             writer.writerow(allSpotNN)
+#     allSpotNN = np.array(allSpotNN)
+#     # should be able to add threshold that removes any spots with a mean cdist > some value
+#     return allSpotNN, allMeanCdists
 def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spotDist):
     """ 
     find nearest neighbor digital spots for each spot in a spatial transcriptomic sample
@@ -692,51 +755,34 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     # finds distance between current spot and list
     allSpotNN = []
     allMeanCdists = []
-    blankIdx = np.zeros(kNN, dtype='int32')
-    blankIdx[:] = -9999
-    for actSpot in digitalSpots:
-        
-        spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, np.array(actSpot).reshape(1,-1), 'euclidean')
-        sortedSpotCdist = np.sort(spotCdist, axis=0)
-        actSpotCdist = sortedSpotCdist[0:kNN]
-        # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
-        spotMeanCdist = np.mean(actSpotCdist)
-        
-        
-        spotIter = iter(actSpotCdist)
-        # print(actSpotCdist)
-        for i in spotIter:
-            if spotMeanCdist < (spotDist * 3) and np.all(i):
-                spotNNIdx = []
-                # this adjusts in the case that multiple spots have the same cdist
-                actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
-                # print(actNNIdx)
-                if len(actNNIdx) == 1:
-                    spotNNIdx.append(actNNIdx[:])
-                else:
-                    for j in range(len(actNNIdx)):
-                        spotNNIdx.append(np.array([actNNIdx[j]], dtype='int32'))
-                    
-                    try:
-                        next(spotIter)
-                    except StopIteration:
-                        pass                
+    blankIdx = np.full(kNN, -9999, dtype='int32')
+    #for actSpot in digitalSpots:
+    
+    spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, digitalSpots, 'euclidean')
+    sortedSpotCdist = np.argsort(spotCdist, axis=0)
+    actSpotCdist = np.array(np.transpose(sortedSpotCdist[0:kNN,:]), dtype='int32')
+    # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
+    spotNNIdx = []
+    for spotNum,spotIdx in enumerate(actSpotCdist):
+        spotMeanCdist = np.mean(spotCdist[spotIdx,spotNum])
+        if spotMeanCdist < (spotDist * 3):
+            if len(allSpotNN) == 0:
+                allSpotNN = np.transpose(spotIdx)
+                allMeanCdists = spotMeanCdist
+                # spotNNIdx = np.array(spotNNIdx, dtype='int32')
             else:
-                spotNNIdx = blankIdx
-            
-            # try:
-            #     next(spotIter)
-            # except StopIteration:
-            #     pass  
-        # print(spotNNIdx)
-            allMeanCdists.append(spotMeanCdist)
-            allSpotNN.append(np.array(spotNNIdx))
-    # print(allSpotNN)
-    with open("/home/zjpeters/Documents/stanly/derivatives/merfishTest_digitalSpotNearestNeighbors.csv", 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        for i in range(len(allSpotNN)):
-            writer.writerow(allSpotNN)
-    allSpotNN = np.array(allSpotNN)
+                # print(spotIdx)
+                allSpotNN = np.append(allSpotNN, np.transpose(spotIdx))
+                allMeanCdists = np.append(allMeanCdists, spotMeanCdist)
+           
+        else:
+            allMeanCdists = np.append(allMeanCdists, spotMeanCdist)
+            allSpotNN = np.append(allSpotNN, blankIdx, axis=0)
+    
+    allMeanCdists = np.array(allMeanCdists, dtype='int32')
+    allSpotNN = np.array(allSpotNN,dtype='int32')
+    allSpotNN = np.reshape(allSpotNN, [-1,kNN])
+    print(allSpotNN.shape)
     # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
 

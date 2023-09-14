@@ -96,77 +96,11 @@ import scipy.spatial as sp_spatial
 templateRegisteredSpots = allSamplesToAllen[0]['maskedTissuePositionList']
 digitalSpots = templateDigitalSpots
 kNN = kSpots
-def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spotDist):
-    """ 
-    find nearest neighbor digital spots for each spot in a spatial transcriptomic sample
-    ----------
-    Parameters:
-    digitalSpots : list of coordinates
-        List of coordinates given as an output of createDigitalSpots
-    templateRegisteredSpots : list of coordinates
-        List of template registered spot coordinates
-    kNN : number of desired nearest neighbors per spot
-    spotDist : int
-        Value defining the distance between spots where final distance is 10*desiredSpotSize micron on center
-    """
-    # finds distance between current spot and list
-    allSpotNN = []
-    allMeanCdists = []
-    blankIdx = np.full(kNN, -9999, dtype='int32')
-    #for actSpot in digitalSpots:
-    
-    spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, digitalSpots, 'euclidean')
-    sortedSpotCdist = np.argsort(spotCdist, axis=0)
-    actSpotCdist = np.array(np.transpose(sortedSpotCdist[0:kNN,:]), dtype='int32')
-    # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
-    spotNNIdx = []
-    for spotNum,spotIdx in enumerate(actSpotCdist):
-        spotMeanCdist = np.mean(spotCdist[spotIdx,spotNum])
-        if spotMeanCdist < (spotDist * 3):
-            if len(allSpotNN) == 0:
-                allSpotNN = np.transpose(spotIdx)
-                allMeanCdists = spotMeanCdist
-                # spotNNIdx = np.array(spotNNIdx, dtype='int32')
-            else:
-                # print(spotIdx)
-                allSpotNN = np.append(allSpotNN, np.transpose(spotIdx))
-                allMeanCdists = np.append(allMeanCdists, spotMeanCdist)
-            # allSpotNN = np.append(allSpotNN, spotNNIdx, axis=0)
-            # this adjusts in the case that multiple spots have the same cdist
-            # actNNIdx = np.array(np.where(spotCdist == i)[0],dtype='int32')
-            # print(actNNIdx)
-            # if len(actNNIdx) == 1:
-            #     spotNNIdx.append(actNNIdx[:])
-            # else:
-            #     for j in range(len(actNNIdx)):
-            #         spotNNIdx.append(np.array([actNNIdx[j]], dtype='int32'))
-                
-            #     try:
-            #         next(spotIter)
-            #     except StopIteration:
-            #         pass                
-        else:
-            # spotNNIdx = blankIdx
-        
-            allMeanCdists = np.append(allMeanCdists, spotMeanCdist)
-            allSpotNN = np.append(allSpotNN, blankIdx, axis=0)
-    # print(allSpotNN)
-    # with open("/home/zjpeters/Documents/stanly/derivatives/merfishTest_digitalSpotNearestNeighbors.csv", 'w', encoding='UTF8') as f:
-    #     writer = csv.writer(f)
-    #     for i in range(len(allSpotNN)):
-    #         writer.writerow(allSpotNN)
-    
-    allMeanCdists = np.array(allMeanCdists, dtype='int32')
-    allSpotNN = np.array(allSpotNN,dtype='int32')
-    allSpotNN = np.reshape(allSpotNN, [-1,kNN])
-    print(allSpotNN.shape)
-    # should be able to add threshold that removes any spots with a mean cdist > some value
-    return allSpotNN, allMeanCdists
 
 #%%
 allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
 for i, regSample in enumerate(allSamplesToAllen):        
-    actNN, actCDist = findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
+    actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, wholeBrainSpotSize)
     allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype='int32')
     # creates a list of genes present in all samples
     if i == 0:

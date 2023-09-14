@@ -14,7 +14,7 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
@@ -32,15 +32,7 @@ for h in CB_color_cycle:
     
 cbRGB = np.array(cbRGB)/255
 
-<<<<<<< HEAD
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
-#%% load experiment of samples that have already been processed and registered
-=======
-cbCmap = mcolors.LinearSegmentedColormap.from_list('colorblindColormap', cbRGB)
-
-
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
->>>>>>> merfishTesting
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
 template = stanly.chooseTemplateSlice(70)
 #%% load experiment of samples that have already been processed and registered
 
@@ -206,8 +198,8 @@ for actK in clusterRange:
         size_cluster_i = ith_cluster_silhouette_values.shape[0]
         y_upper = y_lower + size_cluster_i
 
-        # color = cm.tab20b(float(i) / actK)
-        color = cbCmap(float(i) / actK)
+        color = cm.tab20b(float(i) / actK)
+        # color = cbCmap(float(i) / actK)
         ax1.fill_betweenx(
             np.arange(y_lower, y_upper),
             0,
@@ -234,9 +226,9 @@ for actK in clusterRange:
     ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
 
     # 2nd Plot showing the actual clusters formed
-    colors = cbCmap(cluster_labels.astype(float) / actK)
+    colors = cm.tab20b(cluster_labels.astype(float) / actK)
     ax2.imshow(sampleToCluster['tissueProcessed'],cmap='gray_r')
-    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap=cbCmap)
+    ax2.scatter(sampleToCluster['processedTissuePositionList'][:,0], sampleToCluster['processedTissuePositionList'][:,1],c=colors,cmap=cm.tab20b)
     ax2.set_title("The visualization of the clustered data.")
     ax2.axis('off')
 
