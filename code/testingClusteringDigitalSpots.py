@@ -259,6 +259,10 @@ for actCluster in range(len(np.unique(cluster_labels))):
     fdrMask = actTtest[1] < alphaSidak
     fdrMaskInt = np.squeeze(np.array(fdrMask))
     if sum(fdrMask) > 5:
+        plt.figure()
+        plt.imshow(sampleToCluster['tissueProcessed'], cmap='gray')
+        plt.scatter(sampleToCluster['processedTissuePositionList'][clusterIdx,0],sampleToCluster['processedTissuePositionList'][clusterIdx,1])
+        plt.show()
         print(f"There are {sum(fdrMask)} DEGs in cluster {actCluster}")
         sigGeneList = np.array(sampleToCluster['geneListMasked'])[fdrMaskInt]
         with open(os.path.join(derivatives,f'listOfDEGsInCluster{actCluster}_{timestr}.csv'), 'w', encoding='UTF8') as f:
