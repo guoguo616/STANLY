@@ -14,7 +14,7 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
@@ -32,7 +32,7 @@ for h in CB_color_cycle:
     
 cbRGB = np.array(cbRGB)/255
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
 template = stanly.chooseTemplateSlice(70)
 #%% load experiment of samples that have already been processed and registered
 
@@ -155,7 +155,7 @@ eigvecsampleToClusterSort = np.real(eigvecsampleToCluster[:,eigvalsampleToCluste
 
 #%% run k means and silhouette analysis for single sample
 
-clusterRange = np.array(range(4,26))
+clusterRange = np.array(range(18,26))
 
 for actK in clusterRange:
     # Create a subplot with 1 row and 2 columns
@@ -254,11 +254,12 @@ sampleToClusterGeneMatrixStd = np.std(sampleToClusterFilteredFeatureMatrix, axis
 # loop over nClusterLabels and look for genes that show high correlation
 for actCluster in range(len(np.unique(cluster_labels))):
     clusterIdx = np.where(cluster_labels == actCluster)[0]
+    print(len(clusterIdx))
     clusterGeneMatrix = sampleToClusterFilteredFeatureMatrix[:,clusterIdx]
     actTtest = scipy.stats.ttest_ind(clusterGeneMatrix,sampleToClusterFilteredFeatureMatrix, axis=1, nan_policy='propagate')
     fdrMask = actTtest[1] < alphaSidak
     fdrMaskInt = np.squeeze(np.array(fdrMask))
-    if sum(fdrMask) > 5:
+    if sum(fdrMask) > 5 & len(clusterIdx) > 10:
         plt.figure()
         plt.imshow(sampleToCluster['tissueProcessed'], cmap='gray')
         plt.scatter(sampleToCluster['processedTissuePositionList'][clusterIdx,0],sampleToCluster['processedTissuePositionList'][clusterIdx,1])
