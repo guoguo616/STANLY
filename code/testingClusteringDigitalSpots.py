@@ -14,7 +14,7 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
@@ -32,7 +32,7 @@ for h in CB_color_cycle:
     
 cbRGB = np.array(cbRGB)/255
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
 template = stanly.chooseTemplateSlice(70)
 #%% load experiment of samples that have already been processed and registered
 
@@ -259,10 +259,11 @@ for actCluster in range(len(np.unique(cluster_labels))):
     actTtest = scipy.stats.ttest_ind(clusterGeneMatrix,sampleToClusterFilteredFeatureMatrix, axis=1, nan_policy='propagate')
     fdrMask = actTtest[1] < alphaSidak
     fdrMaskInt = np.squeeze(np.array(fdrMask))
-    if sum(fdrMask) > 5 & len(clusterIdx) > 10:
+    if sum(fdrMask) > 5 & len(clusterIdx) > 1:
         plt.figure()
         plt.imshow(sampleToCluster['tissueProcessed'], cmap='gray')
         plt.scatter(sampleToCluster['processedTissuePositionList'][clusterIdx,0],sampleToCluster['processedTissuePositionList'][clusterIdx,1])
+        plt.title(f"Cluster {actCluster}")
         plt.show()
         print(f"There are {sum(fdrMask)} DEGs in cluster {actCluster}")
         sigGeneList = np.array(sampleToCluster['geneListMasked'])[fdrMaskInt]
@@ -470,7 +471,7 @@ fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
 #%% calculate cosine sim
 
 start_time = time.time()
-adjacencyDataControl = [stanly.cosineSimOfConnection(digitalControlFilterFeatureMatrix,i, j) for i,j in fullyConnectedEdges]
+adjacencyDataControl = [stanly.cosineSimOfConnection(digitalControlGeneMatrix,i, j) for i,j in fullyConnectedEdges]
 print("--- %s seconds ---" % (time.time() - start_time))  
 
 with open(os.path.join(derivatives,'adjacencyDataForControlDigitalSpots.csv'), 'w', encoding='UTF8') as f:
@@ -480,7 +481,7 @@ with open(os.path.join(derivatives,'adjacencyDataForControlDigitalSpots.csv'), '
     
 #%% cosine sim of experimental group
 start_time = time.time()
-adjacencyDataExperimental = [stanly.cosineSimOfConnection(digitalExperimentalFilterFeatureMatrix,i, j) for i,j in fullyConnectedEdges]
+adjacencyDataExperimental = [stanly.cosineSimOfConnection(digitalExperimentalGeneMatrix,i, j) for i,j in fullyConnectedEdges]
 print("--- %s seconds ---" % (time.time() - start_time))  
 
 with open(os.path.join(derivatives,'adjacencyDataForExperimentalDigitalSpots.csv'), 'w', encoding='UTF8') as f:
@@ -506,10 +507,46 @@ eigvalControlSortIdx = np.argsort(np.real(eigvalControl))[::-1]
 eigvecControlSort = np.real(eigvecControl[:,eigvalControlSortIdx])
 
 #%% run k means control
-clusterK = 15
+clusterK = 25
 clusters = KMeans(n_clusters=clusterK, init='random', n_init=300, tol=1e-8,).fit(np.real(eigvecControlSort[:,0:clusterK]))
+cluster_labels = clusters.fit_predict(np.real(eigvecControlSort[:,0:clusterK]))
+
 plt.imshow(allSamplesToAllen[4]['tissueRegistered'],cmap='gray')
 plt.scatter(templateDigitalSpots[:,0], templateDigitalSpots[:,1],c=clusters.labels_,cmap='Set2')
+
+#%% extract information from clusters
+# this subsets the sample based on the outputs of the previous clustering and 
+# looks for genes that are differentially expressed between cluster and whole brain
+start_time = time.time()
+desiredPval = 0.05
+alphaSidak = 1 - np.power((1 - desiredPval),(1/(len(allSampleGeneList))))
+timestr = time.strftime("%Y%m%d-%H%M%S")
+
+sampleToClusterGeneMatrixMean = np.mean(digitalControlGeneMatrix, axis=1)
+sampleToClusterGeneMatrixStd = np.std(digitalControlGeneMatrix, axis=1)
+# loop over nClusterLabels and look for genes that show high correlation
+for actCluster in range(len(np.unique(cluster_labels))):
+    clusterIdx = np.where(cluster_labels == actCluster)[0]
+    print(len(clusterIdx))
+    clusterGeneMatrix = digitalControlGeneMatrix[:,clusterIdx]
+    actTtest = scipy.stats.ttest_ind(clusterGeneMatrix,digitalControlGeneMatrix, axis=1, nan_policy='propagate')
+    fdrMask = actTtest[1] < alphaSidak
+    fdrMaskInt = np.squeeze(np.array(fdrMask))
+    if sum(fdrMask) > 5 & len(clusterIdx) > 1:
+        plt.figure()
+        plt.imshow(template['rightHemAnnot'], cmap=template['annotationColor'])
+        plt.scatter(templateDigitalSpots[clusterIdx,0],templateDigitalSpots[clusterIdx,1])
+        plt.title(f"Cluster {actCluster}")
+        plt.show()
+        print(f"There are {sum(fdrMask)} DEGs in cluster {actCluster}")
+        sigGeneList = np.array(list(allSamplesToAllen[0]['allSampleGeneList']))[fdrMaskInt]
+        with open(os.path.join(derivatives,f'listOfDEGsInCluster{actCluster}_{timestr}.csv'), 'w', encoding='UTF8') as f:
+            writer = csv.writer(f)
+            for i in sigGeneList:
+                
+                writer.writerow([i])
+                
+print("--- %s seconds ---" % (time.time() - start_time))    
 
 #%% create laplacian for experimental
 Wexperimental= np.zeros([nDigitalSpots,nDigitalSpots],dtype='float32')

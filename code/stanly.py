@@ -32,6 +32,7 @@ import itk
 import pandas as pd
 from matplotlib.widgets import LassoSelector
 from matplotlib.path import Path
+from PIL import ImageColor
 # next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
@@ -168,6 +169,24 @@ def chooseTemplateSlice(sliceLocation):
     # it would probably make more sense to go back and create the whole brain and split it into two, rather than recreating all three
     annotation_data = ants.image_read(os.path.join(refDataPath,'data','ccf','annotation_10.nrrd'))
     templateData = {}
+    annotation_id = []
+    annotation_name = []
+    structure_id_path = []
+    color_hex = []
+    with open(os.path.join(codePath,'data','allen_ccf_annotation.csv'), newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            # imports the annotation id, and full name
+            annotation_id.append(row[3])
+            annotation_name.append(row[4])
+            structure_id_path.append(row[7])
+            color_hex.append(ImageColor.getcolor(f"#{row[1]}", 'RGB'))
+
+    templateData['annotationID'] = annotation_id
+    templateData['annotationName'] = annotation_name
+    templateData['structureIDPath'] = structure_id_path
+    templateData['annotationColor'] = list(np.array(color_hex)/255)
     bestSlice = sliceLocation * 10
     templateSlice = ara_data.slice_image(0,(bestSlice))
     templateAnnotationSlice = annotation_data.slice_image(0,(bestSlice))
@@ -187,17 +206,26 @@ def chooseTemplateSlice(sliceLocation):
     templateData['leftHem'] = templateLeft
     templateData['rightHem'] = templateRight
     templateData['wholeBrain'] = templateSlice
-    templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int32')
-    templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int32')
+    # templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int32')
+    # templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int32')
     templateData['wholeBrainAnnot'] = np.array(templateAnnotationSlice.numpy(), dtype='int32')
     annotX = templateData['wholeBrainAnnot'].shape[0]
     annotY = templateData['wholeBrainAnnot'].shape[1]
     templateAnnotRGB = np.zeros([annotX, annotY, 3])
     templateAnnotUnique = np.unique(templateData['wholeBrainAnnot'])
     templateAnnotRenum = np.zeros(templateData['wholeBrainAnnot'].shape)
+    templateAnnotColorRenum = []
     for newNum, origNum in enumerate(templateAnnotUnique):
         templateAnnotRenum[templateData['wholeBrainAnnot'] == origNum] = newNum
-
+        print(origNum)
+        colorIdx = np.where(np.array(templateData['annotationID']) == f'{origNum}')[0]
+        if colorIdx:
+            print(np.where(np.array(templateData['annotationID']) == f'{origNum}')[0])
+            newColor = templateData['annotationColor'][colorIdx[0]]
+            templateAnnotColorRenum.append(newColor)
+    templateData['annotationColor'] = mcolors.ListedColormap(templateAnnotColorRenum)
+    templateData['leftHemAnnot'] = templateAnnotRenum[:,:570]
+    templateData['rightHemAnnot'] = templateAnnotRenum[:,570:]
     se = morphology.disk(2)
     templateAnnotRGB = morphology.binary_dilation(feature.canny(templateAnnotRenum), footprint=se)
     templateData['wholeBrainAnnotEdges']  = templateAnnotRGB
@@ -205,24 +233,24 @@ def chooseTemplateSlice(sliceLocation):
     templateData['rightHemAnnotEdges'] = templateAnnotRGB[:,570:]
     # uses the 10 micron CCF
     templateData['startingResolution'] = 0.01
-    annotation_id = []
-    annotation_name = []
-    structure_id_path = []
-    color_hex = []
-    with open(os.path.join(codePath,'data','allen_ccf_annotation.csv'), newline='') as csvfile:
-        csvreader = csv.reader(csvfile, delimiter=',')
-        next(csvreader)
-        for row in csvreader:
-            # imports the annotation id, and full name
-            annotation_id.append(row[3])
-            annotation_name.append(row[4])
-            structure_id_path.append(row[7])
-            color_hex.append(row[1])
+    # annotation_id = []
+    # annotation_name = []
+    # structure_id_path = []
+    # color_hex = []
+    # with open(os.path.join(codePath,'data','allen_ccf_annotation.csv'), newline='') as csvfile:
+    #     csvreader = csv.reader(csvfile, delimiter=',')
+    #     next(csvreader)
+    #     for row in csvreader:
+    #         # imports the annotation id, and full name
+    #         annotation_id.append(row[3])
+    #         annotation_name.append(row[4])
+    #         structure_id_path.append(row[7])
+    #         color_hex.append(ImageColor.getcolor(f"#{row[1]}", 'RGB'))
 
-    templateData['annotationID'] = annotation_id
-    templateData['annotationName'] = annotation_name
-    templateData['structureIDPath'] = structure_id_path
-    templateData['colorHex'] = color_hex
+    # templateData['annotationID'] = annotation_id
+    # templateData['annotationName'] = annotation_name
+    # templateData['structureIDPath'] = structure_id_path
+    # templateData['annotationColor'] = mcolors.ListedColormap(color_hex)
     return templateData
 
 def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
