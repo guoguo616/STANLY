@@ -217,10 +217,8 @@ def chooseTemplateSlice(sliceLocation):
     templateAnnotColorRenum = []
     for newNum, origNum in enumerate(templateAnnotUnique):
         templateAnnotRenum[templateData['wholeBrainAnnot'] == origNum] = newNum
-        print(origNum)
         colorIdx = np.where(np.array(templateData['annotationID']) == f'{origNum}')[0]
         if colorIdx:
-            print(np.where(np.array(templateData['annotationID']) == f'{origNum}')[0])
             newColor = templateData['annotationColor'][colorIdx[0]]
             templateAnnotColorRenum.append(newColor)
     templateData['annotationColor'] = mcolors.ListedColormap(templateAnnotColorRenum)
@@ -391,6 +389,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     # plt.title(f"Total gene count per spot for {processedVisium['sampleID']}")
     # plt.colorbar()
     # plt.show()
+    plt.figure()
     plt.imshow(processedVisium['tissueProcessed'], cmap='gray')
     plt.scatter(tissuePointsResized[:,0],tissuePointsResized[:,1], c=np.array(countsPerSpotZscore), alpha=0.8, cmap='seismic', norm=zeroCenteredCmap, marker='.')
     plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
@@ -574,10 +573,12 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
         registeredData['geneMatrixLog2'] = processedVisium['geneMatrixLog2']
     else:
         registeredData['geneMatrix'] = processedVisium['geneMatrix']
+    plt.figure()
     plt.imshow(registeredData['tissueRegistered'], cmap='gray')
     plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
     
+    plt.figure()
     plt.imshow(sampleToRegisterTo['tissueProcessed'], cmap='gray')
     plt.imshow(registeredData['tissueRegistered'], alpha=0.7, cmap='gray')
     plt.title(processedVisium['sampleID'])
@@ -615,10 +616,12 @@ def applyAntsTransformations(registeredVisium, bestSampleRegisteredToTemplate, t
     transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
     templateRegisteredData['geneListMasked'] = registeredVisium['geneListMasked']
 
+    plt.figure()
     plt.imshow(templateRegisteredData['tissueRegistered'], cmap='gray')
     plt.scatter(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='.', c='red', alpha=0.3)
     plt.show()
 
+    plt.figure()
     plt.imshow(templateData['rightHem'], cmap='gray')    
     plt.imshow(templateRegisteredData['tissueRegistered'],alpha=0.8,cmap='gray')
     plt.title(templateRegisteredData['sampleID'])
@@ -688,6 +691,7 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize):
             digitalSpots.append(templateSpots[row])
             
     digitalSpots = np.array(digitalSpots)
+    plt.figure()
     plt.imshow(templateRegisteredData['tissueRegistered'])
     plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
     plt.show()
@@ -885,7 +889,7 @@ def createRegionalMask(template, desiredRegion):
         if any(regionBoolMask[0]):
             regionMask[regionBoolMask[0],regionBoolMask[1]] = 1
         # regionMask = regionMask + structMask
-        
+    plt.figure()
     plt.imshow(template['rightHem'], cmap='gray')
     plt.imshow(regionMask, alpha=0.8)
     plt.show()
@@ -1039,6 +1043,7 @@ def viewGeneInRegisteredVisium(registeredSample, geneName):
     try:
         geneIndex = registeredSample['geneListMasked'].index(geneName)
         actSpots = registeredSample['geneMatrixLog2'][geneIndex, :]
+        plt.figure()
         plt.imshow(registeredSample['tissueProcessed'], cmap='gray')
         plt.scatter(registeredSample['processedTissuePositionList'][:,0],registeredSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
         plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')

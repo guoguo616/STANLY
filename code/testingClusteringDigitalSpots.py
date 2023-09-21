@@ -20,17 +20,17 @@ from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.cm as cm
 # colormap of colorblind friendly colors from https://gist.github.com/thriveth/8560036
-CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
-                  '#f781bf', '#a65628', '#984ea3',
-                  '#999999', '#e41a1c', '#dede00']
+# CB_color_cycle = ['#377eb8', '#ff7f00', '#4daf4a',
+#                   '#f781bf', '#a65628', '#984ea3',
+#                   '#999999', '#e41a1c', '#dede00']
 
 # convert to rgb 
-cbRGB = []
-for h in CB_color_cycle:
-    hexNum = h.lstrip('#')
-    cbRGB.append(tuple(int(hexNum[i:i+2], 16) for i in (0, 2, 4)))
+# cbRGB = []
+# for h in CB_color_cycle:
+#     hexNum = h.lstrip('#')
+#     cbRGB.append(tuple(int(hexNum[i:i+2], 16) for i in (0, 2, 4)))
     
-cbRGB = np.array(cbRGB)/255
+# cbRGB = np.array(cbRGB)/255
 
 rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
 template = stanly.chooseTemplateSlice(70)
