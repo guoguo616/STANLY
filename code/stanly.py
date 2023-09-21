@@ -810,7 +810,6 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     allMeanCdists = np.array(allMeanCdists, dtype='int32')
     allSpotNN = np.array(allSpotNN,dtype='int32')
     allSpotNN = np.reshape(allSpotNN, [-1,kNN])
-    print(allSpotNN.shape)
     # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
 

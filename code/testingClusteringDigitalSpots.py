@@ -14,7 +14,7 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from sklearn.cluster import KMeans, DBSCAN, SpectralClustering
 from sklearn.metrics import silhouette_samples, silhouette_score
@@ -32,7 +32,7 @@ for h in CB_color_cycle:
     
 cbRGB = np.array(cbRGB)/255
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
 template = stanly.chooseTemplateSlice(70)
 #%% load experiment of samples that have already been processed and registered
 
