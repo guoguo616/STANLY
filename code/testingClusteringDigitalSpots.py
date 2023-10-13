@@ -59,8 +59,9 @@ nTotalSamples = len(processedSamples)
 spotCountMean = totalSpotCount / nTotalSamples
 print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
 
+#%%
 bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template, hemisphere='rightHem')
-
+#%% 
 experimentalResults = {}
 for actSample in range(len(processedSamples)):
     sampleRegistered = stanly.runANTsInterSampleRegistration(processedSamples[actSample], processedSamples[4])

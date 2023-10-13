@@ -7,3 +7,7 @@
   - this should likely be incorporated into a larger concept of how we maintain 3D space even while working with 2D images
 - add ability to change registration options using json or other sort of file
   - should allow user to change any options offered by ants.registration
+- option to turn on/off the display of images from various functions
+  - have begun adding this in the form of a `displayImage` option to any functions that would typically display an image
+  - default setting for `displayImage=False` to avoid excessive matplotlib plots
+  

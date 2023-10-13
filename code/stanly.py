@@ -384,24 +384,19 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     finiteMin=np.min(countsPerSpotZscore)
     finiteMax=np.max(countsPerSpotZscore)
     zeroCenteredCmap = mcolors.TwoSlopeNorm(0,vmin=finiteMin, vmax=finiteMax)
-    # plt.imshow( processedVisium['tissueRotated'], cmap='gray')
-    # plt.scatter(processedVisium['tissuePointsResized'][:,0],processedVisium['tissuePointsResized'][:,1], c=np.array(countsPerSpot), alpha=0.8)
-    # plt.title(f"Total gene count per spot for {processedVisium['sampleID']}")
+    # plt.figure()
+    # plt.imshow(processedVisium['tissueProcessed'], cmap='gray')
+    # plt.scatter(tissuePointsResized[:,0],tissuePointsResized[:,1], c=np.array(countsPerSpotZscore), alpha=0.8, cmap='seismic', norm=zeroCenteredCmap, marker='.')
+    # plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
     # plt.colorbar()
     # plt.show()
-    plt.figure()
-    plt.imshow(processedVisium['tissueProcessed'], cmap='gray')
-    plt.scatter(tissuePointsResized[:,0],tissuePointsResized[:,1], c=np.array(countsPerSpotZscore), alpha=0.8, cmap='seismic', norm=zeroCenteredCmap, marker='.')
-    plt.title(f"Z-score of overall gene count per spot for {processedVisium['sampleID']}")
-    plt.colorbar()
-    plt.show()
-    
+    processedVisium['resolutionRatio'] = visiumData['spotStartingResolution'] / templateData['startingResolution']
     # write outputs
     # writes json containing general info and masked gene list
     processedDataDict = {
         "sampleID": visiumData['sampleID'],
         "rotation": int(rotation),
-        "resolutionRatio": visiumData['spotStartingResolution'] / templateData['startingResolution'],
+        "resolutionRatio": processedVisium['resolutionRatio'],
         "spotCount": processedVisium['spotCount'],
         "otsuThreshold": float(otsuThreshold),
         "geneList": processedVisium['geneListMasked']
@@ -430,7 +425,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     return processedVisium
 
 
-def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='wholeBrain'):
+def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='wholeBrain', displayImage=False):
     """
     Register spatial transcriptomic data to template data
     ----------
@@ -446,19 +441,6 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     templateAntsImage = ants.from_numpy(templateData[hemisphere])
     maxWidth = templateData[hemisphere].shape[1]
     try:
-# <<<<<<< HEAD
-#         file = open(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
-#         print(f"{processedVisium['sampleID']} has already been processed and is located at: {processedVisium['derivativesPath']}")
-#         print(f"Loading data for {processedVisium['sampleID']}")
-#         registeredData['sampleID'] = processedVisium['sampleID']
-#         registeredData['derivativesPath'] = processedVisium['derivativesPath']
-#         registeredData['geneListMasked'] = processedVisium['geneListMasked']
-#         registeredData['fwdtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat")]
-#         registeredData['invtransforms'] = [os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_xfm1InverseWarp.nii.gz"),]
-#         registeredData['tissueRegistered'] = plt.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
-#     except Exception as e:
-#         print(f"Registering {processedVisium['sampleID']}")
-# =======
         file = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
         print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")
         print(f"Loading data for {processedData['sampleID']}")
@@ -524,13 +506,18 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     else:
         tempDenseMatrix = processedData['geneMatrix'].todense().astype('float32')
     registeredData['geneMatrixMasked'] = sp_sparse.csc_matrix(tempDenseMatrix[:,geneMatrixMaskedIdx])
+    if displayImage == True:
+        plt.figure()
+        plt.imshow(registeredData['tissueRegistered'], cmap='gray')
+        plt.show()
+
     # write re-ordered gene matrix csv to match tissue spot order
     sp_sparse.save_npz(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['geneMatrixMasked']))        
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['tissueRegistered'])
     
     return registeredData
 
-def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2normalize=True):
+def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2normalize=True, displayImage=False):
     """ 
     Register one processed spatial transcriptomic sample to another
     ----------
@@ -573,22 +560,24 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
         registeredData['geneMatrixLog2'] = processedVisium['geneMatrixLog2']
     else:
         registeredData['geneMatrix'] = processedVisium['geneMatrix']
-    plt.figure()
-    plt.imshow(registeredData['tissueRegistered'], cmap='gray')
-    plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
-    plt.show()
-    
-    plt.figure()
-    plt.imshow(sampleToRegisterTo['tissueProcessed'], cmap='gray')
-    plt.imshow(registeredData['tissueRegistered'], alpha=0.7, cmap='gray')
-    plt.title(processedVisium['sampleID'])
-    plt.show()
+        
+    if displayImage==True:
+        plt.figure()
+        plt.imshow(registeredData['tissueRegistered'], cmap='gray')
+        plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
+        plt.show()
+        
+        plt.figure()
+        plt.imshow(sampleToRegisterTo['tissueProcessed'], cmap='gray')
+        plt.imshow(registeredData['tissueRegistered'], alpha=0.7, cmap='gray')
+        plt.title(processedVisium['sampleID'])
+        plt.show()
 
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png",registeredData['tissueRegistered'])
 
     return registeredData
     
-def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templateData, log2normalize=True, hemisphere='wholeBrain'):        
+def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templateData, log2normalize=True, hemisphere='wholeBrain', displayImage=False):
     """
     Apply transformation created during template registration to tissue points
     
@@ -636,16 +625,17 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
     transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
     templateRegisteredData['geneListMasked'] = registeredST['geneListMasked']
 
-    plt.figure()
-    plt.imshow(templateRegisteredData['tissueRegistered'], cmap='gray')
-    plt.scatter(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='.', c='red', alpha=0.3)
-    plt.show()
-
-    plt.figure()
-    plt.imshow(templateData['rightHem'], cmap='gray')    
-    plt.imshow(templateRegisteredData['tissueRegistered'],alpha=0.8,cmap='gray')
-    plt.title(templateRegisteredData['sampleID'])
-    plt.show()
+    if displayImage==True:
+        plt.figure()
+        plt.imshow(templateRegisteredData['tissueRegistered'], cmap='gray')
+        plt.scatter(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='.', c='red', alpha=0.3)
+        plt.show()
+    
+        plt.figure()
+        plt.imshow(templateData['rightHem'], cmap='gray')    
+        plt.imshow(templateRegisteredData['tissueRegistered'],alpha=0.8,cmap='gray')
+        plt.title(templateRegisteredData['sampleID'])
+        plt.show()
         
     transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['tissueRegistered'].shape[0])
     maskedTissuePositionList = []
@@ -911,6 +901,7 @@ def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
     processedSampleJson = json.loads(jsonPath.read())
     processedVisium['geneListMasked'] = processedSampleJson['geneList']
     processedVisium['spotCount'] = processedSampleJson['spotCount']
+    processedVisium['resolutionRatio'] = processedSampleJson['resolutionRatio']
     if loadLog2Norm==True:
         geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
         processedVisium['geneMatrixLog2'] = geneMatrixLog2
