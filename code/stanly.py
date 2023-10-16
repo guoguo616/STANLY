@@ -33,7 +33,8 @@ import pandas as pd
 from matplotlib.widgets import LassoSelector
 from matplotlib.path import Path
 from PIL import ImageColor
-# next few lines first grabs location of main script and uses that to get the location of the reference data, i.e. one back from teh code folder
+# next few lines first grabs location of main script and uses that to get the 
+# location of the CCF reference data
 codePath = os.path.realpath(os.path.dirname(__file__))
 refDataPath = codePath.split('/')
 del refDataPath[-1]
@@ -451,11 +452,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         registeredData['invtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1InverseWarp.nii.gz"),]
         registeredData['tissueRegistered'] = plt.imread(os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
     except Exception as e:
-        #######################################################################
-        # working here to add merfish updates
-        #######################################################################
         print(f"Registering {processedData['sampleID']}")
-# >>>>>>> merfishTesting
         # convert into ants image type
         registeredData['sampleID'] = processedData['sampleID']
         registeredData['derivativesPath'] = processedData['derivativesPath']
