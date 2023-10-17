@@ -14,13 +14,13 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
+sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
 import stanly
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.cm as cm
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
 template = stanly.chooseTemplateSlice(70)
 #%% load experiment of samples that have already been processed and registered
 
