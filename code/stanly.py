@@ -1495,3 +1495,33 @@ class SelectUsingLasso:
             self.ax.set_title("")
             plt.close()
         
+def annotateDigitalSpots(digitalSpots, templateSlice, hemisphere='wholeBrain'):
+    """    
+    Parameters
+    ----------
+    digitalSpots : float array
+        Array of digital spot coordinates from createDigitalSpots().
+    templateSlice : Allen CCF template data
+        Template data used during registration, from chooseTemplateSlice().
+    hemisphere : str, optional
+        String describing hemisphere of brain
+        'wholeBrain','leftHem','rightHem'. The default is 'wholeBrain'.
+
+    Returns
+    -------
+    annotatedDigitalSpots : float array
+        An array containing the digital spots along with their annotation.
+
+    """
+    roundedSpots = np.rint(digitalSpots)
+    templateAnnot = templateSlice['wholeBrainAnnot']
+    if hemisphere=='leftHem':
+        templateAnnot = templateSlice['leftHemAnnot']
+    elif hemisphere=='rightHem':
+        templateAnnot = templateSlice['rightHemAnnot']
+    spotAnnot = []
+    for i in range(roundedSpots.shape[0]):
+        templateAnnot[int(roundedSpots[i,1]),int(roundedSpots[i,0])]
+        spotAnnot.append([digitalSpots[i,0], digitalSpots[i,1],templateAnnot[int(roundedSpots[i,1]),int(roundedSpots[i,0])]])
+    spotAnnot = np.array(spotAnnot)
+    return spotAnnot
