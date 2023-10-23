@@ -33,12 +33,9 @@ import pandas as pd
 from matplotlib.widgets import LassoSelector
 from matplotlib.path import Path
 from PIL import ImageColor
-# next few lines first grabs location of main script and uses that to get the 
-# location of the CCF reference data
+# grab location of the CCF reference data
 codePath = os.path.realpath(os.path.dirname(__file__))
-refDataPath = codePath.split('/')
-del refDataPath[-1]
-refDataPath = os.path.join('/',*refDataPath)
+dataPath = os.path.join(codePath, 'data')
 
 """ notes about visium data:
     there are a total of 4,992 possible spots on a slide
@@ -93,6 +90,7 @@ end of code from 10x
     6. measure for nearest neighbor similarity among spots in new space and create a vector that represents the nearest neighbors from each slice
 """
 
+#%% import functions
 def importVisiumData(sampleFolder):
     """
     Imports individual Visium experiment from location
@@ -101,8 +99,6 @@ def importVisiumData(sampleFolder):
     ----------
     sampleFolder : directory containing Visium data
     """
-    # this currently assumes that sampleFolder contains spatial folder and the
-    # filtered_feature_bc_matrix.h5 output from space ranger, but includes some attempts to resolve
     visiumData = {}
     if os.path.exists(os.path.join(sampleFolder,"spatial")):
         spatialFolder = os.path.join(sampleFolder,"spatial")
@@ -148,6 +144,69 @@ def importVisiumData(sampleFolder):
     visiumData['spotStartingResolution'] = 0.55 / visiumData["scaleFactors"]["spot_diameter_fullres"]
     return visiumData
 
+def importMerfishData(sampleFolder, outputPath):
+    sampleData = {}
+    if os.path.exists(os.path.join(sampleFolder)):
+        if any(glob(os.path.join(sampleFolder, '*cell_by_gene*.csv'))):
+            dataFolder = sampleFolder
+            sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
+        elif any(glob(os.path.join(sampleFolder, 'region_0','*cell_by_gene*.csv'))):
+            
+            os.path.isfile(glob(os.path.join(sampleFolder,'region_0','*cell_by_gene*.csv'))[0])
+            dataFolder = os.path.join(sampleFolder, 'region_0')
+            sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
+        else:
+            print("Something is wrong!")
+    else:
+        print(f"{sampleFolder} not found!")
+    if any(glob(os.path.join(dataFolder,"images","manifest.json"))):
+        scaleFactorPath = open(os.path.join(dataFolder,"images","manifest.json"))
+        sampleData['scaleFactors'] = json.loads(scaleFactorPath.read())
+        scaleFactorPath.close()
+    if any(glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))):
+        originalImagePath =  glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))[0]
+    elif any(glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))):
+        originalImagePath =  glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))[0]
+    else:
+        print(f"Can't find tif in {dataFolder} or {dataFolder}/images")
+    downsampledImagePath = os.path.splitext(originalImagePath)[0]
+    downsampledImagePath = downsampledImagePath + "_downsampled.tif"
+    if any(glob(downsampledImagePath)):
+        print(f"Loading previously downsampled image from {dataFolder}")
+    else:
+        print("Downsampling high resolution image to 10 micron resolution")
+        downsampleMerfishTiff(originalImagePath, downsampledImagePath, scale=0.01)
+    sampleData['imageData'] = io.imread(downsampledImagePath)
+    # min-max normalize image data 
+    grayImage = (sampleData['imageData'] - np.min(sampleData['imageData']))\
+        /(np.max(sampleData['imageData']) - np.min(sampleData['imageData']))
+    sampleData['imageDataGray'] = np.array(grayImage, dtype='float32')
+    cellMetadataCsv = glob(os.path.join(dataFolder,"*cell_metadata*.csv"))[0]
+    tissuePositionList = []
+    tissueSpotBarcodes = []    
+    with open(cellMetadataCsv, newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            tissueSpotBarcodes.append(row[0])
+            tissuePositionList.append(row[3:5])
+    tissuePositionList = np.array(tissuePositionList, dtype='float32')
+    sampleData['tissueSpotBarcodeList'] = tissueSpotBarcodes
+    sampleData['tissuePositionList'] = tissuePositionList
+    geneMatrixPath = glob(os.path.join(dataFolder,"*cell_by_gene*.csv"))[0]
+    geneMatrix = []
+    with open(geneMatrixPath, newline='') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        next(csvreader)
+        for row in csvreader:
+            geneMatrix.append(np.array(row[1:], dtype='float32'))
+    sampleData['geneMatrix'] = np.array(geneMatrix, dtype='int32')
+    cellByGene = pd.read_csv(geneMatrixPath)
+    geneList = cellByGene.columns[1:]
+    sampleData['geneList'] = list(geneList) 
+    return sampleData
+
+#%% template/allen ccf functions
 def chooseTemplateSlice(sliceLocation):
     """
     Choose template slice to align data to
@@ -158,8 +217,8 @@ def chooseTemplateSlice(sliceLocation):
     sliceLocation : int
         The slice number from the CCF you wish to load
     """
-    ccfPath = os.path.join(refDataPath,'data','ccf')
-    # checks if ccf data has been downloaded already and downloads it if it hasn't
+    ccfPath = os.path.join(dataPath,'ccf')
+    # checks if allen ccf data has been downloaded already and downloads it if it hasn't
     if not os.path.exists(ccfPath):
         print("Downloading 10 micron resolution ara_nissl nrrd file from the Allen Institute, this may take awhile")
         os.mkdirs(ccfPath)
@@ -167,14 +226,13 @@ def chooseTemplateSlice(sliceLocation):
         rsapi = ReferenceSpaceApi()
         rsapi.download_volumetric_data('ara_nissl','ara_nissl_10.nrrd',10, save_file_path=os.path.join(ccfPath, 'ara_nissl_10.nrrd'))
     ara_data = ants.image_read(os.path.join(ccfPath,'ara_nissl_10.nrrd'))
-    # it would probably make more sense to go back and create the whole brain and split it into two, rather than recreating all three
-    annotation_data = ants.image_read(os.path.join(refDataPath,'data','ccf','annotation_10.nrrd'))
+    annotation_data = ants.image_read(os.path.join(ccfPath,'annotation_10.nrrd'))
     templateData = {}
     annotation_id = []
     annotation_name = []
     structure_id_path = []
     color_hex = []
-    with open(os.path.join(codePath,'data','allen_ccf_annotation.csv'), newline='') as csvfile:
+    with open(os.path.join(dataPath,'allen_ccf_annotation.csv'), newline='') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
         next(csvreader)
         for row in csvreader:
@@ -188,28 +246,18 @@ def chooseTemplateSlice(sliceLocation):
     templateData['annotationName'] = annotation_name
     templateData['structureIDPath'] = structure_id_path
     templateData['annotationColor'] = list(np.array(color_hex)/255)
+    templateData['sliceNumber'] = sliceLocation
+    # uses the 10 micron CCF
+    templateData['startingResolution'] = 0.01
     bestSlice = sliceLocation * 10
     templateSlice = ara_data.slice_image(0,(bestSlice))
     templateAnnotationSlice = annotation_data.slice_image(0,(bestSlice))
-    templateLeft = templateSlice[:,:570]
-    templateRight = templateSlice[:,570:]
-
-    templateLeft = cv2.normalize(templateLeft, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    templateRight = cv2.normalize(templateRight, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    templateAnnotationLeft = templateAnnotationSlice[:,:570]
-    templateAnnotationRight = templateAnnotationSlice[:,570:]
+    
     templateSlice = cv2.normalize(templateSlice.numpy(), None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     
-    templateData['templateWholeGauss'] = filters.gaussian(templateSlice, sigma=10)
-    templateData['templateLeftGauss'] = filters.gaussian(templateLeft, sigma=10)
-    templateData['templateRightGauss'] = filters.gaussian(templateRight, sigma=10)
-    templateData['sliceNumber'] = sliceLocation
-    templateData['leftHem'] = templateLeft
-    templateData['rightHem'] = templateRight
     templateData['wholeBrain'] = templateSlice
-    # templateData['leftHemAnnot'] = np.array(templateAnnotationLeft, dtype='int32')
-    # templateData['rightHemAnnot'] = np.array(templateAnnotationRight, dtype='int32')
     templateData['wholeBrainAnnot'] = np.array(templateAnnotationSlice.numpy(), dtype='int32')
+    templateData['templateWholeGauss'] = filters.gaussian(templateSlice, sigma=10)
     annotX = templateData['wholeBrainAnnot'].shape[0]
     annotY = templateData['wholeBrainAnnot'].shape[1]
     templateAnnotRGB = np.zeros([annotX, annotY, 3])
@@ -223,15 +271,39 @@ def chooseTemplateSlice(sliceLocation):
             newColor = templateData['annotationColor'][colorIdx[0]]
             templateAnnotColorRenum.append(newColor)
     templateData['annotationColor'] = mcolors.ListedColormap(templateAnnotColorRenum)
-    templateData['leftHemAnnot'] = templateAnnotRenum[:,:570]
-    templateData['rightHemAnnot'] = templateAnnotRenum[:,570:]
     se = morphology.disk(2)
     templateAnnotRGB = morphology.binary_dilation(feature.canny(templateAnnotRenum), footprint=se)
     templateData['wholeBrainAnnotEdges']  = templateAnnotRGB
+    
+    templateData['leftHem'] = templateSlice[:,:570]
+    templateData['leftHemAnnot'] = templateAnnotRenum[:,:570]
+    templateData['templateLeftGauss'] = templateData['templateWholeGauss'][:,:570]
     templateData['leftHemAnnotEdges'] = templateAnnotRGB[:,:570]
+    
+    templateData['rightHem'] = templateSlice[:,570:]
+    templateData['rightHemAnnot'] = templateAnnotRenum[:,570:]
+    templateData['templateRightGauss'] = templateData['templateWholeGauss'][:,570:]
     templateData['rightHemAnnotEdges'] = templateAnnotRGB[:,570:]
-    # uses the 10 micron CCF
-    templateData['startingResolution'] = 0.01
+
+    # templateLeft = templateSlice[:,:570]
+    # templateRight = templateSlice[:,570:]
+
+    # templateLeft = cv2.normalize(templateLeft, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    # templateRight = cv2.normalize(templateRight, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    # templateAnnotationLeft = templateAnnotationSlice[:,:570]
+    # templateAnnotationRight = templateAnnotationSlice[:,570:]
+    
+    
+    
+    # templateData['templateLeftGauss'] = filters.gaussian(templateLeft, sigma=10)
+    # templateData['templateRightGauss'] = filters.gaussian(templateRight, sigma=10)
+    
+    # templateData['leftHem'] = templateLeft
+    # templateData['rightHem'] = templateRight
+    
+    # templateData['leftHemAnnot'] = templateAnnotRenum[:,:570]
+    # templateData['rightHemAnnot'] = templateAnnotRenum[:,570:]
+    
     # annotation_id = []
     # annotation_name = []
     # structure_id_path = []
@@ -994,111 +1066,6 @@ def viewGeneInRegisteredVisium(registeredSample, geneName):
     except(ValueError):
         print(f'{geneName} not found in dataset')
 
-#%% not working properly indpendently yet
-def runTTest(experiment, experimentalGroup, geneList, fdr='sidak', alpha=0.05):
-    # needs to include:
-    # benjamini-hochberg, bonferroni, and sidak fdr corrections
-    # option to suppress image output, alternatively default off
-    # experiment in this case is formatted as previous with each sample having `digitalSpotNearestNeighbors`
-    # experimentalGroup is a binary list of [0,1] indicating whether or not sample is in experimental group
-    nOfGenes = len(geneList)
-    nDigitalSpots = experiment[0]['digitalSpotNearestNeighbors'].shape[0]
-    nNearestNeighbors = experiment[0]['digitalSpotNearestNeighbors'].shape[1]
-    if fdr == 'sidak':
-        alphaFDR = 1 - np.power((1 - alpha),(1/(nOfGenes*nDigitalSpots)))
-    elif fdr == 'benjamini-hochberg':
-        rankList = np.arange(1,nDigitalSpots+1)
-        alphaFDR = (rankList/(nOfGenes*nDigitalSpots)) * alpha
-    elif fdr == 'bonferroni':
-        alphaFDR = alpha/(nOfGenes*nDigitalSpots)
-    elif fdr == 'no':
-        alphaFDR = alpha
-
-    sigGenes = []
-    sigGenesWithPvals = []
-    sigGenesWithTstats = []
-    nSampleExperimental = sum(experimentalGroup)
-    nSampleControl = len(experimentalGroup) - nSampleExperimental
-    for nOfGenesChecked,actGene in enumerate(geneList):
-        digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * nNearestNeighbors)])
-        digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * nNearestNeighbors)])
-        startControl = 0
-        stopControl = nNearestNeighbors
-        startExperimental = 0
-        stopExperimental = nNearestNeighbors
-        nTestedSamples = 0
-        nControls = 0
-        nExperimentals = 0
-        for actSample in range(len(experiment)):
-            try:
-                geneIndex = experiment[actSample]['geneListMasked'].index(actGene)
-            except(ValueError):
-                print(f'{actGene} not in dataset')
-                continue
-
-            geneCount = np.zeros([nDigitalSpots,nNearestNeighbors])
-            for spots in enumerate(experiment[actSample]['digitalSpotNearestNeighbors']):
-                if np.any(spots[1] < 0):
-                    geneCount[spots[0]] = np.nan
-                else:
-                    spotij = np.zeros([nNearestNeighbors,2], dtype='int32')
-                    spotij[:,1] = np.asarray(spots[1], dtype='int32')
-                    spotij[:,0] = geneIndex
-                    
-                    geneCount[spots[0]] = experiment[actSample]['geneMatrixMasked'][spotij[:,0],spotij[:,1]]
-                    
-            spotCount = np.nanmean(geneCount, axis=1)
-            nTestedSamples += 1
-            if experimentalGroup[actSample] == 0:
-                digitalSamplesControl[:,startControl:stopControl] = geneCount
-                startControl += nNearestNeighbors
-                stopControl += nNearestNeighbors
-                nControls += 1
-            elif experimentalGroup[actSample] == 1:
-                digitalSamplesExperimental[:,startExperimental:stopExperimental] = geneCount
-                startExperimental += nNearestNeighbors
-                stopExperimental += nNearestNeighbors
-                nExperimentals += 1
-                
-            else:
-                continue
-                
-        digitalSamplesControl = np.array(digitalSamplesControl, dtype='float32').squeeze()
-        digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype='float32').squeeze()
-        #####################################################################################################
-        # this will check that at least a certain number of spots show expression for the gene of interest  #
-        # might be able to remove entirely now that FDR has been expanded                                   #
-        #####################################################################################################
-        checkControlSamples = np.count_nonzero(digitalSamplesControl,axis=1)
-        checkExperimentalSamples = np.count_nonzero(digitalSamplesExperimental,axis=1)
-        checkAllSamples = checkControlSamples & checkExperimentalSamples > 20
-        if sum(checkAllSamples) < 20:
-            continue
-        else:
-            actTtest = scipy.stats.ttest_ind(digitalSamplesExperimental,digitalSamplesControl, axis=1, nan_policy='propagate')
-            actTstats = actTtest[0]
-            actPvals = actTtest[1]
-            mulCompResults = actPvals < alphaFDR
-            if sum(mulCompResults) > 0:
-                actSigGene = [actGene,sum(mulCompResults)]
-                sigGenes.append(actSigGene)
-                actSigGeneWithPvals = np.append(actSigGene, actPvals)
-                actSigGeneWithTstats = np.append(actSigGene, actTstats)
-                sigGenesWithPvals.append(actSigGeneWithPvals)
-                sigGenesWithTstats.append(actSigGeneWithTstats)
-                print(actGene)
-            else:
-                continue
-    timestr = time.strftime("%Y%m%d-%H%M%S")
-    with open(os.path.join(derivatives,f'listOfDEGsPvalues{fdr}Correction_{timestr}.csv'), 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        for i in sigGenesWithPvals:
-            writer.writerow(i)
-            
-    with open(os.path.join(derivatives,f'listOfDEGsTstatistics{fdr}Correction_{timestr}.csv'), 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        for i in sigGenesWithTstats:
-            writer.writerow(i)
 
 #%% add analysis that utilizes spots of known gene
 # this version uses processed but unregistered samples
@@ -1150,83 +1117,7 @@ def downsampleMerfishTiff(merfishImageFilename, outputName, scale=0.01):
     outFilename = os.path.join(outputName)
     itk.imwrite(resampled, outFilename)
     
-def importMerfishData(sampleFolder, outputPath):
-    # 
-    sampleData = {}
-    if os.path.exists(os.path.join(sampleFolder)):
-        # spatialFolder = os.path.join(sampleFolder)
-        if any(glob(os.path.join(sampleFolder, '*cell_by_gene*.csv'))):
-            # need to check how the cell by gene file is usually output/named
-            # os.path.isfile(glob(os.path.join(sampleFolder, '*cell_by_gene_*.csv'))[0])
-            dataFolder = sampleFolder
-            sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
-        elif any(glob(os.path.join(sampleFolder, 'region_0','*cell_by_gene*.csv'))):
-            
-            os.path.isfile(glob(os.path.join(sampleFolder,'region_0','*cell_by_gene*.csv'))[0])
-            dataFolder = os.path.join(sampleFolder, 'region_0')
-            sampleData['sampleID'] = sampleFolder.rsplit(sep='/',maxsplit=1)[-1]
-            # os.path.isfile(glob(os.path.join(spatialFolder, '*filtered_feature_bc_matrix.h5'))[0])
-            # dataFolder = spatialFolder
-        else:
-            print("Something is wrong!")
-        # dataFolder = os.path.join(sampleFolder)
-    else:
-        print(f"{sampleFolder} not found!")
-    # need to look for standard outputname of tiff file for registration
-    if any(glob(os.path.join(dataFolder,"images","manifest.json"))):
-        scaleFactorPath = open(os.path.join(dataFolder,"images","manifest.json"))
-        sampleData['scaleFactors'] = json.loads(scaleFactorPath.read())
-        scaleFactorPath.close()
-    if any(glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))):
-        originalImagePath =  glob(os.path.join(dataFolder,"*mosaic_DAPI_z0.tif"))[0]
-    elif any(glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))):
-        originalImagePath =  glob(os.path.join(dataFolder,"images","*mosaic_DAPI_z0.tif"))[0]
-    else:
-        print(f"Can't find tif in {dataFolder} or {dataFolder}/images")
-    downsampledImagePath = os.path.splitext(originalImagePath)[0]
-    downsampledImagePath = downsampledImagePath + "_downsampled.tif"
-    # check if image has already been downsampled
-    if any(glob(downsampledImagePath)):
-        print(f"Loading previously downsampled image from {dataFolder}")
-    else:
-        print("Downsampling high resolution image to 10 micron resolution")
-        downsampleMerfishTiff(originalImagePath, downsampledImagePath, scale=0.01)
-    sampleData['imageData'] = io.imread(downsampledImagePath)
-    # need to convert into 0-1 
-    # sampleImageNorm = (sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData']))
-    sampleData['imageDataGray'] = np.array((sampleData['imageData'] - np.min(sampleData['imageData']))/(np.max(sampleData['imageData']) - np.min(sampleData['imageData'])), dtype='float32')
-    
-    cellMetadataCsv = glob(os.path.join(dataFolder,"*cell_metadata*.csv"))[0]
-    tissuePositionList = []
-    tissueSpotBarcodes = []    
-    with open(cellMetadataCsv, newline='') as csvfile:
-        csvreader = csv.reader(csvfile, delimiter=',')
-        next(csvreader)
-        for row in csvreader:
-            tissueSpotBarcodes.append(row[0])
-            tissuePositionList.append(row[3:5])
-    tissuePositionList = np.array(tissuePositionList, dtype='float32')
-    sampleData['tissueSpotBarcodeList'] = tissueSpotBarcodes
-    sampleData['tissuePositionList'] = tissuePositionList
-    ### no scale factor equivalent that I know of in merfish, but using nanometer as reference can approximate scaling so far
-    # scaleFactorPath = open(os.path.join(spatialFolder,"scalefactors_json.json"))
-    # sampleData['scaleFactors'] = json.loads(scaleFactorPath.read())
-    # scaleFactorPath.close()
-    geneMatrixPath = glob(os.path.join(dataFolder,"*cell_by_gene*.csv"))[0]
-    geneMatrix = []
-    with open(geneMatrixPath, newline='') as csvfile:
-        csvreader = csv.reader(csvfile, delimiter=',')
-        next(csvreader)
-        for row in csvreader:
-            geneMatrix.append(np.array(row[1:], dtype='float32'))
-    sampleData['geneMatrix'] = np.array(geneMatrix, dtype='int32')
-    # the ratio of real spot diameter, 55um, by imaged resolution of spot
-    # sampleData['spotStartingResolution'] = 0.55 / visiumData["scaleFactors"]["spot_diameter_fullres"]
-    cellByGene = pd.read_csv(geneMatrixPath)
-    geneList = cellByGene.columns[1:]
-    sampleData['geneList'] = list(geneList) 
-    # plt.imshow(visiumData['imageData'])
-    return sampleData
+
 
 def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
     processedSample = {}
