@@ -540,13 +540,18 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         registeredData['invtransforms'] = synXfm['invtransforms']
 
         # apply syn transform to tissue spot coordinates
-        applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz]"
-        pid = os.system(applyTransformStr)
-        # program has to wait while spots are transformed by the system
-        if pid:
-            os.wait()
+        tissuePointsCsv = os.path.join(processedData['processedTissuePositionList'])
+        tissuePointsToAllenCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllen.csv")
+        transformList = [ f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat",f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz"]
+        tissuePointsTransformed = ants.apply_transforms_to_points(2, tissuePointsCsv,transformList)
+        
+        # applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz]"
+        # pid = os.system(applyTransformStr)
+        # # program has to wait while spots are transformed by the system
+        # if pid:
+        #     os.wait()
         registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
-
+#######################################
     transformedTissuePositionList = []
     with open(os.path.join(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv"), newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
