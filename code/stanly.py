@@ -252,12 +252,11 @@ def chooseTemplateSlice(sliceLocation):
     bestSlice = sliceLocation * 10
     templateSlice = ara_data.slice_image(0,(bestSlice))
     templateAnnotationSlice = annotation_data.slice_image(0,(bestSlice))
-    
     templateSlice = cv2.normalize(templateSlice.numpy(), None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    
     templateData['wholeBrain'] = templateSlice
     templateData['wholeBrainAnnot'] = np.array(templateAnnotationSlice.numpy(), dtype='int32')
     templateData['templateWholeGauss'] = filters.gaussian(templateSlice, sigma=10)
+    
     annotX = templateData['wholeBrainAnnot'].shape[0]
     annotY = templateData['wholeBrainAnnot'].shape[1]
     templateAnnotRGB = np.zeros([annotX, annotY, 3])
@@ -285,45 +284,9 @@ def chooseTemplateSlice(sliceLocation):
     templateData['templateRightGauss'] = templateData['templateWholeGauss'][:,570:]
     templateData['rightHemAnnotEdges'] = templateAnnotRGB[:,570:]
 
-    # templateLeft = templateSlice[:,:570]
-    # templateRight = templateSlice[:,570:]
-
-    # templateLeft = cv2.normalize(templateLeft, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    # templateRight = cv2.normalize(templateRight, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-    # templateAnnotationLeft = templateAnnotationSlice[:,:570]
-    # templateAnnotationRight = templateAnnotationSlice[:,570:]
-    
-    
-    
-    # templateData['templateLeftGauss'] = filters.gaussian(templateLeft, sigma=10)
-    # templateData['templateRightGauss'] = filters.gaussian(templateRight, sigma=10)
-    
-    # templateData['leftHem'] = templateLeft
-    # templateData['rightHem'] = templateRight
-    
-    # templateData['leftHemAnnot'] = templateAnnotRenum[:,:570]
-    # templateData['rightHemAnnot'] = templateAnnotRenum[:,570:]
-    
-    # annotation_id = []
-    # annotation_name = []
-    # structure_id_path = []
-    # color_hex = []
-    # with open(os.path.join(codePath,'data','allen_ccf_annotation.csv'), newline='') as csvfile:
-    #     csvreader = csv.reader(csvfile, delimiter=',')
-    #     next(csvreader)
-    #     for row in csvreader:
-    #         # imports the annotation id, and full name
-    #         annotation_id.append(row[3])
-    #         annotation_name.append(row[4])
-    #         structure_id_path.append(row[7])
-    #         color_hex.append(ImageColor.getcolor(f"#{row[1]}", 'RGB'))
-
-    # templateData['annotationID'] = annotation_id
-    # templateData['annotationName'] = annotation_name
-    # templateData['structureIDPath'] = structure_id_path
-    # templateData['annotationColor'] = mcolors.ListedColormap(color_hex)
     return templateData
 
+#%% processing functions
 def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
     """
     Rotate tissue coordinates and image by theta degrees
@@ -337,13 +300,13 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
     flip : bool
         Set as true to flip image across L/R axis, default=False
     """
-    # below rotates coordinates and accounts for shift resulting from matrix rotation above, will be different for different angles
-    # since the rotation is happening in euclidean space, we have to bring the coordinates back to image space
     rad = np.deg2rad(theta)
+    # create rotation matrix
     rotMat = np.array([[np.cos(rad),-(np.sin(rad))],\
               [np.sin(rad),np.cos(rad)]])
     origin = np.array([tissueImage.shape[1]/2,tissueImage.shape[0]/2])
     rotImage = rotate(tissueImage, theta, resize=True)
+    # rotation matrix for flipping hemisphere
     if flip==True:
         rotImage = rotImage[:,::-1]
         rotMat = np.array([[-np.cos(rad),(np.sin(rad))],\
@@ -354,10 +317,9 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
     tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
     return tissuePointsRotateCenter, rotImage
 
-# prepares visium data for registration
 def processVisiumData(visiumData, templateData, rotation, outputFolder, log2normalize=True, flip=False):
     """
-    Perform processing on Visium data to prepare for analysis
+    Perform processing on Visium data to prepare for registration and analysis
     ----------
     visiumData : output of importVisiumData
     templateData : output of chooseTemplateSlice
@@ -371,7 +333,6 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
         Set as true to flip image across L/R axis, default=False
     """
     processedVisium = {}
-    # the sampleID might have issues on non unix given the slash direction, might need to fix
     processedVisium['sampleID'] = visiumData['sampleID']
     outputPath = os.path.join(outputFolder, visiumData['sampleID'])
     processedVisium['sourceType'] = 'visium'
