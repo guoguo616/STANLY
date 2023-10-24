@@ -540,10 +540,10 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         registeredData['invtransforms'] = synXfm['invtransforms']
 
         # apply syn transform to tissue spot coordinates
-        tissuePointsCsv = os.path.join(processedData['processedTissuePositionList'])
-        tissuePointsToAllenCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllen.csv")
+        tissuePointsCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllen.csv")
+        tissuePointsToAllenCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllenTemplateTransformApplied.csv")
         transformList = [ f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat",f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz"]
-        tissuePointsTransformed = ants.apply_transforms_to_points(2, tissuePointsCsv,transformList)
+        tissuePointsTransformed = ants.apply_transforms_to_points(2, tissuePointsCsv,synXfm['fwdtransforms'])
         
         # applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz]"
         # pid = os.system(applyTransformStr)
