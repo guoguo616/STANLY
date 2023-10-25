@@ -7,7 +7,7 @@ This project has been created and maintained by Zeru Peterson at the University 
 
 @author: Zeru Peterson, zeru-peterson@uiowa.edu https://research-git.uiowa.edu/zjpeters/STANLY
 """
-__version__ = '0.0.1'
+__version__ = '0.0.02'
 __author__ = 'Zeru Peterson'
 # data being read in includes: json, h5, csv, nrrd, jpg, tiff, and svg
 import os
