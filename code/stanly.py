@@ -425,7 +425,6 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     for actbarcode in visiumData['tissueSpotBarcodeList']:
         tissueSpotBarcodeListSorted.append(geneMatrixBarcodeList.index(actbarcode))
     # no need to keep the dense version in the processedVisium dictionary since the necessary information is in the ordered matrix and coordinates
-    # processedVisium['tissueSpotBarcodeListSorted'] = tissueSpotBarcodeListSorted
     denseMatrix = visiumData["geneMatrix"][2]
     denseMatrix = denseMatrix.todense().astype('float32')
     orderedDenseMatrix = denseMatrix[:,tissueSpotBarcodeListSorted]
@@ -445,6 +444,8 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     processedVisium['spotCount'] = orderedDenseMatrixSpotMasked.shape[1]
     print(f"{processedVisium['sampleID']} has {processedVisium['spotCount']} spots")
     processedVisium['processedTissuePositionList'] = tissuePointsResized[spotMask,:]
+    # print(spotMask)
+    # processedVisium['tissueSpotBarcodeListSorted'] = tissueSpotBarcodeListSorted[spotMask]
     # processedVisium['filteredFeatureMatrixOrdered'] = sp_sparse.csc_matrix(orderedDenseMatrixSpotMasked)
     if log2normalize==True:
         processedVisium['geneMatrixLog2'] = sp_sparse.csc_matrix(np.log2((orderedDenseMatrixSpotMasked + 1)))
@@ -464,6 +465,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     # plt.colorbar()
     # plt.show()
     processedVisium['resolutionRatio'] = visiumData['spotStartingResolution'] / templateData['startingResolution']
+    processedVisium['locProcessedTissuePointsCSV']  = f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsProcessed.csv"
     # write outputs
     # writes json containing general info and masked gene list
     processedDataDict = {
@@ -472,6 +474,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
         "resolutionRatio": processedVisium['resolutionRatio'],
         "spotCount": processedVisium['spotCount'],
         "otsuThreshold": float(otsuThreshold),
+        "locProcessedTissuePointsCSV": processedVisium['locProcessedTissuePointsCSV'],
         "geneList": processedVisium['geneListMasked']
     }
         # Serializing json
@@ -489,12 +492,16 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     header=['x','y','z','t','label','comment']
     rowFormat = []
     # the x and y are swapped between ants and numpy, but this is so far dealt with within the code
-    with open(f"{os.path.join(outputPath,processedVisium['sampleID'])}_tissuePointsProcessed.csv", 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        for i in range(len(processedVisium['processedTissuePositionList'])):
-            rowFormat = [processedVisium['processedTissuePositionList'][i,1]] + [processedVisium['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
-            writer.writerow(rowFormat)
+    
+    pts = {'x': processedVisium['processedTissuePositionList'][:,1], 'y': processedVisium['processedTissuePositionList'][:,0]}
+    pts = pd.DataFrame(pts)
+    pts.to_csv(processedVisium['locProcessedTissuePointsCSV'], index=False)
+    # with open(processedVisium['locProcessedTissuePointsCSV'], 'w', encoding='UTF8') as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(header)
+    #     for i in range(len(processedVisium['processedTissuePositionList'])):
+    #         rowFormat = [processedVisium['processedTissuePositionList'][i,1]] + [processedVisium['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
+    #         writer.writerow(rowFormat)
     return processedVisium
 
 
@@ -519,6 +526,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         print(f"Loading data for {processedData['sampleID']}")
         registeredData['sampleID'] = processedData['sampleID']
         registeredData['derivativesPath'] = processedData['derivativesPath']
+        registeredData['locProcessedTissuePointsCSV'] = processedData['locProcessedTissuePointsCSV']
         registeredData['geneListMasked'] = processedData['geneListMasked']
         registeredData['fwdtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat")]
         registeredData['invtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1InverseWarp.nii.gz"),]
@@ -538,12 +546,12 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         
         registeredData['fwdtransforms'] = synXfm['fwdtransforms']
         registeredData['invtransforms'] = synXfm['invtransforms']
-
+        
         # apply syn transform to tissue spot coordinates
-        tissuePointsCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllen.csv")
-        tissuePointsToAllenCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllenTemplateTransformApplied.csv")
-        transformList = [ f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat",f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz"]
-        tissuePointsTransformed = ants.apply_transforms_to_points(2, tissuePointsCsv,synXfm['fwdtransforms'])
+        # tissuePointsCsv = locProcessedTissuePointsCSV
+        # tissuePointsToAllenCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllenTemplateTransformApplied.csv")
+        # transformList = [ f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat",f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz"]
+        tissuePointsTransformed = ants.apply_transforms_to_points(2, {'x': processedData['processedTissuePositionList'][:,1], 'y': processedData['processedTissuePositionList'][:,0]},synXfm['fwdtransforms'])
         
         # applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz]"
         # pid = os.system(applyTransformStr)
@@ -591,7 +599,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     
     return registeredData
 
-def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2normalize=True, displayImage=False):
+def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normalize=True, displayImage=False):
     """ 
     Register one processed spatial transcriptomic sample to another
     ----------
@@ -604,36 +612,37 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
     # convert into ants image type
     registeredData = {}
     templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueProcessed'])
-    sampleAntsImage = ants.from_numpy(processedVisium['tissueProcessed'])
+    sampleAntsImage = ants.from_numpy(processedData['tissueProcessed'])
     # mattes seems to be most conservative syn_metric
     synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
     type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
-    syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
+    syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
     
-    registeredData['sampleID'] = processedVisium['sampleID']
-    registeredData['derivativesPath'] = processedVisium['derivativesPath']
-    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz"
+    registeredData['sampleID'] = processedData['sampleID']
+    registeredData['derivativesPath'] = processedData['derivativesPath']
+    registeredData['locProcessedTissuePointsCSV'] = processedData['locProcessedTissuePointsCSV']
+    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz"
     # program has to wait while the transformation is applied by the system
     pid = os.system(applyTransformStr)
     if pid:
         os.wait()
     transformedTissuePositionList = []
-    with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv"), newline='') as csvfile:
+    with open(os.path.join(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv"), newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
             next(csvreader)
             for row in csvreader:
                 transformedTissuePositionList.append(row)
                 
     registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
-    registeredData['geneListMasked'] = processedVisium['geneListMasked']
+    registeredData['geneListMasked'] = processedData['geneListMasked']
     registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
     registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
     if log2normalize==True:
-        registeredData['geneMatrixLog2'] = processedVisium['geneMatrixLog2']
+        registeredData['geneMatrixLog2'] = processedData['geneMatrixLog2']
     else:
-        registeredData['geneMatrix'] = processedVisium['geneMatrix']
+        registeredData['geneMatrix'] = processedData['geneMatrix']
         
     if displayImage==True:
         plt.figure()
@@ -644,7 +653,7 @@ def runANTsInterSampleRegistration(processedVisium, sampleToRegisterTo, log2norm
         plt.figure()
         plt.imshow(sampleToRegisterTo['tissueProcessed'], cmap='gray')
         plt.imshow(registeredData['tissueRegistered'], alpha=0.7, cmap='gray')
-        plt.title(processedVisium['sampleID'])
+        plt.title(processedData['sampleID'])
         plt.show()
 
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png",registeredData['tissueRegistered'])
