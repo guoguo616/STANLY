@@ -11,3 +11,4 @@
   - have begun adding this in the form of a `displayImage` option to any functions that would typically display an image
   - default setting for `displayImage=False` to avoid excessive matplotlib plots
 - normalize the `importVisiumData` and `importMerfishData` to make sure of equivalence of output
+- change dictionaries to specify what `tissueRegistered` is registered to, whether `template` or `sample`

@@ -521,6 +521,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     templateAntsImage = ants.from_numpy(templateData[hemisphere])
     maxWidth = templateData[hemisphere].shape[1]
     try:
+        # checks for and loads registered tissue points if they exist
         csvfile = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r', newline='')
         transformedTissuePositionList = []
         with csvfile:
@@ -547,32 +548,19 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         sampleAntsImage = ants.from_numpy(processedData['tissueProcessed'])
         # run registration
         synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-        type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
-        syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm"))
+            type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
+            syn_sampling=32, flow_sigma=3,syn_metric='mattes', outprefix=os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm"))
         
         registeredData['fwdtransforms'] = synXfm['fwdtransforms']
         registeredData['invtransforms'] = synXfm['invtransforms']
+        # ants uses a pandas dataframe
         ptsToTransform = pd.DataFrame({'x': processedData['processedTissuePositionList'][:,1], 'y': processedData['processedTissuePositionList'][:,0]})
         # apply syn transform to tissue spot coordinates
-        # tissuePointsCsv = locProcessedTissuePointsCSV
-        # tissuePointsToAllenCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllenTemplateTransformApplied.csv")
-        # transformList = [ f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat",f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz"]
         tissuePointsTransformed = ants.apply_transforms_to_points(2, ptsToTransform,synXfm['fwdtransforms'])
-        # print(type(tissuePointsTransformed))
-        # applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz]"
-        # pid = os.system(applyTransformStr)
-        # # program has to wait while spots are transformed by the system
-        # if pid:
-        #     os.wait()
         registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
-#######################################
     
     registeredData['transformedTissuePositionList'] = np.array([tissuePointsTransformed.y.to_numpy(),tissuePointsTransformed.x.to_numpy()], dtype='float32').transpose()
-    # transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
-    # switching x,y columns back to python compatible and deleting empty columns
-    # transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
-    # registeredData['transformedTissuePositionList'] = np.delete(transformedTissuePositionList, [2,3,4,5],1)
-        
+    # mask out spots that fall outside of the template mask
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < maxWidth)
     maskedTissuePositionList = []
     geneMatrixMaskedIdx = []
@@ -583,7 +571,6 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
 
     registeredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype='float32')
 
-    # registeredData['filteredFeatureMatrixMasked'] = np.delete(filteredFeatureMatrixMasked, 0,1)
     if log2normalize == True:
         tempDenseMatrix = processedData['geneMatrixLog2'].todense().astype('float32')
     else:
@@ -595,6 +582,8 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         plt.show()
 
     # write re-ordered gene matrix csv to match tissue spot order
+    registeredData['locRegisteredTissuePointsCSV'] = f"{os.path.join(registeredData['derivativesPath'],registeredData['sampleID'])}_tissuePointsProcessedToAllen.csv"
+    tissuePointsTransformed.to_csv(registeredData['locRegisteredTissuePointsCSV'], index=False)
     sp_sparse.save_npz(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_OrderedLog2FeatureMatrixTemplateMasked.npz", sp_sparse.csc_matrix(registeredData['geneMatrixMasked']))        
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png",registeredData['tissueRegistered'])
     
