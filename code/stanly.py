@@ -521,7 +521,13 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
     templateAntsImage = ants.from_numpy(templateData[hemisphere])
     maxWidth = templateData[hemisphere].shape[1]
     try:
-        file = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r')
+        csvfile = open(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv", 'r', newline='')
+        transformedTissuePositionList = []
+        with csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',')
+                next(csvreader)
+                for row in csvreader:
+                    transformedTissuePositionList.append(row)
         print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")
         print(f"Loading data for {processedData['sampleID']}")
         registeredData['sampleID'] = processedData['sampleID']
@@ -546,13 +552,13 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         
         registeredData['fwdtransforms'] = synXfm['fwdtransforms']
         registeredData['invtransforms'] = synXfm['invtransforms']
-        
+        ptsToTransform = pd.DataFrame({'x': processedData['processedTissuePositionList'][:,1], 'y': processedData['processedTissuePositionList'][:,0]})
         # apply syn transform to tissue spot coordinates
         # tissuePointsCsv = locProcessedTissuePointsCSV
         # tissuePointsToAllenCsv = os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissuePointsProcessedToAllenTemplateTransformApplied.csv")
         # transformList = [ f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat",f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz"]
-        tissuePointsTransformed = ants.apply_transforms_to_points(2, {'x': processedData['processedTissuePositionList'][:,1], 'y': processedData['processedTissuePositionList'][:,0]},synXfm['fwdtransforms'])
-        
+        tissuePointsTransformed = ants.apply_transforms_to_points(2, ptsToTransform,synXfm['fwdtransforms'])
+        # print(type(tissuePointsTransformed))
         # applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm0GenericAffine.mat,1] -t [{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_xfm1InverseWarp.nii.gz]"
         # pid = os.system(applyTransformStr)
         # # program has to wait while spots are transformed by the system
@@ -560,17 +566,12 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         #     os.wait()
         registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
 #######################################
-    transformedTissuePositionList = []
-    with open(os.path.join(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessedToAllen.csv"), newline='') as csvfile:
-            csvreader = csv.reader(csvfile, delimiter=',')
-            next(csvreader)
-            for row in csvreader:
-                transformedTissuePositionList.append(row)
-        
-    transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
+    
+    registeredData['transformedTissuePositionList'] = np.array([tissuePointsTransformed.y.to_numpy(),tissuePointsTransformed.x.to_numpy()], dtype='float32').transpose()
+    # transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
-    transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
-    registeredData['transformedTissuePositionList'] = np.delete(transformedTissuePositionList, [2,3,4,5],1)
+    # transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
+    # registeredData['transformedTissuePositionList'] = np.delete(transformedTissuePositionList, [2,3,4,5],1)
         
     transformedTissuePositionListMask = np.logical_and(registeredData['transformedTissuePositionList'] > 0, registeredData['transformedTissuePositionList'] < maxWidth)
     maskedTissuePositionList = []
