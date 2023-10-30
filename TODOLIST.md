@@ -7,15 +7,12 @@
   - this should likely be incorporated into a larger concept of how we maintain 3D space even while working with 2D images
 - add ability to change registration options using json or other sort of file
   - should allow user to change any options offered by ants.registration
-- option to turn on/off the display of images from various functions
-  - have begun adding this in the form of a `displayImage` option to any functions that would typically display an image
-  - default setting for `displayImage=False` to avoid excessive matplotlib plots
 - normalize the `importVisiumData` and `importMerfishData` to make sure of equivalence of output
-
-# general housekeeping
-- clean up visium spatial folder path/loading
-- clean up load folder path/loading but for merfish
-- standardize output naming 
-- no scale factor equivalent that I know of in merfish, but using nanometer as reference can approximate scaling so far
-- create whole brain template/annotation, and split, rather than create all three
-- double check naming scheme to work with non-unix system
+- change dictionaries to specify what `tissueRegistered` is registered to, whether `template` or `sample`
+- look over interdependent functions, i.e. `process*Data` including `loadProcessed*Data`
+  - this would likely just be a matter of making sure the output of different `process*Data` is unified
+  - `applyAntsTransformations` 
+- update functions to use AntsPyX version of `apply_transforms_to_points` rather than using system call
+- fix transformation identification within the `runANTsInterSampleRegistration`
+- should update language of `transformedTissuePositionList` to `registeredTissuePositionList`
+- update (or create secondary function) `applyAntsTransformations` to be `applyAntsToAllenTransformations`
