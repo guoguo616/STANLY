@@ -16,3 +16,6 @@
   - this would likely just be a matter of making sure the output of different `process*Data` is unified
   - `applyAntsTransformations` 
 - update functions to use AntsPyX version of `apply_transforms_to_points` rather than using system call
+- fix transformation identification within the `runANTsInterSampleRegistration`
+- should update language of `transformedTissuePositionList` to `registeredTissuePositionList`
+- update (or create secondary function) `applyAntsTransformations` to be `applyAntsToAllenTransformations`

@@ -682,30 +682,55 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
     """
     # convert into ants image type
     registeredData = {}
-    templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueProcessed'])
-    sampleAntsImage = ants.from_numpy(processedData['tissueProcessed'])
-    # mattes seems to be most conservative syn_metric
-    synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
-    type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
-    syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
-    
     registeredData['sampleID'] = processedData['sampleID']
     registeredData['derivativesPath'] = processedData['derivativesPath']
     registeredData['locProcessedTissuePointsCSV'] = processedData['locProcessedTissuePointsCSV']
-    applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz"
-    # program has to wait while the transformation is applied by the system
-    pid = os.system(applyTransformStr)
-    if pid:
-        os.wait()
-    transformedTissuePositionList = []
-    with open(os.path.join(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv"), newline='') as csvfile:
-            csvreader = csv.reader(csvfile, delimiter=',')
-            next(csvreader)
-            for row in csvreader:
-                transformedTissuePositionList.append(row)
-                
-    registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
     registeredData['geneListMasked'] = processedData['geneListMasked']
+    registeredData['locProcessedTissuePointsToSampleCSV'] = os.path.join(f"{os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv")
+    transformedTissuePositionList = []
+    try:
+        # checks for and loads registered tissue points if they exist
+        csvfile = open(registeredData['locProcessedTissuePointsToSampleCSV'], 'r', newline='')
+        print(f"{processedData['sampleID']} has already been registered to {sampleToRegisterTo['sampleID']}")
+        print(f"Loading data for {processedData['sampleID']}")
+        with csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',')
+                next(csvreader)
+                for row in csvreader:
+                    transformedTissuePositionList.append(row)
+        transformedTissuePositionList = pd.DataFrame({'x': transformedTissuePositionList[:,0],'y': transformedTissuePositionList[:,1]})
+        # need to update the transform identification when loading from folder
+        registeredData['fwdtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat")]
+        registeredData['invtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1InverseWarp.nii.gz"),]
+        registeredData['tissueRegistered'] = plt.imread(os.path.join(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png"))
+    except Exception as e:
+        templateAntsImage = ants.from_numpy(sampleToRegisterTo['tissueProcessed'])
+        sampleAntsImage = ants.from_numpy(processedData['tissueProcessed'])
+        # mattes seems to be most conservative syn_metric
+        synXfm = ants.registration(fixed=templateAntsImage, moving=sampleAntsImage, \
+            type_of_transform='SyNAggro', grad_step=0.1, reg_iterations=(120, 100,80,60,40,20,0), \
+            syn_sampling=32, flow_sigma=3, syn_metric='mattes', outprefix=os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_to_{sampleToRegisterTo['sampleID']}_xfm"))
+        
+        ptsToTransform = pd.DataFrame({'x': processedData['processedTissuePositionList'][:,1], 'y': processedData['processedTissuePositionList'][:,0]})
+        # apply syn transform to tissue spot coordinates
+        tissuePointsTransformed = ants.apply_transforms_to_points(2, ptsToTransform,synXfm['invtransforms'])
+        tissuePointsTransformed.to_csv(registeredData['locProcessedTissuePointsToSampleCSV'], index=False)
+        # applyTransformStr = f"antsApplyTransformsToPoints -d 2 -i {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsProcessed.csv -o {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_tissuePointsResize_to_{sampleToRegisterTo['sampleID']}TransformApplied.csv -t [ {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm0GenericAffine.mat,1] -t {os.path.join(processedData['derivativesPath'],processedData['sampleID'])}_to_{sampleToRegisterTo['sampleID']}_xfm1InverseWarp.nii.gz"
+        # # program has to wait while the transformation is applied by the system
+        # pid = os.system(applyTransformStr)
+        # if pid:
+        #     os.wait()
+        # transformedTissuePositionList = []
+        csvfile = open(registeredData['locProcessedTissuePointsToSampleCSV'], newline='')
+        with csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',')
+                next(csvreader)
+                for row in csvreader:
+                    transformedTissuePositionList.append(row)
+                    
+        registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
+        registeredData['fwdtransforms'] = synXfm['fwdtransforms']
+        registeredData['invtransforms'] = synXfm['invtransforms']
     registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
@@ -719,12 +744,6 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
         plt.figure()
         plt.imshow(registeredData['tissueRegistered'], cmap='gray')
         plt.scatter(registeredData['transformedTissuePositionList'][0:,0],registeredData['transformedTissuePositionList'][0:,1], marker='.', c='red', alpha=0.3)
-        plt.show()
-        
-        plt.figure()
-        plt.imshow(sampleToRegisterTo['tissueProcessed'], cmap='gray')
-        plt.imshow(registeredData['tissueRegistered'], alpha=0.7, cmap='gray')
-        plt.title(processedData['sampleID'])
         plt.show()
 
     cv2.imwrite(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png",registeredData['tissueRegistered'])
@@ -754,30 +773,47 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
         Similar structure as input data, but with registered image and spots
 
     """
-    templateAntsImage = ants.from_numpy(templateData[hemisphere])
-    sampleAntsImage = ants.from_numpy(registeredST['tissueRegistered'])
-    sampleToTemplate = ants.apply_transforms( fixed=templateAntsImage, moving=sampleAntsImage, transformlist=bestSampleRegisteredToTemplate['fwdtransforms'])
-    
-    # applies the image transformation to the tissue point coordinates
-    os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -o {os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv -t [ {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm1InverseWarp.nii.gz")
     templateRegisteredData = {}
     transformedTissuePositionList = []
-    with open(os.path.join(f"{os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv"), newline='') as csvfile:
-        csvreader = csv.reader(csvfile, delimiter=',')
-        next(csvreader)
-        for row in csvreader:
-            transformedTissuePositionList.append(row)
-                
     templateRegisteredData['derivativesPath'] = registeredST['derivativesPath']
     templateRegisteredData['sampleID'] = registeredST['sampleID']
     templateRegisteredData['bestFitSampleID'] = bestSampleRegisteredToTemplate['sampleID']
-    templateRegisteredData['tissueRegistered'] = sampleToTemplate.numpy()
-
+    templateRegisteredData['geneListMasked'] = registeredST['geneListMasked']
+    templateRegisteredData['locTissuePointsToAllen'] = f"{os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv"
+    imageFilename = os.path.join(registeredST['derivativesPath'],f"{registeredST['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen_slice_{templateData['sliceNumber']}.png")
+    try:
+        # checks for and loads registered tissue points if they exist
+        csvfile = open(registeredST['locTissuePointsToAllen'], 'r', newline='')
+        with csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',')
+                next(csvreader)
+                for row in csvreader:
+                    transformedTissuePositionList.append(row)
+        transformedTissuePositionList = pd.DataFrame({'x': transformedTissuePositionList[:,0],'y': transformedTissuePositionList[:,1]})
+        templateRegisteredData['tissueRegistered'] = plt.imread(imageFilename)
+    except Exception as e:
+        templateAntsImage = ants.from_numpy(templateData[hemisphere])
+        sampleAntsImage = ants.from_numpy(registeredST['tissueRegistered'])
+        sampleToTemplate = ants.apply_transforms( fixed=templateAntsImage, moving=sampleAntsImage, transformlist=bestSampleRegisteredToTemplate['fwdtransforms'])
+        
+        # applies the image transformation to the tissue point coordinates
+        ptsToTransform = pd.DataFrame({'x': registeredST['transformedTissuePositionList'][:,1], 'y': registeredST['transformedTissuePositionList'][:,0]})
+        tissuePointsTransformed = ants.apply_transforms_to_points(2, ptsToTransform,bestSampleRegisteredToTemplate['invtransforms'])
+        tissuePointsTransformed.to_csv(registeredST['locProcessedTissuePointsToSampleCSV'], index=False)
+        # os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -o {os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv -t [ {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm1InverseWarp.nii.gz")
+        
+        with open(registeredST['locProcessedTissuePointsToSampleCSV'], newline='') as csvfile:
+            csvreader = csv.reader(csvfile, delimiter=',')
+            next(csvreader)
+            for row in csvreader:
+                transformedTissuePositionList.append(row)
+                
+        templateRegisteredData['tissueRegistered'] = sampleToTemplate.numpy()
+        cv2.imwrite(imageFilename, templateRegisteredData['tissueRegistered'])
     transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
-    transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
-    templateRegisteredData['geneListMasked'] = registeredST['geneListMasked']
+    # transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
 
     if displayImage==True:
         plt.figure()
@@ -785,11 +821,11 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
         plt.scatter(transformedTissuePositionList[0:,0],transformedTissuePositionList[0:,1], marker='.', c='red', alpha=0.3)
         plt.show()
     
-        plt.figure()
-        plt.imshow(templateData['rightHem'], cmap='gray')    
-        plt.imshow(templateRegisteredData['tissueRegistered'],alpha=0.8,cmap='gray')
-        plt.title(templateRegisteredData['sampleID'])
-        plt.show()
+        # plt.figure()
+        # plt.imshow(templateData['rightHem'], cmap='gray')    
+        # plt.imshow(templateRegisteredData['tissueRegistered'],alpha=0.8,cmap='gray')
+        # plt.title(templateRegisteredData['sampleID'])
+        # plt.show()
         
     transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['tissueRegistered'].shape[0])
     maskedTissuePositionList = []
@@ -804,8 +840,8 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
     else:
         tempDenseMatrix = registeredST['geneMatrix'].todense().astype('float32')
     templateRegisteredData['geneMatrixMasked'] = sp_sparse.csr_matrix(tempDenseMatrix[:,geneMatrixMaskedIdx])
-    imageFilename = os.path.join(registeredST['derivativesPath'],f"{registeredST['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen_slice_{templateData['sliceNumber']}.png")
-    cv2.imwrite(imageFilename, templateRegisteredData['tissueRegistered'])
+    # imageFilename = os.path.join(registeredST['derivativesPath'],f"{registeredST['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen_slice_{templateData['sliceNumber']}.png")
+    
 
     return templateRegisteredData
 
