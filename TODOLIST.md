@@ -12,3 +12,7 @@
   - default setting for `displayImage=False` to avoid excessive matplotlib plots
 - normalize the `importVisiumData` and `importMerfishData` to make sure of equivalence of output
 - change dictionaries to specify what `tissueRegistered` is registered to, whether `template` or `sample`
+- look over interdependent functions, i.e. `process*Data` including `loadProcessed*Data`
+  - this would likely just be a matter of making sure the output of different `process*Data` is unified
+  - `applyAntsTransformations` 
+- update functions to use AntsPyX version of `apply_transforms_to_points` rather than using system call

@@ -353,7 +353,7 @@ def rotateTissuePoints(tissuePoints, tissueImage, theta, flip=False):
     tissuePointsRotate = np.matmul(centeredTP, rotMat)
     tissuePointsRotateCenter = tissuePointsRotate + rotOrigin
     return tissuePointsRotateCenter, rotImage
-
+#%% data processing functions
 # prepares visium data for registration
 def processVisiumData(visiumData, templateData, rotation, outputFolder, log2normalize=True, flip=False):
     """
@@ -489,8 +489,8 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",255*tissue)
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissueProcessed.png",processedVisium['tissueProcessed'])
     
-    header=['x','y','z','t','label','comment']
-    rowFormat = []
+    # header=['x','y','z','t','label','comment']
+    # rowFormat = []
     # the x and y are swapped between ants and numpy, but this is so far dealt with within the code
     
     pts = {'x': processedVisium['processedTissuePositionList'][:,1], 'y': processedVisium['processedTissuePositionList'][:,0]}
@@ -504,7 +504,87 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     #         writer.writerow(rowFormat)
     return processedVisium
 
+def processMerfishData(sampleData, templateData, rotation, outputFolder, log2normalize=True):
+    processedData = {}
+    # the sampleID might have issues on non unix given the slash direction, might need to fix
+    processedData['sampleID'] = sampleData['sampleID']
+    processedData['sourceType'] = 'merfish'
+    processedData['tissuePositionList'] = sampleData['tissuePositionList']
+    processedData['geneMatrix'] = np.transpose(sampleData['geneMatrix'])
+    processedData['geneList'] = sampleData['geneList']
+    processedData['degreeesOfRotation'] = rotation
+    outputPath = os.path.join(outputFolder, sampleData['sampleID'])
+    #### need to create a loadProcessedMerfishData function
+    try:
+        file = open(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointsProcessed.csv", 'r')
+        print(f"{processedData['sampleID']} has already been processed! Loading data")
+        processedData = loadProcessedMerfishSample(outputPath)
+        return processedData
+    except IOError:
+        print(f"Processing {processedData['sampleID']}")
+    if not os.path.exists(outputPath):
+        os.makedirs(outputPath)
+    ### need to update when we get better resolution information
+    # resolutionRatio = visiumData['spotStartingResolution'] / templateData['startingResolution']
+    processedData['derivativesPath'] = outputPath
+    # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
+    processedData['degreesOfRotation'] = int(rotation)
+    #### shouldn't need otsu for merfish, since the background has already been removed, need to confirm
+    sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=2)
+    tissueNormalized = cv2.normalize(sampleGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
+    tissueHistMatch = match_histograms(tissueNormalized, templateData['rightHem'])
+    tissueHistMatch = tissueHistMatch - tissueHistMatch.min()
+    if 'scaleFactors' in sampleData:
+        # tissue points do not necessarily start at [0,0], check bounding box
+        tissuePoints = processedData['tissuePositionList']
+        tissuePoints[:,0] = tissuePoints[:,0] + np.abs(sampleData['scaleFactors']['bbox_microns'][0])
+        tissuePoints[:,1] = tissuePoints[:,1] + np.abs(sampleData['scaleFactors']['bbox_microns'][1])
+        tissuePointsResized = tissuePoints * 0.09 # sampleData['scaleFactors']['microns_per_pixel']  
+    else:
+        tissuePointsResized = processedData['tissuePositionList'] * 0.09
+    tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResized, tissueHistMatch, rotation)
+    processedData['tissueProcessed'] = tissueRotated
+    processedData['geneListMasked'] = sampleData['geneList']
+    processedData['processedTissuePositionList'] = tissuePointsRotated
+    if log2normalize==True:
+        processedData['geneMatrixLog2'] = sp_sparse.csc_matrix(np.log2((processedData['geneMatrix'] + 1)))
+        sp_sparse.save_npz(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointOrderedGeneMatrixLog2Normalized.npz", processedData['geneMatrixLog2'])
+        
+    else:
+        sp_sparse.save_npz(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointOrderedGeneMatrix.npz", processedData['geneMatrix'])
+            
+    # write outputs
+    # writes json containing general info and masked gene list
+    processedDataDict = {
+        "sampleID": sampleData['sampleID'],
+        "rotation": int(rotation),
+        "geneList": processedData['geneList']
+    }
+        # Serializing json
+    json_object = json.dumps(processedDataDict, indent=4)
+     
+    # # Writing to sample.json
+    with open(f"{processedData['derivativesPath']}/{processedData['sampleID']}_processing_information.json", "w") as outfile:
+        outfile.write(json_object)
+    # writes sorted, masked, normalized filtered feature matrix to .npz file
+    
+    # writes image for masked greyscale tissue, as well as the processed image that will be used in registration
+    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
+    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissueProcessed.png",processedData['tissueProcessed'])
+    
+    header=['x','y','z','t','label','comment']
+    rowFormat = []
+    # the x and y are swapped between ants and numpy, but this is so far dealt with within the code
+    with open(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointsProcessed.csv", 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        for i in range(len(processedData['processedTissuePositionList'])):
+            rowFormat = [processedData['processedTissuePositionList'][i,1]] + [processedData['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
+            writer.writerow(rowFormat)
+    return processedData
+
+#%% registration functions
 def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, hemisphere='wholeBrain', displayImage=False):
     """
     Register spatial transcriptomic data to template data
@@ -529,6 +609,7 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
                 next(csvreader)
                 for row in csvreader:
                     transformedTissuePositionList.append(row)
+        tissuePointsTransformed = pd.DataFrame({'x': transformedTissuePositionList[:,0],'y': transformedTissuePositionList[:,1]})
         print(f"{processedData['sampleID']} has already been processed and is located at: {processedData['derivativesPath']}")
         print(f"Loading data for {processedData['sampleID']}")
         registeredData['sampleID'] = processedData['sampleID']
@@ -628,7 +709,7 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
     registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
     registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
-    registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
+    # registeredData['transformedTissuePositionList'] = np.delete(registeredData['transformedTissuePositionList'], [2,3,4,5],1)
     if log2normalize==True:
         registeredData['geneMatrixLog2'] = processedData['geneMatrixLog2']
     else:
@@ -728,6 +809,7 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
 
     return templateRegisteredData
 
+#%% digital spot functions
 def createDigitalSpots(templateRegisteredData, desiredSpotSize):
     """ 
     Create digital spots of a particular spacing for a spatial transcriptomic sample
@@ -833,7 +915,40 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
 
-# read gene list from txt or csv file
+#%% load functions
+def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
+    processedVisium = {}
+    processedVisium['derivativesPath'] = os.path.join(locOfProcessedSample)
+    processedVisium['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
+    processedVisium['sourceType'] = 'visium'
+    processedVisium['tissueProcessed'] = io.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissueProcessed.png"))
+    jsonPath = open(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_processing_information.json"))
+    processedSampleJson = json.loads(jsonPath.read())
+    processedVisium['geneListMasked'] = processedSampleJson['geneList']
+    processedVisium['spotCount'] = processedSampleJson['spotCount']
+    processedVisium['resolutionRatio'] = processedSampleJson['resolutionRatio']
+    processedVisium['locProcessedTissuePointsCSV'] = os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv")
+    if loadLog2Norm==True:
+        geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
+        processedVisium['geneMatrixLog2'] = geneMatrixLog2
+    else:
+        geneMatrix = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
+        processedVisium['geneMatrix'] = geneMatrix
+    tissuePositionList = []
+    csvfile = open(processedVisium['locProcessedTissuePointsCSV'], newline='') 
+    with csvfile:
+            csvreader = csv.reader(csvfile, delimiter=',')
+            next(csvreader)
+            for row in csvreader:
+                tissuePositionList.append(row)
+                
+    tissuePositionList = np.array(tissuePositionList, dtype='float32')
+    # switching x,y columns back to python compatible and deleting empty columns
+    tissuePositionList[:,[0,1]] = tissuePositionList[:,[1,0]]
+    processedVisium['processedTissuePositionList'] = tissuePositionList
+    return processedVisium
+
+
 def loadGeneListFromTxt(locOfTextFile):
     geneListFromTxt = []
     with open(locOfTextFile) as f:
@@ -963,36 +1078,6 @@ def createRegionalDigitalSpots(regionMask, desiredSpotSize):
     # plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
     # plt.show()
     return digitalSpots
-
-def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
-    processedVisium = {}
-    processedVisium['derivativesPath'] = os.path.join(locOfProcessedSample)
-    processedVisium['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
-    processedVisium['sourceType'] = 'visium'
-    processedVisium['tissueProcessed'] = io.imread(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_tissueProcessed.png"))
-    jsonPath = open(os.path.join(processedVisium['derivativesPath'],f"{processedVisium['sampleID']}_processing_information.json"))
-    processedSampleJson = json.loads(jsonPath.read())
-    processedVisium['geneListMasked'] = processedSampleJson['geneList']
-    processedVisium['spotCount'] = processedSampleJson['spotCount']
-    processedVisium['resolutionRatio'] = processedSampleJson['resolutionRatio']
-    if loadLog2Norm==True:
-        geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrixLog2Normalized.npz"))
-        processedVisium['geneMatrixLog2'] = geneMatrixLog2
-    else:
-        geneMatrix = sp_sparse.load_npz(os.path.join(processedVisium['derivativesPath'], f"{processedVisium['sampleID']}_tissuePointOrderedFeatureMatrix.npz"))
-        processedVisium['geneMatrix'] = geneMatrix
-    tissuePositionList = []
-    with open(os.path.join(f"{os.path.join(processedVisium['derivativesPath'],processedVisium['sampleID'])}_tissuePointsProcessed.csv"), newline='') as csvfile:
-            csvreader = csv.reader(csvfile, delimiter=',')
-            next(csvreader)
-            for row in csvreader:
-                tissuePositionList.append(row)
-                
-    tissuePositionList = np.array(tissuePositionList, dtype='float32')
-    # switching x,y columns back to python compatible and deleting empty columns
-    tissuePositionList[:,[0,1]] = tissuePositionList[:,[1,0]]
-    processedVisium['processedTissuePositionList'] = np.delete(tissuePositionList, [2,3,4,5],1)
-    return processedVisium
 
 def loadAllenRegisteredSample(locOfRegSample, log2normalize=True):
     templateRegisteredData = {}
@@ -1154,85 +1239,7 @@ def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
     return processedSample
 
 
-def processMerfishData(sampleData, templateData, rotation, outputFolder, log2normalize=True):
-    processedData = {}
-    # the sampleID might have issues on non unix given the slash direction, might need to fix
-    processedData['sampleID'] = sampleData['sampleID']
-    processedData['sourceType'] = 'merfish'
-    processedData['tissuePositionList'] = sampleData['tissuePositionList']
-    processedData['geneMatrix'] = np.transpose(sampleData['geneMatrix'])
-    processedData['geneList'] = sampleData['geneList']
-    processedData['degreeesOfRotation'] = rotation
-    outputPath = os.path.join(outputFolder, sampleData['sampleID'])
-    #### need to create a loadProcessedMerfishData function
-    try:
-        file = open(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointsProcessed.csv", 'r')
-        print(f"{processedData['sampleID']} has already been processed! Loading data")
-        processedData = loadProcessedMerfishSample(outputPath)
-        return processedData
-    except IOError:
-        print(f"Processing {processedData['sampleID']}")
-    if not os.path.exists(outputPath):
-        os.makedirs(outputPath)
-    ### need to update when we get better resolution information
-    # resolutionRatio = visiumData['spotStartingResolution'] / templateData['startingResolution']
-    processedData['derivativesPath'] = outputPath
-    # processedVisium['tissueSpotBarcodeList'] = visiumData['tissueSpotBarcodeList']
-    processedData['degreesOfRotation'] = int(rotation)
-    #### shouldn't need otsu for merfish, since the background has already been removed, need to confirm
-    sampleGauss = filters.gaussian(sampleData['imageDataGray'], sigma=2)
-    tissueNormalized = cv2.normalize(sampleGauss, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
-    tissueHistMatch = match_histograms(tissueNormalized, templateData['rightHem'])
-    tissueHistMatch = tissueHistMatch - tissueHistMatch.min()
-    if 'scaleFactors' in sampleData:
-        # tissue points do not necessarily start at [0,0], check bounding box
-        tissuePoints = processedData['tissuePositionList']
-        tissuePoints[:,0] = tissuePoints[:,0] + np.abs(sampleData['scaleFactors']['bbox_microns'][0])
-        tissuePoints[:,1] = tissuePoints[:,1] + np.abs(sampleData['scaleFactors']['bbox_microns'][1])
-        tissuePointsResized = tissuePoints * 0.09 # sampleData['scaleFactors']['microns_per_pixel']  
-    else:
-        tissuePointsResized = processedData['tissuePositionList'] * 0.09
-    tissuePointsRotated, tissueRotated = rotateTissuePoints(tissuePointsResized, tissueHistMatch, rotation)
-    processedData['tissueProcessed'] = tissueRotated
-    processedData['geneListMasked'] = sampleData['geneList']
-    processedData['processedTissuePositionList'] = tissuePointsRotated
-    if log2normalize==True:
-        processedData['geneMatrixLog2'] = sp_sparse.csc_matrix(np.log2((processedData['geneMatrix'] + 1)))
-        sp_sparse.save_npz(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointOrderedGeneMatrixLog2Normalized.npz", processedData['geneMatrixLog2'])
-        
-    else:
-        sp_sparse.save_npz(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointOrderedGeneMatrix.npz", processedData['geneMatrix'])
-            
-    # write outputs
-    # writes json containing general info and masked gene list
-    processedDataDict = {
-        "sampleID": sampleData['sampleID'],
-        "rotation": int(rotation),
-        "geneList": processedData['geneList']
-    }
-        # Serializing json
-    json_object = json.dumps(processedDataDict, indent=4)
-     
-    # # Writing to sample.json
-    with open(f"{processedData['derivativesPath']}/{processedData['sampleID']}_processing_information.json", "w") as outfile:
-        outfile.write(json_object)
-    # writes sorted, masked, normalized filtered feature matrix to .npz file
-    
-    # writes image for masked greyscale tissue, as well as the processed image that will be used in registration
-    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
-    cv2.imwrite(f"{processedData['derivativesPath']}/{processedData['sampleID']}_tissueProcessed.png",processedData['tissueProcessed'])
-    
-    header=['x','y','z','t','label','comment']
-    rowFormat = []
-    # the x and y are swapped between ants and numpy, but this is so far dealt with within the code
-    with open(f"{os.path.join(outputPath,processedData['sampleID'])}_tissuePointsProcessed.csv", 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        for i in range(len(processedData['processedTissuePositionList'])):
-            rowFormat = [processedData['processedTissuePositionList'][i,1]] + [processedData['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
-            writer.writerow(rowFormat)
-    return processedData
 
 #%% cell type identification
 

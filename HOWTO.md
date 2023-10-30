@@ -261,3 +261,10 @@ print("--- %s seconds ---" % (time.time() - start_time))
 ```
 
 Following this, you should have a number of images for the genes of interest, along with two csv files containing the p-value and t-statistic information for your data. ![Image shows results from the above analysis for the gene Camk2n1 between non-sleep-deprived and sleep deprived conditions, showing the mean results for the mean of the non-sleep-deprived digital spots on the left in a red gradient, the mean results of the sleep-deprived digital spots in the center in a red gradient, and the t-statistics for each spot on the right in a blue to red gradient, where blue indicates a negative t-statistic and red indicates a positive t-statistic.](/source/images/tStatGeneCountCamk2n1SleepDep.png)*Example results from above analysis for gene Camk2n1 between control and sleep deprived groups.*
+
+## Descriptions of expected outputs
+- `*_tissuePointsProcessed.csv` - a list of the [x,y] coordinates of each tissue containing spot
+- `*_tissue.png` - image of tissue slice masked before pre-processing
+- `*_tissueProcessed.png` - pre-processed greyscale image of tissue slice to be used in registration process
+- `*_tissuePointOrderedFeatureMatrixLog2Normalized.npz` - numpy compressed array containing gene matrix information
+- `*_processing_information.json` - json file containing information used in the processing and registration process, as well as gene list for sample
