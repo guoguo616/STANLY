@@ -15,3 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated `processVisiumData`, `processMerfishData`, `runANTsToAllenRegistration`, `runANTsInterSampleRegistration`, and `applyAntsTransformations` to use the ANTsPyX built-in function `apply_transforms_to_points` instead of using a system call to run it from ANTs. This should clear up some dependency issues
 - began organizing functions based on purpose, i.e. importation, registration, etc.
 - added `displayImage=False` option to functions that generate images to make figure windows optional. Changing to `displayImage=True` will display figures
+
+## [0.0.1] - 2022-02-17
+- Initial commit followed by general work
