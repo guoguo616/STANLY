@@ -876,7 +876,6 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     allMeanCdists = np.array(allMeanCdists, dtype='int32')
     allSpotNN = np.array(allSpotNN,dtype='int32')
     allSpotNN = np.reshape(allSpotNN, [-1,kNN])
-    # should be able to add threshold that removes any spots with a mean cdist > some value
     return allSpotNN, allMeanCdists
 
 def annotateDigitalSpots(digitalSpots, templateSlice, hemisphere='wholeBrain'):
@@ -967,9 +966,8 @@ def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
                 tissuePositionList.append(row)
                 
     tissuePositionList = np.array(tissuePositionList, dtype='float32')
-    # switching x,y columns back to python compatible and deleting empty columns
+    # switching x,y columns back to python compatible
     tissuePositionList[:,[0,1]] = tissuePositionList[:,[1,0]]
-    processedSample['processedTissuePositionList'] = np.delete(tissuePositionList, [2,3,4,5],1)
     return processedSample
 
 def loadAllenRegisteredSample(locOfRegSample, log2normalize=True):
