@@ -37,17 +37,7 @@ from PIL import ImageColor
 codePath = os.path.realpath(os.path.dirname(__file__))
 dataPath = os.path.join(codePath, 'data')
 
-""" notes about visium data:
-    there are a total of 4,992 possible spots on a slide
-    tissue_positions_list.csv contains:
-    barcode: The sequence of the barcode associated to the spot.
-    in_tissue: Binary, indicating if the spot falls inside (1) or outside (0) of tissue.
-    array_row: The row coordinate of the spot in the array from 0 to 77. The array has 78 rows.
-    array_col: The column coordinate of the spot in the array. In order to express the orange crate arrangement of the spots, this column index uses even numbers from 0 to 126 for even rows, and odd numbers from 1 to 127 for odd rows. Notice then that each row (even or odd) has 64 spots.
-    pxl_row_in_fullres: The row pixel coordinate of the center of the spot in the full resolution image.
-    pxl_col_in_fullres: The column pixel coordinate of the center of the spot in the full resolution image.
-
-
+""" 
 get_matrix_from_h5 is from code @:
     https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/advanced/h5_matrices
 """
@@ -98,6 +88,9 @@ def importVisiumData(sampleFolder):
     Parameters
     ----------
     sampleFolder : directory containing Visium data
+    Returns
+    ----------
+    visiumData : dictionary containing Visium data
     """
     visiumData = {}
     if os.path.exists(os.path.join(sampleFolder,"spatial")):
@@ -578,7 +571,6 @@ def runANTsToAllenRegistration(processedData, templateData, log2normalize=True, 
         registeredData['tissueRegistered'] = plt.imread(os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_tissue_registered_to_Allen_slice_{templateData['sliceNumber']}.png"))
     except Exception as e:
         print(f"Registering {processedData['sampleID']}")
-        # convert into ants image type
         registeredData['sampleID'] = processedData['sampleID']
         registeredData['derivativesPath'] = processedData['derivativesPath']
         registeredData['geneListMasked'] = processedData['geneListMasked']
@@ -636,7 +628,6 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
     log2normalized : bool
         bool identifying whether log2normalization was performed default=True
     """
-    # convert into ants image type
     registeredData = {}
     registeredData['sampleID'] = processedData['sampleID']
     registeredData['derivativesPath'] = processedData['derivativesPath']
@@ -789,6 +780,9 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize, displayImage=Fal
     templateRegisteredData : dict output from processXData, runANTsToAllenRegistration, runANTsInterSampleRegistration, etc
     desiredSpotSize : int
         Value defining the distance between spots where final distance is 10*desiredSpotSize micron on center
+    ----------
+    Returns
+    digitalSpots : array of [x,y] coordinates for digital spots
     """
     w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
     h = desiredSpotSize    # height of pointy up hexagon
@@ -812,7 +806,6 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize, displayImage=Fal
 
     templateSpots = np.array(templateSpots)
 
-    # remove non-tissue spots
     roundedTemplateSpots = np.array(templateSpots.round(), dtype='int32')
     digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
@@ -846,16 +839,13 @@ def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spot
     spotDist : int
         Value defining the distance between spots where final distance is 10*desiredSpotSize micron on center
     """
-    # finds distance between current spot and list
     allSpotNN = []
     allMeanCdists = []
     blankIdx = np.full(kNN, -9999, dtype='int32')
-    #for actSpot in digitalSpots:
     
     spotCdist = sp_spatial.distance.cdist(templateRegisteredSpots, digitalSpots, 'euclidean')
     sortedSpotCdist = np.argsort(spotCdist, axis=0)
     actSpotCdist = np.array(np.transpose(sortedSpotCdist[0:kNN,:]), dtype='int32')
-    # spotNNIdx gives the index of the top kSpots nearest neighbors for each digital spot
     spotNNIdx = []
     for spotNum,spotIdx in enumerate(actSpotCdist):
         spotMeanCdist = np.mean(spotCdist[spotIdx,spotNum])
@@ -889,9 +879,9 @@ def annotateDigitalSpots(digitalSpots, templateSlice, hemisphere='wholeBrain'):
     hemisphere : str, optional
         String describing hemisphere of brain
         'wholeBrain','leftHem','rightHem'. The default is 'wholeBrain'.
-
+    ----------
     Returns
-    -------
+    ----------
     annotatedDigitalSpots : float array
         An array containing the digital spots along with their annotation.
 
@@ -910,6 +900,22 @@ def annotateDigitalSpots(digitalSpots, templateSlice, hemisphere='wholeBrain'):
     return spotAnnot
 #%% load functions
 def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
+    """   
+    Load previously processed visium sample
+    ----------
+    Parameters
+    ----------
+    locOfProcessedSample : directory path
+        Path location of processed sample
+    loadLog2Norm : bool
+        Whether or not to load the log2 or non-normalized gene matrix
+    ----------
+    Returns
+    -------
+    processedData : dict
+        Dictionary containing processed data
+
+    """
     processedVisium = {}
     processedVisium['derivativesPath'] = os.path.join(locOfProcessedSample)
     processedVisium['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
@@ -942,6 +948,22 @@ def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
     return processedVisium
 
 def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
+    """   
+    Load previously processed merfish sample
+    ----------
+    Parameters
+    ----------
+    locOfProcessedSample : directory path
+        Path location of processed sample
+    loadLog2Norm : bool
+        Whether or not to load the log2 or non-normalized gene matrix
+    ----------
+    Returns
+    -------
+    processedData : dict
+        Dictionary containing processed data
+
+    """
     processedSample = {}
     processedSample['derivativesPath'] = os.path.join(locOfProcessedSample)
     processedSample['sampleID'] = locOfProcessedSample.rsplit(sep='/',maxsplit=1)[-1]
@@ -951,6 +973,7 @@ def loadProcessedMerfishSample(locOfProcessedSample, loadLog2Norm=True):
     processedSampleJson = json.loads(jsonPath.read())
     processedSample['geneListMasked'] = processedSampleJson['geneList']
     processedSample['degreesOfRotation'] = processedSampleJson['rotation']
+    # need to consider merfish alternative to spotCount, like cell count
     # processedSample['spotCount'] = processedSampleJson['spotCount']
     if loadLog2Norm==True:
         geneMatrixLog2 = sp_sparse.load_npz(os.path.join(processedSample['derivativesPath'], f"{processedSample['sampleID']}_tissuePointOrderedGeneMatrixLog2Normalized.npz"))
@@ -975,7 +998,6 @@ def loadAllenRegisteredSample(locOfRegSample, log2normalize=True):
     templateRegisteredData['derivativesPath'] = os.path.join(locOfRegSample)
     templateRegisteredData['sampleID'] = locOfRegSample.rsplit(sep='/',maxsplit=1)[-1]
     try:
-        
         bestFitSample = glob(os.path.join(locOfRegSample, f"{templateRegisteredData['sampleID']}_registered_to_*_to_Allen_slice_*.png"))
         bestFitSample = bestFitSample[0]
     except IndexError:
@@ -997,7 +1019,6 @@ def loadAllenRegisteredSample(locOfRegSample, log2normalize=True):
                 transformedTissuePositionList.append(row)
     transformedTissuePositionList = np.array(transformedTissuePositionList, dtype='float32')
     transformedTissuePositionList[:,[0,1]] = transformedTissuePositionList[:,[1,0]]
-    # transformedTissuePositionList = np.delete(transformedTissuePositionList, [2,3,4,5],1)
     transformedTissuePositionListMask = []
     transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['tissueRegistered'].shape[0])
     maskedTissuePositionList = []
@@ -1073,20 +1094,17 @@ def setExperimentalFolder(locOfExpFolder):
 def createRegionalMask(template, desiredRegion, displayImage=False):
     regionIdx = template['annotationName'].index(desiredRegion)
     regionID = int(template['annotationID'][regionIdx])
-    # regionStructs = template['structureIDPath']
     structIDs = []
     for idx, actStruct in enumerate(np.array(template['structureIDPath'])):
         if f"/{regionID}/" in actStruct:
             structIDs.append(template['annotationID'][idx])
     structIDs = np.array(structIDs)
     regionMask = np.zeros(template['rightHemAnnot'].shape, dtype='int')  
-    # maskList = []
     for actID in structIDs:
-        # structMask = np.zeros(template['rightHemAnnot'].shape, dtype='int')        
         regionBoolMask = np.where(template['rightHemAnnot'] == int(actID))
         if any(regionBoolMask[0]):
             regionMask[regionBoolMask[0],regionBoolMask[1]] = 1
-        # regionMask = regionMask + structMask
+            
     if displayImage==True:
         plt.figure()
         plt.imshow(template['rightHem'], cmap='gray')
@@ -1109,7 +1127,7 @@ def createRegionMaskAllenSDK(template, desiredRegion):
     regionMask = fullMask[(template['sliceNumber'] * resolution),:,570:]
     return regionMask
 
-def createRegionalDigitalSpots(regionMask, desiredSpotSize):
+def createRegionalDigitalSpots(regionMask, desiredSpotSize, displaySpots=False):
     w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
     h = desiredSpotSize    # height of pointy up hexagon
     currentX = 0
@@ -1131,23 +1149,19 @@ def createRegionalDigitalSpots(regionMask, desiredSpotSize):
             print("something is wrong")
 
     templateSpots = np.array(templateSpots)
-
     # remove non-tissue spots
     roundedTemplateSpots = np.array(templateSpots.round(), dtype='int32')
-    ### the following line is dependent on bestSampleToTemplate, so either fix dependency or make input be bestSampleToTemplate
     digitalSpots = []
     for row in range(len(roundedTemplateSpots)):
         if regionMask[roundedTemplateSpots[row,1],roundedTemplateSpots[row,0]] > 0:
             digitalSpots.append(templateSpots[row])
-            
     digitalSpots = np.array(digitalSpots)
-    # uncomment following 3 lines to see the digital template spots
-    # plt.imshow(regionMask)
-    # plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
-    # plt.show()
+    
+    if displaySpots==True:
+        plt.imshow(regionMask)
+        plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
+        plt.show()
     return digitalSpots
-
-# these could probably be included as part of a class for both processed and registered samples
 
 def viewGeneInProcessedVisium(processedSample, geneName):
     try:
@@ -1157,11 +1171,11 @@ def viewGeneInProcessedVisium(processedSample, geneName):
         plt.imshow(processedSample['tissueProcessed'], cmap='gray')
         plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
         plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
-        # plt.colorbar()
-        # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
+        plt.colorbar()
         plt.show()
     except(ValueError):
         print(f'{geneName} not found in dataset')
+        
 def viewGeneInRegisteredVisium(registeredSample, geneName):
     try:
         geneIndex = registeredSample['geneListMasked'].index(geneName)
@@ -1171,11 +1185,9 @@ def viewGeneInRegisteredVisium(registeredSample, geneName):
         plt.scatter(registeredSample['processedTissuePositionList'][:,0],registeredSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
         plt.title(f'Gene count for {geneName} in {registeredSample["sampleID"]}')
         plt.colorbar()
-        # plt.savefig(os.path.join(derivatives,f'geneCount{geneName}{processedSample["sampleID"]}Registered.png'), bbox_inches='tight', dpi=300)
         plt.show()
     except(ValueError):
         print(f'{geneName} not found in dataset')
-
 
 #%% add analysis that utilizes spots of known gene
 # this version uses processed but unregistered samples
@@ -1255,8 +1267,7 @@ def selectSpotsWithGeneList(processedSample, geneList, threshold=1):
         maskedTissuePositionList = []
     return maskedMatrix, maskedTissuePositionList
 
-#%% used example script from matplotlib page as template for below
-# https://matplotlib.org/stable/gallery/widgets/lasso_selector_demo_sgskip.html
+#%% Masking functions
 class SelectUsingLasso:
     """
     Parameters
@@ -1273,7 +1284,6 @@ class SelectUsingLasso:
         self.ax.imshow(self.img, cmap='gray')
         self.pts = self.ax.scatter(processedSample['processedTissuePositionList'][:,0], processedSample['processedTissuePositionList'][:,1])
         self.canvas = self.ax.figure.canvas
-        # self.pts = self.pts
         self.alpha_unselected = alpha_unselected
         self.xys = self.pts.get_offsets()
         self.Npts = len(self.xys)
@@ -1322,7 +1332,6 @@ class SelectUsingLasso:
         self.maskedSpots[:,0] = self.maskedSpots[:,0] + self.maskedImage.shape[0]
 
     def outputMaskedSample(self, processedSample):
-        
         processedSampleMasked = {}
         processedSampleMasked['sampleID'] = self.id
         processedSampleMasked['degreesOfRotation']  = processedSample['degreesOfRotation']
@@ -1331,7 +1340,7 @@ class SelectUsingLasso:
         if os.path.exists(processedSampleMasked['derivativesPath']):
             print(f"Sample has already been created using the name {processedSampleMasked['sampleID']}")
             print(f"Now loading {processedSampleMasked['sampleID']}")
-            print(f"If you want to create a new sample, either rename the mask or delete previous version")
+            print("If you want to create a new sample, either rename the mask or delete previous version")
             if processedSampleMasked['sourceType'] == 'merfish':
                 processedSampleMasked = loadProcessedMerfishSample(processedSampleMasked['derivativesPath'])
             elif processedSampleMasked['sourceType'] == 'visium':
@@ -1347,7 +1356,6 @@ class SelectUsingLasso:
             processedSampleMasked['processedTissuePositionList'] = self.maskedSpots
             processedSampleMasked['tissuePositionList'] = processedSample['tissuePositionList']
             processedSampleMasked['tissueProcessed'] = self.maskedImage
-            # cv2.imwrite(f"{processedSampleMasked['derivativesPath']}/{processedSampleMasked['sampleID']}_tissue.png",255*sampleData['imageDataGray'])
             # writes json containing general info and masked gene list
             processedDataDict = {
                 "sampleID": processedSampleMasked['sampleID'],
@@ -1370,10 +1378,7 @@ class SelectUsingLasso:
                 for i in range(len(processedSampleMasked['processedTissuePositionList'])):
                     rowFormat = [processedSampleMasked['processedTissuePositionList'][i,1]] + [processedSampleMasked['processedTissuePositionList'][i,0]] + [0] + [0] + [0] + [0]
                     writer.writerow(rowFormat)
-        
         return processedSampleMasked
-        
-        
     def accept(self, event):
         global maskedSpots
         if event.key == "enter":
