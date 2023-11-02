@@ -655,7 +655,7 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
                 for row in csvreader:
                     transformedTissuePositionList.append(row)
         tissuePointsTransformed = pd.DataFrame({'x': transformedTissuePositionList[:,0],'y': transformedTissuePositionList[:,1]})
-        # need to update the transform identification when loading from folder
+        # This syntax should work correctly, will want to double check
         registeredData['fwdtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat")]
         registeredData['invtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1InverseWarp.nii.gz"),]
         registeredData['tissueRegistered'] = plt.imread(os.path.join(f"{registeredData['derivativesPath']}/{registeredData['sampleID']}_registered_to_{sampleToRegisterTo['sampleID']}.png"))
@@ -672,21 +672,11 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
         tissuePointsTransformed = ants.apply_transforms_to_points(2, ptsToTransform,synXfm['invtransforms'])
         tissuePointsTransformed.to_csv(registeredData['locProcessedTissuePointsToSampleCSV'], index=False)
 
-        # csvfile = open(registeredData['locProcessedTissuePointsToSampleCSV'], newline='')
-        # with csvfile:
-        #         csvreader = csv.reader(csvfile, delimiter=',')
-        #         next(csvreader)
-        #         for row in csvreader:
-        #             transformedTissuePositionList.append(row)
-                    
         registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
         registeredData['fwdtransforms'] = synXfm['fwdtransforms']
         registeredData['invtransforms'] = synXfm['invtransforms']
     registeredData['transformedTissuePositionList'] = np.array([tissuePointsTransformed.y.to_numpy(),tissuePointsTransformed.x.to_numpy()], dtype='float32').transpose()
-    # registeredData['transformedTissuePositionList'] = np.array(tissuePointsTransformed, dtype='float32')
-    # switching x,y columns back to python compatible and deleting empty columns
-    # registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
-    
+        
     if log2normalize==True:
         registeredData['geneMatrixLog2'] = processedData['geneMatrixLog2']
     else:
@@ -752,7 +742,6 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
         ptsToTransform = pd.DataFrame({'x': registeredST['transformedTissuePositionList'][:,1], 'y': registeredST['transformedTissuePositionList'][:,0]})
         tissuePointsTransformed = ants.apply_transforms_to_points(2, ptsToTransform,bestSampleRegisteredToTemplate['invtransforms'])
         tissuePointsTransformed.to_csv(registeredST['locProcessedTissuePointsToSampleCSV'], index=False)
-        # os.system(f"antsApplyTransformsToPoints -d 2 -i {os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TransformApplied.csv -o {os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_tissuePointsResize_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv -t [ {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm0GenericAffine.mat,1] -t {os.path.join(bestSampleRegisteredToTemplate['derivativesPath'],bestSampleRegisteredToTemplate['sampleID'])}_xfm1InverseWarp.nii.gz")
         
         with open(registeredST['locProcessedTissuePointsToSampleCSV'], newline='') as csvfile:
             csvreader = csv.reader(csvfile, delimiter=',')
@@ -840,13 +829,8 @@ def createDigitalSpots(templateRegisteredData, desiredSpotSize, displayImage=Fal
     derivativesPath = templateRegisteredData['derivativesPath'].split('/')
     del derivativesPath[-1]
     derivativesPath = os.path.join('/',*derivativesPath)
-    with open(os.path.join(derivativesPath,'digitalSpotCoordinates.csv'), 'w', encoding='UTF8') as f:
-        header=['x','y','z','t','label','comment']
-        writer = csv.writer(f)
-        writer.writerow(header)
-        for i in range(len(digitalSpots)):
-            rowFormat = [digitalSpots[i,1]] + [digitalSpots[i,0]] + [0] + [0] + [0] + [0]
-            writer.writerow(rowFormat)
+    digitalSpotsDF = pd.DataFrame({'x': digitalSpots[:,1], 'y': digitalSpots[:,0]})
+    digitalSpotsDF.to_csv(os.path.join(derivativesPath,'digitalSpotCoordinates.csv'), index=False)
     return digitalSpots
 
 def findDigitalNearestNeighbors(digitalSpots, templateRegisteredSpots, kNN, spotDist):
