@@ -1,0 +1,81 @@
+{
+    "cellTypes": [
+    {
+        "name":"astrocyte",
+        "abbreviation":"ast",
+        "topGeneList": ["Cpe", "Clu", "Aldoc", "Slc1a3", "Slc1a2"],
+        "atacSeqGeneList": ["Adgrv1", "Cldn10", "Etnppl", "Prss35", "Rnf219-as1", "Ston2", "Tpd52l1"],
+        "honoraryMention": ["Agp4","Gfap"],
+        "lyonsList":["Slc1a2"],
+        "reschList": ["Slc1a2","Agt"],
+        "junkoList": ["Rgs20"]
+    },
+    {
+        "name":"endothelial",
+        "abbreviation":"end",
+        "topGeneList": ["Itm2a", "Bsg", "Ifitm1", "Apold1", "Rsg5"],
+        "atacSeqGeneList": [],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Flt1","Slco1a4"],
+        "junkoList": []
+    },
+    {
+        "name":"microglia",
+        "abbreviation":"mic",
+        "topGeneList": ["Ccl4", "Ccl3", "Ctss", "Tyrobp", "Cd83"],
+        "atacSeqGeneList": ["Arhgap25", "Atp8b4", "Fam105a", "Hla-dpa1", "Ms4a14", "Pik3ap1", "Sh2b3", "Trib1", "Ubac2"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Inpp5d"],
+        "junkoList": ["Inpp5d"]
+    },
+    {
+        "name":"neuron",
+        "abbreviation":"neu",
+        "topGeneList": ["Npy", "Sst", "Snap25", "Vip", "Scg2"],
+        "atacSeqGeneList": ["Btbd11", "Disp2", "Galntl6", "Sertm1", "Syt13", "Vstm2a", "Zmat4"],
+        "honoraryMention": ["Reln"],
+        "lyonsList":["Rbfox3"],
+        "reschList": ["Rbfox3", "Tubb3"],
+        "junkoList": []
+    },
+    {
+        "name":"oligodendrocyte",
+        "abbreviation":"oli",
+        "topGeneList":["Plp1", "Cnp", "Mal", "Mog", "Cryab"],
+        "atacSeqGeneList": ["Anln", "Carns1", "Clca4", "Ctnna3", "Paip2b", "Qdpr", "Slain1", "Sox2ot", "Tmem144"],
+        "honoraryMention": ["Ugt8","Ermn"],
+        "lyonsList":["Mog","Prr5l"],
+        "reschList": ["Mbp","Mag","Mog"],
+        "junkoList": ["Prr5l","Bmp4"]
+    },
+    {
+        "name":"oligodendrocyte precursor cell",
+        "abbreviation":"opc",
+        "topGeneList":["Pdgfra", "Cntn1", "Tnr"],
+        "honoraryMention": [],
+        "lyonsList":["Cspg4","Pdgfra"],
+        "reschList": ["Pdgfra", "Cspg4"],
+        "junkoList": ["Pdgfra"]
+    },
+    {
+        "name":"macrophage",
+        "abbreviation":"mac",
+        "topGeneList":[],
+        "honoraryMention": [],
+        "lyonsList":["Ctss","Cx3cr1"],
+        "reschList": ["Cx3cr1", "Ctss", "Csf3r"],
+        "junkoList": []
+    },
+    {
+        "name":"shared cell markers",
+        "abbreviation":"sha",
+        "topGeneList":["Malat1","Actb","Hspa8","Fth1","Fos","Hsp90ab1","Eef1a1","Ubc","Rpl4","Rps11"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Inpp5d"],
+        "junkoList": []
+    }
+]
+}

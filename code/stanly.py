@@ -654,7 +654,7 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
                 next(csvreader)
                 for row in csvreader:
                     transformedTissuePositionList.append(row)
-        transformedTissuePositionList = pd.DataFrame({'x': transformedTissuePositionList[:,0],'y': transformedTissuePositionList[:,1]})
+        tissuePointsTransformed = pd.DataFrame({'x': transformedTissuePositionList[:,0],'y': transformedTissuePositionList[:,1]})
         # need to update the transform identification when loading from folder
         registeredData['fwdtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1Warp.nii.gz"),os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat")]
         registeredData['invtransforms'] = [os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm0GenericAffine.mat"), os.path.join(processedData['derivativesPath'],f"{processedData['sampleID']}_xfm1InverseWarp.nii.gz"),]
@@ -672,19 +672,20 @@ def runANTsInterSampleRegistration(processedData, sampleToRegisterTo, log2normal
         tissuePointsTransformed = ants.apply_transforms_to_points(2, ptsToTransform,synXfm['invtransforms'])
         tissuePointsTransformed.to_csv(registeredData['locProcessedTissuePointsToSampleCSV'], index=False)
 
-        csvfile = open(registeredData['locProcessedTissuePointsToSampleCSV'], newline='')
-        with csvfile:
-                csvreader = csv.reader(csvfile, delimiter=',')
-                next(csvreader)
-                for row in csvreader:
-                    transformedTissuePositionList.append(row)
+        # csvfile = open(registeredData['locProcessedTissuePointsToSampleCSV'], newline='')
+        # with csvfile:
+        #         csvreader = csv.reader(csvfile, delimiter=',')
+        #         next(csvreader)
+        #         for row in csvreader:
+        #             transformedTissuePositionList.append(row)
                     
         registeredData['tissueRegistered'] = synXfm["warpedmovout"].numpy()
         registeredData['fwdtransforms'] = synXfm['fwdtransforms']
         registeredData['invtransforms'] = synXfm['invtransforms']
-    registeredData['transformedTissuePositionList'] = np.array(transformedTissuePositionList, dtype='float32')
+    registeredData['transformedTissuePositionList'] = np.array([tissuePointsTransformed.y.to_numpy(),tissuePointsTransformed.x.to_numpy()], dtype='float32').transpose()
+    # registeredData['transformedTissuePositionList'] = np.array(tissuePointsTransformed, dtype='float32')
     # switching x,y columns back to python compatible and deleting empty columns
-    registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
+    # registeredData['transformedTissuePositionList'][:,[0,1]] = registeredData['transformedTissuePositionList'][:,[1,0]]
     
     if log2normalize==True:
         registeredData['geneMatrixLog2'] = processedData['geneMatrixLog2']
