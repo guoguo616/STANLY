@@ -1205,6 +1205,17 @@ def selectSpotsWithGene(processedSample, geneToSelect):
     else:
         print(f"No spots in {processedSample['sampleID']} are positive for {geneToSelect}")
     return maskedMatrix, maskedTissuePositionList
+
+def selectGeneMatrixWithList(processedSample, listOfGenesToSelect):
+    denseMatrix = processedSample['geneMatrixLog2']
+    denseMatrix = denseMatrix.todense().astype('float32')
+    idxList = []
+    for actGene in listOfGenesToSelect:        
+        geneIndex = processedSample['geneListMasked'].index(actGene)
+        idxList.append(geneIndex)
+    idxList = np.array(idxList, dtype='int32')
+    maskedMatrix = sp_sparse.csc_matrix(denseMatrix[idxList, :])
+    return maskedMatrix
            
 #%% calculate the cosine similarity of a given matrix at the coordinates given
 def cosineSimOfConnection(inputMatrix,i,j):
