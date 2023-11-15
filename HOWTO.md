@@ -1,9 +1,8 @@
 # How to use STANLY to analyze Visium spatial transcriptomic data
 
 The STANLY codebase is built in such a way that a user can either use it to register individual spatial transcriptomic samples into Allen Common Coordinate Framework (CCF) and visualize the regional distribution of their spatial transcriptomic data, or to register an entire experiment worth of Visium samples and compare them to each other statistically. Note that these tools can be used to individually examine samples as well, but this how to will focus on how to prepare them for group analysis. This how to details the method used for statistical analysis presented in:
-*Spatial transcriptomics reveals unique gene expression changes in different brain regions after sleep deprivation.*
-Yann Vanrobaeys, Zeru Peterson, Emily Walsh, Snehajyoti Chatterjee, Li-Chun Lin, Lisa Lyons, Thomas Nickl-Jockschat, Ted Abel
-bioRxiv 2023.01.18.524406; doi: https://doi.org/10.1101/2023.01.18.524406
+[*Spatial transcriptomics reveals unique gene expression changes in different brain regions after sleep deprivation.*
+Vanrobaeys Y, Peterson ZJ, Walsh EN, et al. Nat Commun. 2023;14(1):7095. Published 2023 Nov 4. doi:10.1038/s41467-023-42751-z](https://rdcu.be/dqf8c)
 
 This HOWTO focuses on analysis of Visium data, but the process is mainly the same for Merfish data
 # Dependencies

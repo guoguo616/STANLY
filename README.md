@@ -2,6 +2,11 @@
 STANLY (**S**patial **T**ranscriptomic **AN** a **LY** sis) is a set of tools that utilizes the imaging data from spatial transcriptomic experiments such as Visium to register multiple images into a common coordinate space to allow a truly spatial analysis of transcriptomic data. This toolbox is built in Python using tools from [Advanced Normalization Tools (ANTs)](http://stnava.github.io/ANTs/) and [The Allen Software Development Kit (SDK)](https://allensdk.readthedocs.io/en/latest/). Once aligned into a common space, we create 'digital' spots for each sample based on a selection of nearest neighbors and use these spots to run differential statistics on the experiment. For a more detailed overview of how to use STANLY to perform analysis, [please read the HOWTO](/HOWTO.md).
 ![Registration of Visium data to Allen Common Coordinate Framework and statistical analysis of aligned transcriptomic spots. A. Nonlinear registration of the tissue image from a single Visium sample (A1) and its transcriptomic spot coordinates (A2) – shown as example: the gene Camk2n1 – to the template image (A3), slice 70 from the Allen P56 Mouse Common Coordinate Framework (CCF). Due to the nonlinear nature of the registration, we are able to precisely align the sample image (A4) to landmarks in the template image and apply that transformation to the spot coordinates (A5). To account for different numbers of spots in individual samples, digital spots spaced at 150μm in a honeycomb were created for the template. Each digital spot is populated with the log base 2 normalized transcriptomic counts from the 7 nearest spots from each sample in a group (A7). This approach allows the comparison of gene expression across entire brain slices in an unrestricted inference space.](/source/images/figure5a.png)*Registration of the tissue and spots from a sample to CCF*
 
+# Citation
+When using STANLY, please reference the following paper citation:
+
+[*Spatial transcriptomics reveals unique gene expression changes in different brain regions after sleep deprivation.*
+Vanrobaeys Y, Peterson ZJ, Walsh EN, et al. Nat Commun. 2023;14(1):7095. Published 2023 Nov 4. doi:10.1038/s41467-023-42751-z](https://rdcu.be/dqf8c)
 
 # Data Structure
 Data can be arranged into a format based on [Brain Imaging Data Structure (BIDS)](https://bids.neuroimaging.io/), so that within an experimental folder there is a code folder for any code used to analyze the experiment, a derivatives folder which will contain all processed images and data, and a rawdata folder which contains Visium data, i.e. the spatial folder and .h5 file from [SpaceRanger](https://support.10xgenomics.com/spatial-gene-expression/software/pipelines/latest/what-is-space-ranger) for each sample, i.e.:
@@ -31,10 +36,5 @@ Images are prepared for analysis by first creating rotating the images into the 
 - extractStanlyInfoFromRegisteredSamples.py: script that runs the analysis on the already processed and registered sleep dep samples
 - runGeneListThroughToppGene.sh: bash script that takes the gene list output by STANLY and runs them through ToppGene functional enrichment analysis
 
-# Citation
-When using STANLY, please reference the following paper citation:
-
-[*Spatial transcriptomics reveals unique gene expression changes in different brain regions after sleep deprivation.*
-Vanrobaeys Y, Peterson ZJ, Walsh EN, et al. Nat Commun. 2023;14(1):7095. Published 2023 Nov 4. doi:10.1038/s41467-023-42751-z](https://rdcu.be/dqf8c)
 # License
 STANLY is released under the GPL v3 license. Commercial use of this software is prohibited due to licensing of software components used.
