@@ -219,7 +219,12 @@ def chooseTemplateSlice(sliceLocation):
         rsapi = ReferenceSpaceApi()
         rsapi.download_volumetric_data('ara_nissl','ara_nissl_10.nrrd',10, save_file_path=os.path.join(ccfPath, 'ara_nissl_10.nrrd'))
     ara_data = ants.image_read(os.path.join(ccfPath,'ara_nissl_10.nrrd'))
+    bestSlice = sliceLocation * 10
+    templateSlice = ara_data.slice_image(0,(bestSlice))
+    del(ara_data)
     annotation_data = ants.image_read(os.path.join(ccfPath,'annotation_10.nrrd'))
+    templateAnnotationSlice = annotation_data.slice_image(0,(bestSlice))
+    del(annotation_data)
     templateData = {}
     annotation_id = []
     annotation_name = []
@@ -242,9 +247,7 @@ def chooseTemplateSlice(sliceLocation):
     templateData['sliceNumber'] = sliceLocation
     # uses the 10 micron CCF
     templateData['startingResolution'] = 0.01
-    bestSlice = sliceLocation * 10
-    templateSlice = ara_data.slice_image(0,(bestSlice))
-    templateAnnotationSlice = annotation_data.slice_image(0,(bestSlice))
+
     templateSlice = cv2.normalize(templateSlice.numpy(), None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
     templateData['wholeBrain'] = templateSlice
     templateData['wholeBrainAnnot'] = np.array(templateAnnotationSlice.numpy(), dtype='int32')
