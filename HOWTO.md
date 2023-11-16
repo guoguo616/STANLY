@@ -92,10 +92,10 @@ This loop additionally calculates the average number of spots from all samples f
 
 # Register best fit image to template and apply transformation to remaining samples
 
-From your experiment, select one sample with good image quality to be your "best fit" image for registration. This image will be registered to the Allen CCF template image using the `runANTsToAllenRegistration` function, and all other images will subsequently be registered to this best fit using the `runANTsInterSampleRegistration` function, and have the best fit-to-Allen transformation applied to their images and spots using the `applyAntsTransformations` function. For this data, the sample we selected as best fit is sample-05 (which has a Python index of [4] in our `processedSamples` variable created above). If your data contains only data from a particular hemisphere, you will want to use one of the options `hemisphere='rightHem'`, `hemisphere='leftHem'`, or `hemisphere='wholeBrain'` (now default) to the `runANTsToAllenRegistration` and `applyAntsTransformations`.
+From your experiment, select one sample with good image quality to be your "best fit" image for registration. This image will be registered to the Allen CCF template image using the `runANTsToAllenRegistration` function, and all other images will subsequently be registered to this best fit using the `runANTsInterSampleRegistration` function, and have the best fit-to-Allen transformation applied to their images and spots using the `applyAntsTransformations` function. For this data, the sample we selected as best fit is sample-05 (which has a Python index of [4] in our `processedSamples` variable created above). If your data contains only data from a particular hemisphere, you will want to use one of the options `hemisphere='rightHem'`, `hemisphere='leftHem'`, or `hemisphere='wholeBrain'` to the `runANTsToAllenRegistration` and `applyAntsTransformations` (default is `'wholeBrain'`). Lastly, if you would like to have STANLY display images at any of these steps, you can add the option `displayImage=True` to the function call (default is `False`). 
 
 ```python
-bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template, hemisphere='rightHem')
+bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template, hemisphere='rightHem', displayImage=True)
 
 experimentalResults = {}
 for actSample in range(len(processedSamples)):

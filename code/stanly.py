@@ -1260,25 +1260,45 @@ def selectSpotsWithGeneList(processedSample, geneList, threshold=1):
     geneListIdx = []
     for actGene in geneList:
         try:
-            geneListIdx.append(processedSample['geneListMasked'].index(actGene))
+            if 'allSampleGeneList' in processedSample:
+                geneListIdx.append(list(processedSample['allSampleGeneList']).index(actGene))
+                actSpots = processedSample['geneMatrixMaskedSorted'][geneListIdx, :]
+                actSpots = actSpots.todense().astype('float32')
+                posSpots = np.sum((actSpots > 0), axis=0)
+                nGenes = len(geneListIdx)
+                threshVal = round(nGenes * threshold)
+                posSpots = posSpots > threshVal
+                # posSpots = np.count_nonzero(actSpots, axis=0)
+                denseMatrix = processedSample['geneMatrixMaskedSorted'].todense().astype('float32')
+                if np.sum(posSpots) > 0:
+                    posSpots = np.squeeze(np.array(posSpots))
+                    maskedTissuePositionList = processedSample['maskedTissuePositionList'][posSpots,:]
+                    maskedMatrix = denseMatrix[:,posSpots]
+                else:
+                    maskedMatrix = []
+                    maskedTissuePositionList = []
+            else:
+                geneListIdx.append(processedSample['geneListMasked'].index(actGene))
+                actSpots = processedSample['geneMatrixLog2'][geneListIdx, :]
+                actSpots = actSpots.todense().astype('float32')
+                posSpots = np.sum((actSpots > 0), axis=0)
+                nGenes = len(geneListIdx)
+                threshVal = round(nGenes * threshold)
+                posSpots = posSpots > threshVal
+                # posSpots = np.count_nonzero(actSpots, axis=0)
+                denseMatrix = processedSample['geneMatrixLog2'].todense().astype('float32')
+                if np.sum(posSpots) > 0:
+                    posSpots = np.squeeze(np.array(posSpots))
+                    maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
+                    maskedMatrix = denseMatrix[:,posSpots]
+                else:
+                    maskedMatrix = []
+                    maskedTissuePositionList = []
         except ValueError:
             print(f"No spots are positive for {actGene}!")
-    actSpots = processedSample['geneMatrixLog2'][geneListIdx, :]
-    actSpots = actSpots.todense().astype('float32')
-    posSpots = np.sum((actSpots > 0), axis=0)
-    nGenes = len(geneListIdx)
-    threshVal = round(nGenes * threshold)
-    posSpots = posSpots > threshVal
-    # posSpots = np.count_nonzero(actSpots, axis=0)
-    denseMatrix = processedSample['geneMatrixLog2'].todense().astype('float32')
+   
     
-    if np.sum(posSpots) > 0:
-        posSpots = np.squeeze(np.array(posSpots))
-        maskedTissuePositionList = processedSample['processedTissuePositionList'][posSpots,:]
-        maskedMatrix = denseMatrix[:,posSpots]
-    else:
-        maskedMatrix = []
-        maskedTissuePositionList = []
+   
     return maskedMatrix, maskedTissuePositionList
 
 #%% Masking functions
