@@ -897,8 +897,13 @@ def annotateDigitalSpots(digitalSpots, templateSlice, hemisphere='wholeBrain'):
         templateAnnot = templateSlice['rightHemAnnot']
     spotAnnot = []
     for i in range(roundedSpots.shape[0]):
-        templateAnnot[int(roundedSpots[i,1]),int(roundedSpots[i,0])]
-        spotAnnot.append([digitalSpots[i,0], digitalSpots[i,1],templateAnnot[int(roundedSpots[i,1]),int(roundedSpots[i,0])]])
+        annotationID = templateAnnot[int(roundedSpots[i,1]),int(roundedSpots[i,0])]
+        try:
+            annotationNameIDX = templateSlice['annotationID'].index(str(int(annotationID)))
+            annotationName = templateSlice['annotationName'][annotationNameIDX]
+        except ValueError:
+            annotationName = 'Out of bounds'
+        spotAnnot.append([digitalSpots[i,0], digitalSpots[i,1],int(annotationID), annotationName])
     spotAnnot = np.array(spotAnnot)
     return spotAnnot
 #%% load functions
