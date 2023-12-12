@@ -268,19 +268,19 @@ def chooseTemplateSlice(sliceLocation):
         if colorIdx:
             newColor = templateData['annotationColor'][colorIdx[0]]
             templateAnnotColorRenum.append(newColor)
-    templateData['annotationColor'] = mcolors.ListedColormap(templateAnnotColorRenum, N=len(templateData['annotationID']))
+    # templateData['annotationColor'] = mcolors.ListedColormap(templateAnnotColorRenum, N=len(templateData['annotationID']))
     se = morphology.disk(2)
     templateAnnotRGB = morphology.binary_dilation(feature.canny(templateAnnotRenum), footprint=se)
     # templateData['annotationID'] = annotationIDRenum
     templateData['wholeBrainAnnotEdges']  = templateAnnotRGB
     
     templateData['leftHem'] = templateSlice[:,:570]
-    templateData['leftHemAnnot'] = templateAnnotRenum[:,:570]
+    templateData['leftHemAnnot'] = templateData['wholeBrainAnnot'][:,:570]
     templateData['templateLeftGauss'] = templateData['templateWholeGauss'][:,:570]
     templateData['leftHemAnnotEdges'] = templateAnnotRGB[:,:570]
     
     templateData['rightHem'] = templateSlice[:,570:]
-    templateData['rightHemAnnot'] = templateAnnotRenum[:,570:]
+    templateData['rightHemAnnot'] = templateData['wholeBrainAnnot'][:,570:]
     templateData['templateRightGauss'] = templateData['templateWholeGauss'][:,570:]
     templateData['rightHemAnnotEdges'] = templateAnnotRGB[:,570:]
 
@@ -1102,10 +1102,12 @@ def setExperimentalFolder(locOfExpFolder):
     return rawdata, derivatives
     
 # desired region will need to be in the naming format of the allen ccf
-# it seems that reading from the csv is probably faster than searching the allen sdk, but will time it at some point
+# should expand on information stored in the regionMask output of createRegionalMask
+# include region name, parent structure, color, etc
 def createRegionalMask(template, desiredRegion, hemisphere='wholeBrain', displayImage=False):
     regionIdx = template['annotationName'].index(desiredRegion)
     regionID = int(template['annotationID'][regionIdx])
+    regionColor = np.append(template['annotationColor'][regionIdx],1)
     structIDs = []
     templateAnnot = template['wholeBrainAnnot']
     if hemisphere=='leftHem':
@@ -1120,37 +1122,28 @@ def createRegionalMask(template, desiredRegion, hemisphere='wholeBrain', display
     
     for actID in structIDs:
         regionBoolMask = np.where(templateAnnot == int(actID))
-        print(regionBoolMask)
         if any(regionBoolMask[0]):
             regionMask[regionBoolMask[0],regionBoolMask[1]] = 1
     if displayImage==True:
         plt.figure()
-        plt.imshow(template[hemisphere], cmap='gray')
-        plt.imshow(regionMask, alpha=0.8)
+        plt.imshow(template[hemisphere], cmap='gray_r')
+        regionColormap = mcolors.ListedColormap([[0,0,0,0],
+          regionColor])
+        plt.imshow(regionMask, cmap=regionColormap, interpolation='none', alpha=0.8)
         plt.show()
     return regionMask
 
-def createRegionMaskAllenSDK(template, desiredRegion):
-    from allensdk.core.reference_space_cache import ReferenceSpaceCache
-    reference_space_key = 'annotation/ccf_2017'
-    resolution = 10
-    rspc = ReferenceSpaceCache(resolution, reference_space_key, manifest='manifest.json')
-    rsp = rspc.get_reference_space()
-    # structure graph id is 1 for mouse
-    tree = rspc.get_structure_tree(structure_graph_id=1) 
-    # regionList = tree.get_name_map()
-    region = tree.get_structures_by_name([desiredRegion])
-    fullMask = rsp.make_structure_mask([region[0]['id']])
-    # the 570 here is to split the mask in half
-    regionMask = fullMask[(template['sliceNumber'] * resolution),:,570:]
-    return regionMask
-
-def createRegionalDigitalSpots(regionMask, desiredSpotSize, displaySpots=False):
+def createRegionalDigitalSpots(regionMask, template, desiredSpotSize, hemisphere='wholeBrain', displayImage=False):
     w = np.sqrt(3) * (desiredSpotSize/2)   # width of pointy up hexagon
     h = desiredSpotSize    # height of pointy up hexagon
     currentX = 0
     currentY = 0
     rowCount = 0
+    templateImage = template['wholeBrain']
+    if hemisphere=='leftHem':
+        templateImage = template['leftHem']
+    elif hemisphere=='rightHem':
+        templateImage = template['rightHem']
     templateSpots = []
     while currentY < regionMask.shape[0]:
         if currentX < regionMask.shape[1]:
@@ -1175,9 +1168,10 @@ def createRegionalDigitalSpots(regionMask, desiredSpotSize, displaySpots=False):
             digitalSpots.append(templateSpots[row])
     digitalSpots = np.array(digitalSpots)
     
-    if displaySpots==True:
-        plt.imshow(regionMask)
-        plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3)
+    if displayImage==True:
+        plt.imshow(templateImage, cmap='gray_r')
+        # plt.imshow(regionMask)
+        plt.scatter(digitalSpots[:,0],digitalSpots[:,1], alpha=0.3, s=5)
         plt.show()
     return digitalSpots
 
