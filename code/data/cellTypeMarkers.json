@@ -76,6 +76,24 @@
         "lyonsList":[],
         "reschList": ["Inpp5d"],
         "junkoList": []
+    },
+    {
+        "name":"schwann precursor",
+        "abbreviation":"swp",
+        "topGeneList":["Sox10","Gap43"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": [],
+        "junkoList": []
+    },
+    {
+        "name":"myelinating schwann",
+        "abbreviation":"swp",
+        "topGeneList":["Sox10","Egr2","Mbp"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Inpp5d"],
+        "junkoList": []
     }
 ]
 }
