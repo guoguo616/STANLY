@@ -244,6 +244,7 @@ def chooseTemplateSlice(sliceLocation):
     templateData['annotationName'] = annotation_name
     templateData['structureIDPath'] = structure_id_path
     templateData['annotationColor'] = list(np.array(color_hex)/255)
+    templateData['annotationColorLabels'] = dict(zip(templateData['annotationID'], templateData['annotationColor']))
     templateData['sliceNumber'] = sliceLocation
     # uses the 10 micron CCF
     templateData['startingResolution'] = 0.01
@@ -259,15 +260,18 @@ def chooseTemplateSlice(sliceLocation):
     templateAnnotUnique = np.unique(templateData['wholeBrainAnnot'])
     templateAnnotRenum = np.zeros(templateData['wholeBrainAnnot'].shape)
     templateAnnotColorRenum = []
+    annotationIDRenum = []
     for newNum, origNum in enumerate(templateAnnotUnique):
         templateAnnotRenum[templateData['wholeBrainAnnot'] == origNum] = newNum
+        annotationIDRenum = newNum
         colorIdx = np.where(np.array(templateData['annotationID']) == f'{origNum}')[0]
         if colorIdx:
             newColor = templateData['annotationColor'][colorIdx[0]]
             templateAnnotColorRenum.append(newColor)
-    templateData['annotationColor'] = mcolors.ListedColormap(templateAnnotColorRenum)
+    templateData['annotationColor'] = mcolors.ListedColormap(templateAnnotColorRenum, N=len(templateData['annotationID']))
     se = morphology.disk(2)
     templateAnnotRGB = morphology.binary_dilation(feature.canny(templateAnnotRenum), footprint=se)
+    # templateData['annotationID'] = annotationIDRenum
     templateData['wholeBrainAnnotEdges']  = templateAnnotRGB
     
     templateData['leftHem'] = templateSlice[:,:570]
@@ -1099,23 +1103,29 @@ def setExperimentalFolder(locOfExpFolder):
     
 # desired region will need to be in the naming format of the allen ccf
 # it seems that reading from the csv is probably faster than searching the allen sdk, but will time it at some point
-def createRegionalMask(template, desiredRegion, displayImage=False):
+def createRegionalMask(template, desiredRegion, hemisphere='wholeBrain', displayImage=False):
     regionIdx = template['annotationName'].index(desiredRegion)
     regionID = int(template['annotationID'][regionIdx])
     structIDs = []
+    templateAnnot = template['wholeBrainAnnot']
+    if hemisphere=='leftHem':
+        templateAnnot = template['leftHemAnnot']
+    elif hemisphere=='rightHem':
+        templateAnnot = template['rightHemAnnot']
     for idx, actStruct in enumerate(np.array(template['structureIDPath'])):
         if f"/{regionID}/" in actStruct:
             structIDs.append(template['annotationID'][idx])
     structIDs = np.array(structIDs)
-    regionMask = np.zeros(template['rightHemAnnot'].shape, dtype='int')  
+    regionMask = np.zeros(templateAnnot.shape, dtype='int')
+    
     for actID in structIDs:
-        regionBoolMask = np.where(template['rightHemAnnot'] == int(actID))
+        regionBoolMask = np.where(templateAnnot == int(actID))
+        print(regionBoolMask)
         if any(regionBoolMask[0]):
             regionMask[regionBoolMask[0],regionBoolMask[1]] = 1
-            
     if displayImage==True:
         plt.figure()
-        plt.imshow(template['rightHem'], cmap='gray')
+        plt.imshow(template[hemisphere], cmap='gray')
         plt.imshow(regionMask, alpha=0.8)
         plt.show()
     return regionMask
