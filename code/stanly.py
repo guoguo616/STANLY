@@ -239,12 +239,15 @@ def chooseTemplateSlice(sliceLocation):
             annotation_name.append(row[4])
             structure_id_path.append(row[7])
             color_hex.append(ImageColor.getcolor(f"#{row[1]}", 'RGB'))
-
-    templateData['annotationID'] = annotation_id
-    templateData['annotationName'] = annotation_name
-    templateData['structureIDPath'] = structure_id_path
-    templateData['annotationColor'] = list(np.array(color_hex)/255)
-    templateData['annotationColorLabels'] = dict(zip(templateData['annotationID'], templateData['annotationColor']))
+    templateData = {'annotationID':annotation_id,
+                    'annotationName':annotation_name,
+                    'structureIDPath':structure_id_path,
+                    'annotationColor':list(np.array(color_hex)/255)}
+    # templateData['annotationID'] = annotation_id
+    # templateData['annotationName'] = annotation_name
+    # templateData['structureIDPath'] = structure_id_path
+    # templateData['annotationColor'] = list(np.array(color_hex)/255)
+    # templateData['annotationColorLabels'] = dict(zip(templateData['annotationID'], templateData['annotationColor']))
     templateData['sliceNumber'] = sliceLocation
     # uses the 10 micron CCF
     templateData['startingResolution'] = 0.01
@@ -1181,7 +1184,7 @@ def viewGeneInProcessedVisium(processedSample, geneName):
         actSpots = processedSample['geneMatrixLog2'][geneIndex, :]
         plt.figure()
         plt.imshow(processedSample['tissueProcessed'], cmap='gray')
-        plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', marker='.')
+        plt.scatter(processedSample['processedTissuePositionList'][:,0],processedSample['processedTissuePositionList'][:,1], c=np.array(actSpots.todense()), alpha=0.8, cmap='Reds', s=5)
         plt.title(f'Gene count for {geneName} in {processedSample["sampleID"]}')
         plt.colorbar()
         plt.show()
