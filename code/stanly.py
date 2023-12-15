@@ -1239,7 +1239,44 @@ def cosineSimOfConnection(inputMatrix,i,j):
     # cs = np.sum(np.dot(I,J.transpose())) / (np.sqrt(np.sum(np.square(I)))*np.sqrt(np.sum(np.square(J))))
     cs = sp_spatial.distance.cosine(I,J)
     return cs
+# measureTranscriptomicSimilar will replace cosineSimOfConnection
+def measureTranscriptomicSimilarity(geneMatrix, measurement='cosine'):
+    """
+    measure the transcriptomic similarity/distance between two spots
+    ----------
+    Parameters
+    ----------
+    geneMatrix: float array
+        2D matrix of genetic or transcriptomic data, organized [gene,spot]
+    edgeList: Nx2 int list
+        List of edges to be measured for distance, [[spot1,spot2],[spot1,spot3],...]
+    measurement: str
+        Choice of measurement metric, default='cosine'
+        'cosine' - cosine similarity
+        'pearson' - Pearson's R correlation
+    """
+    
+    dataSimMatrix = []
+    if measurement=='cosine':
+        fullyConnectedEdges = []
+        for i in range(geneMatrix.shape[1]):
+            for j in range(geneMatrix.shape[1]):
+                fullyConnectedEdges.append([i,j])
+                
+        fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
+        fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
 
+        dataSimMatrix = np.zeros([geneMatrix.shape[1],geneMatrix.shape[1]])
+        for i,j in fullyConnectedEdges:
+            I = np.ravel(geneMatrix[:,i])
+            J = np.ravel(geneMatrix[:,j])
+            cs = sp_spatial.distance.cosine(I,J)
+            dataSimMatrix[i,j] = float(cs)
+            dataSimMatrix[j,i] = float(cs)
+    elif measurement=='pearson':
+        dataSimMatrix = scipy.stats.pearsonr(geneMatrix)
+        # dataSimMatrix.append(cs)
+    return dataSimMatrix
 #%% functions for merscope data
 def downsampleMerfishTiff(merfishImageFilename, outputName, scale=0.01):
     # the default scale is based on merscope claiming nanometer resolution, scaled for the ccf 10um resolution    
