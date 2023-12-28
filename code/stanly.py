@@ -1231,7 +1231,30 @@ def selectGeneMatrixWithList(processedSample, listOfGenesToSelect):
     idxList = np.array(idxList, dtype='int32')
     maskedMatrix = sp_sparse.csc_matrix(denseMatrix[idxList, :])
     return maskedMatrix
-           
+
+def selectSpotsWithRegionMask(registeredSample, regionMask, template, hemisphere='wholeBrain', displayImage=True):
+    templateImage = template['wholeBrain']
+    if hemisphere=='leftHem':
+        templateImage = template['leftHem']
+    elif hemisphere=='rightHem':
+        templateImage = template['rightHem']
+    # denseMatrix = processedSample['geneMatrixLog2']
+    # denseMatrix = denseMatrix.todense().astype('float32')
+    idxRounded = np.array(np.round(registeredSample['maskedTissuePositionList']),dtype='int32')
+    regionMaskedTissuePositionList = []
+    regionMaskedIdx = [];
+    for i, actIdx in enumerate(idxRounded):
+        if regionMask[actIdx[1],actIdx[0]] == 1:
+            regionMaskedTissuePositionList.append(registeredSample['maskedTissuePositionList'][i,:])
+            regionMaskedIdx.append(i)
+    regionMaskedTissuePositionList = np.array(regionMaskedTissuePositionList, dtype='float32')
+    regionMaskedGeneMatrix = registeredSample['geneMatrixMaskedSorted'][:,regionMaskedIdx]
+    if displayImage==True:
+        plt.figure()
+        plt.imshow(registeredSample['tissueRegistered'],cmap='gray')
+        plt.scatter(regionMaskedTissuePositionList[:,0], regionMaskedTissuePositionList[:,1])
+        plt.show()
+    return regionMaskedTissuePositionList, regionMaskedGeneMatrix
 #%% calculate the cosine similarity of a given matrix at the coordinates given
 def cosineSimOfConnection(inputMatrix,i,j):
     I = np.ravel(inputMatrix[:,i])
