@@ -1280,15 +1280,14 @@ def measureTranscriptomicSimilarity(geneMatrix, measurement='cosine'):
     """
     
     dataSimMatrix = []
+    fullyConnectedEdges = []
+    for i in range(geneMatrix.shape[1]):
+        for j in range(geneMatrix.shape[1]):
+            fullyConnectedEdges.append([i,j])
+            
+    fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
+    fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
     if measurement=='cosine':
-        fullyConnectedEdges = []
-        for i in range(geneMatrix.shape[1]):
-            for j in range(geneMatrix.shape[1]):
-                fullyConnectedEdges.append([i,j])
-                
-        fullyConnectedEdges = np.array(fullyConnectedEdges,dtype='int32')
-        fullyConnectedEdges = np.unique(np.sort(fullyConnectedEdges, axis=1),axis=0)
-
         dataSimMatrix = np.zeros([geneMatrix.shape[1],geneMatrix.shape[1]])
         for i,j in fullyConnectedEdges:
             I = np.ravel(geneMatrix[:,i])
@@ -1296,8 +1295,15 @@ def measureTranscriptomicSimilarity(geneMatrix, measurement='cosine'):
             cs = sp_spatial.distance.cosine(I,J)
             dataSimMatrix[i,j] = float(cs)
             dataSimMatrix[j,i] = float(cs)
-    elif measurement=='pearson':
-        dataSimMatrix = scipy.stats.pearsonr(geneMatrix)
+    # elif measurement=='pearson':
+    #     for i,j in fullyConnectedEdges:
+    #         I = np.ravel(geneMatrix[:,i])
+    #         J = np.ravel(geneMatrix[:,j])
+    #         cs = scipy.stats.pearsonr(I,J)
+    #         print(i, j)
+    #         dataSimMatrix[i,j] = cs[0]
+    #         dataSimMatrix[j,i] = cs[0]
+        # dataSimMatrix = scipy.stats.pearsonr(geneMatrix)
         # dataSimMatrix.append(cs)
     return dataSimMatrix
 #%% functions for merscope data
