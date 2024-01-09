@@ -454,8 +454,10 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissue.png",255*tissue)
     cv2.imwrite(f"{processedVisium['derivativesPath']}/{processedVisium['sampleID']}_tissueProcessed.png",processedVisium['tissueProcessed'])
 
-    # the x and y are swapped between ants and numpy, but this is so far dealt with within the code    
-    pts = {'x': processedVisium['processedTissuePositionList'][:,1], 'y': processedVisium['processedTissuePositionList'][:,0]}
+    # the x and y are swapped between ants and numpy, but this is so far dealt with within the code   
+    sortedBarcodeList = np.array(visiumData['tissueSpotBarcodeList'])[spotMask]
+    # print(sortedBarcodeList)
+    pts = {'x': processedVisium['processedTissuePositionList'][:,1], 'y': processedVisium['processedTissuePositionList'][:,0],'barcode':  sortedBarcodeList}
     pts = pd.DataFrame(pts)
     pts.to_csv(processedVisium['locProcessedTissuePointsCSV'], index=False)
     
