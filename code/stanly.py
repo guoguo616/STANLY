@@ -910,6 +910,7 @@ def annotateDigitalSpots(digitalSpots, templateSlice, hemisphere='wholeBrain'):
         try:
             annotationNameIDX = templateSlice['annotationID'].index(str(int(annotationID)))
             annotationName = templateSlice['annotationName'][annotationNameIDX]
+            annotationColor = templateSlice['annotationColor'][annotationNameIDX]
         except ValueError:
             annotationName = 'Out of bounds'
         spotAnnot.append([digitalSpots[i,0], digitalSpots[i,1],int(annotationID), annotationName])
