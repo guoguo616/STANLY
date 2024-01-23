@@ -1,0 +1,146 @@
+{
+    "cellTypes": [
+    {
+        "name":"astrocyte",
+        "abbreviation":"ast",
+        "topGeneList": ["Cpe", "Clu", "Aldoc", "Slc1a3", "Slc1a2"],
+        "atacSeqGeneList": ["Adgrv1", "Cldn10", "Etnppl", "Prss35", "Rnf219-as1", "Ston2", "Tpd52l1"],
+        "honoraryMention": ["Agp4","Gfap"],
+        "lyonsList":["Slc1a2"],
+        "reschList": ["Slc1a2","Agt"],
+        "junkoList": ["Rgs20"],
+        "zeiselList": ["ACSL3", "ACSL6", "ADCY2", "ADD3", "AGPAT3", "AGPAT5", "AIFM2", "ALDOC", "AMT", "ARHGEF10L", "B3GALTL", "CHRDL1", "CRY2", "CSPG5", "CTNNBIP1", "ELMO2", "EPHX2", "EYA1", "FABP7", "FAM107A", "FARP1", "FBXO2", "FREM2", "GABRG1", "GLI2", "GLUD1", "GPC6", "HEPH", "HEY1", "HSD11B1", "LGI4", "LRRC2", "LSAMP", "LUZP2", "LXN", "NCAN", "NTSR2", "PRKD1", "RANBP3L", "RELT", "RGS20", "SDSL", "SESN3", "SLC1A4", "SLC30A10", "SLC7A11", "SNTA1", "SRC", "SYCP2", "THBS4", "TM7SF2", "TRPS1", "UGP2", "ZMPSTE24"]
+    },
+    {
+        "name":"endothelial",
+        "abbreviation":"end",
+        "topGeneList": ["Itm2a", "Bsg", "Ifitm1", "Apold1", "Rsg5"],
+        "atacSeqGeneList": [],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Flt1","Slco1a4"],
+        "junkoList": []
+    },
+    {
+        "name":"microglia",
+        "abbreviation":"mic",
+        "topGeneList": ["Ccl4", "Ccl3", "Ctss", "Tyrobp", "Cd83"],
+        "atacSeqGeneList": ["Arhgap25", "Atp8b4", "Fam105a", "Hla-dpa1", "Ms4a14", "Pik3ap1", "Sh2b3", "Trib1", "Ubac2"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Inpp5d"],
+        "junkoList": ["Inpp5d"],
+        "zeiselList": ["ABCA9", "ABCC3", "ADCY7", "ADRB2", "APAF1", "ARRB2", "BCL2A1", "CD53", "CD86", "CENPF", "CSF1R", "CTSZ", "CX3CR1", "CYBB", "CYTH4", "DENND1B", "EVI2B", "F13A1", "GINS2", "GPX3", "IL1B", "KDM2B", "LCP1", "LCP2", "LY96", "MAN1C1", "MASP2", "MCFD2", "MYO1F", "NAGPA", "NCOA3", "P2RY12", "PACSIN2", "PIK3CG", "PXN", "RAB43", "SCPEP1", "SKAP2", "SLA", "SLC16A6", "STAB1", "SUSD1", "SYK", "TAGAP", "TGFBI", "TLN2", "TNFRSF11A", "VAV1"]
+    },
+    {
+        "name":"neuron",
+        "abbreviation":"neu",
+        "topGeneList": ["Npy", "Sst", "Snap25", "Vip", "Scg2"],
+        "atacSeqGeneList": ["Btbd11", "Disp2", "Galntl6", "Sertm1", "Syt13", "Vstm2a", "Zmat4"],
+        "honoraryMention": ["Reln"],
+        "lyonsList":["Rbfox3"],
+        "reschList": ["Rbfox3", "Tubb3"],
+        "junkoList": []
+    },
+    {
+        "name":"oligodendrocyte",
+        "abbreviation":"oli",
+        "topGeneList":["Plp1", "Cnp", "Mal", "Mog", "Cryab"],
+        "atacSeqGeneList": ["Anln", "Carns1", "Clca4", "Ctnna3", "Paip2b", "Qdpr", "Slain1", "Sox2ot", "Tmem144"],
+        "honoraryMention": ["Ugt8","Ermn"],
+        "lyonsList":["Mog","Prr5l"],
+        "reschList": ["Mbp","Mag","Mog"],
+        "junkoList": ["Prr5l","Bmp4"],
+        "zeiselList": ["ABTB2", "ADO", "ADSSL1", "ANO10", "ATP1B3", "C9orf91", "CDR2L", "CEP97", "CFL2", "CLGN", "COMMD9", "CYB5A", "DCPS", "EFNB3", "EML1", "EPB41L3", "FAH", "FAM83D", "FBXO32", "FHDC1", "GHDC", "GJB1", "GPD1", "GPR155", "GRB14", "HCN2", "HINT3", "HMGCS1", "HS3ST1", "KCNA1", "KLHL2", "LGI3", "MAP6D1", "MAPK3", "MBP", "NKAIN2", "PHLDA3", "PKD2L1", "PLEKHA1", "RAB37", "RFTN1", "RHPN2", "RNLS", "RTKN2", "SEC14L5", "SEMA3D", "SERPIND1", "SH3GL3", "TAF13", "TMEFF1", "TMEFF2", "TMEM117", "TMEM125", "TMEM159", "TRIM13", "TRIM36", "TSPAN2", "WIPI1", "WNT3", "ZDHHC12"]
+    },
+    {
+        "name":"oligodendrocyte precursor cell",
+        "abbreviation":"opc",
+        "topGeneList":["Pdgfra", "Cntn1", "Tnr"],
+        "honoraryMention": [],
+        "lyonsList":["Cspg4","Pdgfra"],
+        "reschList": ["Pdgfra", "Cspg4"],
+        "junkoList": ["Pdgfra"]
+    },
+    {
+        "name":"macrophage",
+        "abbreviation":"mac",
+        "topGeneList":[],
+        "honoraryMention": [],
+        "lyonsList":["Ctss","Cx3cr1"],
+        "reschList": ["Cx3cr1", "Ctss", "Csf3r"],
+        "junkoList": []
+    },
+    {
+        "name":"shared cell markers",
+        "abbreviation":"sha",
+        "topGeneList":["Malat1","Actb","Hspa8","Fth1","Fos","Hsp90ab1","Eef1a1","Ubc","Rpl4","Rps11"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Inpp5d"],
+        "junkoList": []
+    },
+    {
+        "name":"schwann precursor",
+        "abbreviation":"swp",
+        "topGeneList":["Sox10","Gap43"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": [],
+        "junkoList": []
+    },
+    {
+        "name":"myelinating schwann",
+        "abbreviation":"swp",
+        "topGeneList":["Sox10","Egr2","Mbp"],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": ["Inpp5d"],
+        "junkoList": []
+    },
+    {
+        "name":"S1 pyramidal",
+        "abbreviation":"s1p",
+        "topGeneList": [],
+        "atacSeqGeneList": [],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": [],
+        "junkoList": [],
+        "zeiselList": ["ADCYAP1", "ADRB1", "ARPP19", "ATP1A1", "ATP2A2", "ATP2B2", "B4GALT2", "CA10", "CCKBR", "CNTNAP5", "COL5A1", "CPNE9", "CYP26B1", "DOC2A", "E2F1", "ERC2", "FBXL2", "FSTL4", "GFRA2", "GPR88", "GRM2", "GRM8", "GSG1L", "GTDC1", "HTR1F", "HTR2A", "IGSF21", "KCNH1", "KCNH4", "KCNH5", "KCNH7", "KCNJ11", "KCNJ9", "KCNS1", "KCNT2", "KLHL1", "KRT222", "LPCAT4", "MAPK11", "MGAT4C", "MYRIP", "NECAB3", "NEGR1", "NTSR1", "NXPH3", "OPN3", "OPRK1", "OSBP2", "OVOL2", "PACS1", "PCDH7", "PCP4", "PCSK5", "PFKP", "PTPRK", "RASGEF1C", "SCN4B", "SCUBE1", "SDK2", "SEMA5B", "SLC24A2", "SOX5", "SSTR2", "ST3GAL5", "STARD10", "STAT4", "STRBP", "STX1A", "TBR1", "TIAM2", "TMEM132A", "TPBG", "VOPP10"]
+    },
+    {
+        "name":"CA1 pyramidal",
+        "abbreviation": "ca1p",
+        "topGeneList": [],
+        "atacSeqGeneList": [],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": [],
+        "junkoList": [],
+        "zeiselList": ["ADRA1D", "ADRA2C", "AGAP3", "ANO5", "AP1S1", "AR", "ARL15", "ARSJ", "ASAP2", "ASPHD2", "BCR", "BHLHE22", "CACNA1E", "CCDC109B", "CCDC112", "CDS1", "CELSR2", "CHD3", "CHRD", "CLCNKB", "CPNE6", "CRYM", "CTNND2", "DCLK2", "DRD5", "DSCAML1", "EPHA6", "ETV1", "FAT4", "FKBP1A", "FKBP5", "FNDC4", "GABBR1", "GABRA5", "GPD2", "GPR161", "GRASP", "GREM1", "HUNK", "JPH4", "KCNA4", "KCNB2", "KLK7", "LMO1", "LPHN3", "LRRC7", "LRRN2", "LYPD1", "MATN2", "MCHR1", "MICAL2", "MPP6", "MTUS2", "NDST3", "NDST4", "NEDD4L", "NPAS2", "NPR3", "NTNG1", "ONECUT2", "OSBPL6", "OTUB2", "PLCH2", "PLXNA1", "PLXNC1", "PNMAL1", "POLE4", "PPFIA2", "PPP1R14C", "PPP4R4", "PRKAG2", "PRNP", "PSD3", "PYGO1", "RAB3D", "RAP2B", "RASAL1", "RSPO2", "RUNX1T1", "RXRG", "SERPINA3", "SH3RF1", "SHANK2", "SLC16A14", "SLC26A4", "SLIT1", "SLITRK3", "SORL1", "SRGAP3", "STXBP5", "SUB1", "SYT17", "THRB", "TMEM200A", "TNFRSF25", "TRAIP", "UHRF1BP1L", "UNC13B", "USP46", "WSCD2", "YPEL1", "ZNF667", "ZSCAN18"]
+    },
+    {
+        "name":"interneuron",
+        "abbreviation": "int",
+        "topGeneList": [],
+        "atacSeqGeneList": [],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": [],
+        "junkoList": [],
+        "zeiselList": ["ACHE", "ADAMTS17", "AKAP7", "ALK", "ANK1", "ANKRD6", "APBA1", "ARMCX2", "ARMCX4", "ARRB1", "BAIAP3", "BCAT1", "BMP3", "C1QL1", "CALB2", "CAMK2D", "CDH7", "CIDEA", "CNR1", "CNTN5", "COL19A1", "CRHBP", "DLEU7", "DPYSL5", "ECE2", "EEPD1", "EPB41L1", "FLRT3", "FOXRED2", "FSTL5", "GNG4", "GRIK2", "HDAC9", "HTR2C", "KCNC1", "KCND3", "KCNMB2", "KCTD8", "KIAA1456", "LANCL3", "LIMK1", "LRP12", "LYPD6", "LYSMD4", "MAP3K9", "MCF2", "MID2", "MUM1L1", "NEB", "NECAB2", "NETO1", "NNMT", "NPAS1", "NUDT11", "OSBPL8", "OXR1", "OXTR", "PAM", "PANX1", "PCLO", "PLXNA3", "PODXL2", "PRMT2", "PTPRO", "PTTG1", "PURB", "RAB3B", "RBP4", "RELN", "RXFP1", "SCN5A", "SCN9A", "SETD7", "SHD", "SLC10A4", "SLC27A2", "SLC39A6", "SLC5A6", "SLC7A3", "SLC9A7", "SST", "STEAP2", "SV2A", "SYNPR", "TCERG1L", "TMEM132E", "TMEM53", "TNFSF13B", "TRIM67", "TTC39A", "TTC39B", "UBASH3B", "USP13", "VSTM2A", "VWC2", "WDR6", "WIF1", "ZBTB16", "ZNF385A", "ZNF385B"]
+    },
+    {
+        "name":"ependymal",
+        "abbreviation": "epe",
+        "topGeneList": [],
+        "atacSeqGeneList": [],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": [],
+        "junkoList": [],
+        "zeiselList": ["AK7", "BACE2", "BPHL", "CA12", "CASC1", "CCDC146", "CCDC148", "CCDC40", "CCNO", "CETN2", "CLDN1", "CMTM4", "CNN3", "COL5A2", "COL9A1", "COX7A1", "CRYGN", "DMKN", "DNAH5", "DNAH6", "DNAJA4", "DUSP18", "EFCAB1", "EMB", "ENKUR", "FAM126A", "FAM78A", "FBLN7", "FIBIN", "GPR98", "HMGN1", "HRASLS", "HSPB6", "HTR1B", "INTU", "IQCA1", "IQCK", "KIF27", "KL", "KREMEN1", "LAMA3", "LCA5", "LGALS3", "LRRC48", "MYB", "MYO5C", "MYO7A", "N4BP2", "NIPAL2", "NPHP1", "NR1D1", "NTHL1", "PAWR", "PCOLCE2", "PLAGL1", "POSTN", "PYGL", "RARB", "RDH10", "RFX3", "RPGR", "RSPH9", "SEC24D", "SLC29A4", "SLC2A12", "SLC39A13", "SMOC1", "SPAG6", "SPEF2", "STK36", "SULF1", "SYT10", "TCTEX1D1", "TMEM107", "TMEM108", "TRIM68", "TRPM3", "TSPAN6", "TTC18", "TTR", "UPP1", "VWA3A", "ZMYND10", "ZNF786"]
+    }
+]
+}
