@@ -14,13 +14,13 @@ import scipy.spatial as sp_spatial
 import csv
 import time
 import sys
-sys.path.insert(0, "/home/zjpeters/Documents/stanly/code")
+sys.path.insert(0, "/home/zjpeters/rdss_tnj/stanly/code")
 import stanly
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.cm as cm
 
-rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/Documents/stanly")
+rawdata, derivatives = stanly.setExperimentalFolder("/home/zjpeters/rdss_tnj/stanly")
 template = stanly.chooseTemplateSlice(70)
 #%% load experiment of samples that have already been processed and registered
 
@@ -61,7 +61,7 @@ print(f"Average spot count across {nTotalSamples} samples is {spotCountMean}")
 
 #%%
 bestSampleToTemplate = stanly.runANTsToAllenRegistration(processedSamples[4], template, hemisphere='rightHem')
-#%% 
+
 experimentalResults = {}
 for actSample in range(len(processedSamples)):
     sampleRegistered = stanly.runANTsInterSampleRegistration(processedSamples[actSample], processedSamples[4])
@@ -71,6 +71,211 @@ allSamplesToAllen = {}
 for actSample in range(len(experimentalResults)):
     regSampleToTemplate = stanly.applyAntsTransformations(experimentalResults[actSample], bestSampleToTemplate, template, hemisphere='rightHem')
     allSamplesToAllen[actSample] = regSampleToTemplate
+
+allSampleGeneList = allSamplesToAllen[0]['geneListMasked']
+for i, regSample in enumerate(allSamplesToAllen):
+    if i == 0:
+        continue
+    else:
+        allSampleGeneList = set(allSampleGeneList) & set(allSamplesToAllen[i]['geneListMasked'])
+
+nSampleExperimental = sum(experiment['experimental-group'])
+nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
+nGenesInList = len(allSampleGeneList)
+
+for sampleIdx, actSample in enumerate(allSamplesToAllen):
+    allSamplesToAllen[sampleIdx]['allSampleGeneList'] = allSampleGeneList 
+    sortedIdxList = np.zeros(nGenesInList,dtype='int32')
+    for sortedIdx, actGene in enumerate(allSampleGeneList):
+        sortedIdxList[sortedIdx] = allSamplesToAllen[sampleIdx]['geneListMasked'].index(actGene)
+    allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'] = allSamplesToAllen[sampleIdx]['geneMatrixMasked'][sortedIdxList,:].astype('int32')
+    allSamplesToAllen[sampleIdx].pop('geneMatrixMasked')
+    allSamplesToAllen[sampleIdx].pop('geneListMasked')
+#%% create whole brain digital spots and find nearest neighbors
+plt.close('all')
+spotSize = 15
+kSpots = 7
+templateDigitalSpots = stanly.createDigitalSpots(allSamplesToAllen[4], spotSize, displayImage=True)
+
+allSampleGeneList = allSamplesToAllen[0]['allSampleGeneList']
+for i, regSample in enumerate(allSamplesToAllen):        
+    actNN, actCDist = stanly.findDigitalNearestNeighbors(templateDigitalSpots, allSamplesToAllen[i]['maskedTissuePositionList'], kSpots, spotSize)
+    allSamplesToAllen[i]['digitalSpotNearestNeighbors'] = np.asarray(actNN, dtype='int32')
+
+nDigitalSpots = len(templateDigitalSpots)
+controlSamples = {}
+experimentalSamples = {}
+nCon = 0
+nExp = 0
+for i, actSample in enumerate(allSamplesToAllen):
+    if experiment['experimental-group'][i] == 0:
+        controlSamples[nCon] = allSamplesToAllen[i]
+        nCon+=1
+    elif experiment['experimental-group'][i] == 1:
+        experimentalSamples[nExp] = allSamplesToAllen[i]
+        nExp+=1
+        
+nSampleExperimental = sum(experiment['experimental-group'])
+nSampleControl = len(experiment['experimental-group']) - nSampleExperimental
+nGenesInList = len(allSampleGeneList)
+#%% generate mean and t-stat for specific gene
+start_time = time.time()
+desiredPval = 0.05
+alphaSidak = 1 - np.power((1 - desiredPval),(1/(len(allSampleGeneList))))
+rankList = np.arange(1,nDigitalSpots+1)
+bhCorrPval = (rankList/(nDigitalSpots*len(allSampleGeneList)))*desiredPval
+bonCorrPval = desiredPval/(len(allSampleGeneList))
+sigGenes = []
+sigGenesWithPvals = []
+sigGenesWithTstats = []
+ht5Genes = ['Fos','Htr1a','Htr1b','Htr1d','Htr1e','Htr1f','Htr2a','Htr2b','Htr2c','Htr3a','Htr3b','Htr3c','Htr3d','Htr3e']
+for geneIndex,actGene in enumerate(ht5Genes):
+    digitalSamplesControl = np.zeros([nDigitalSpots,(nSampleControl * kSpots)])
+    digitalSamplesExperimental = np.zeros([nDigitalSpots,(nSampleExperimental * kSpots)])
+    startControl = 0
+    stopControl = kSpots
+    startExperimental = 0
+    stopExperimental = kSpots
+    nTestedSamples = 0
+    nControls = 0
+    nExperimentals = 0
+    for actSample in range(len(allSamplesToAllen)):
+        # geneIndex = nOfGenesChecked
+        geneCount = np.zeros([nDigitalSpots,kSpots])
+        for spots in enumerate(allSamplesToAllen[actSample]['digitalSpotNearestNeighbors']):
+            if np.any(spots[1] < 0):
+                geneCount[spots[0]] = np.nan
+            else:
+                spotij = np.zeros([7,2], dtype='int32')
+                spotij[:,1] = np.asarray(spots[1], dtype='int32')
+                spotij[:,0] = geneIndex
+                
+                geneCount[spots[0]] = allSamplesToAllen[actSample]['geneMatrixMaskedSorted'][spotij[:,0],spotij[:,1]]
+                
+        spotCount = np.nanmean(geneCount, axis=1)
+        nTestedSamples += 1
+        if experiment['experimental-group'][actSample] == 0:
+            digitalSamplesControl[:,startControl:stopControl] = geneCount
+            startControl += kSpots
+            stopControl += kSpots
+            nControls += 1
+        elif experiment['experimental-group'][actSample] == 1:
+            digitalSamplesExperimental[:,startExperimental:stopExperimental] = geneCount
+            startExperimental += kSpots
+            stopExperimental += kSpots
+            nExperimentals += 1
+        else:
+            continue
+    
+    digitalSamplesControl = np.array(digitalSamplesControl, dtype='float32').squeeze()
+    digitalSamplesExperimental = np.array(digitalSamplesExperimental, dtype='float32').squeeze()
+    
+
+    maskedDigitalSamplesControl = np.zeros(digitalSamplesControl.shape)
+    maskedDigitalSamplesExperimental = np.zeros(digitalSamplesExperimental.shape)
+    # maskedDigitalSamplesControl[checkAllSamples,:] = digitalSamplesControl[checkAllSamples,:]
+    # maskedDigitalSamplesExperimental[checkAllSamples,:] = digitalSamplesExperimental[checkAllSamples,:]
+    maskedTtests = []
+    allTstats = np.zeros(nDigitalSpots)
+    actTtest = scipy.stats.ttest_ind(digitalSamplesExperimental,digitalSamplesControl, axis=1, nan_policy='propagate')
+    actTstats = actTtest[0]
+    actPvals = actTtest[1]
+
+    # maskedDigitalCoordinates = roiSpots[np.array(mulCompResults)]
+    # maskedTstats = actTtest[0][mulCompResults]
+    # maskedDigitalCoordinates = np.array(maskedDigitalCoordinates)
+    medianDigitalControl = np.median(digitalSamplesControl,axis=1)
+    medianDigitalExperimental = np.median(digitalSamplesExperimental,axis=1)
+    meanDigitalControl = np.nanmean(digitalSamplesControl,axis=1)
+    meanDigitalExperimental = np.nanmean(digitalSamplesExperimental,axis=1)
+    finiteMin = np.nanmin(actTtest[0])
+    finiteMax = np.nanmax(actTtest[0])
+    maxGeneCount = np.nanmax([meanDigitalControl,meanDigitalExperimental])
+    #Plot data
+    hcMax = np.nanmax(meanDigitalControl)
+    sorMax = np.nanmax(meanDigitalExperimental)
+    plotMax = np.max([hcMax, sorMax])
+    fig, axs = plt.subplots(1,3)
+    # display mean gene count for control group            
+    plt.axis('off')
+    axs[0].imshow(bestSampleToTemplate['tissueRegistered'],cmap='gray',aspect="equal")
+    hcFig = axs[0].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalControl), alpha=0.5,plotnonfinite=False,cmap='Reds',marker='.', vmin=0, vmax=plotMax)
+    # axs[0].imshow(template['leftHemAnnotEdges'], cmap='gray_r')
+    axs[0].set_title('NSD')
+    axs[0].axis('off')
+    fig.colorbar(hcFig,fraction=0.046, pad=0.04)
+    # display mean gene count for experimental group
+    axs[1].imshow(bestSampleToTemplate['tissueRegistered'],cmap='gray',aspect="equal")
+    expFig = axs[1].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(meanDigitalExperimental), alpha=0.5,plotnonfinite=False,cmap='Reds',marker='.', vmin=0, vmax=plotMax)
+    axs[1].set_title('SD')
+    axs[1].axis('off')
+    fig.colorbar(expFig,fraction=0.046, pad=0.04)
+    # display t-statistic for exp > control
+    axs[2].scatter(templateDigitalSpots[:,0],templateDigitalSpots[:,1], c=np.array(actTstats), cmap='seismic',alpha=0.5,vmin=-4,vmax=4,plotnonfinite=False,marker='.')
+    axs[2].imshow(bestSampleToTemplate['tissueRegistered'],cmap='gray',aspect="equal")
+    axs[2].set_title(actGene, style='italic')
+    axs[2].axis('off')
+    plt.savefig(os.path.join(derivatives,f'meanAndTStatGeneCountWholeBrain{actGene}.png'), bbox_inches='tight', dpi=300)
+    # plt.close()
+
+#%% display density of list of genes in each group along with mean and delta
+densityScale = 20
+cellSize = densityScale * 10
+heatmapMax = (densityScale/10)*4
+plt.close('all')
+nX,nY = np.int32(template['rightHem'].shape[1]/densityScale),np.int32(template['rightHem'].shape[0]/densityScale)
+xBinEdges = np.linspace(0,template['rightHem'].shape[1],nX+1)
+yBinEdges = np.linspace(0,template['rightHem'].shape[0],nY+1)
+sampleGeneMatrix = np.array(allSamplesToAllen[5]['geneMatrixMaskedSorted'].todense(),dtype='float32')
+reshapedControlDensities = []
+reshapedExperimentalDensities = []
+for listIdx,actGene in enumerate(ht5Genes):
+    # geneOfInterest = 'Fos'
+    try:
+        geneIdx = list(allSampleGeneList).index(actGene)
+        avgControlDensity = np.zeros([nX,nY])
+        avgExperimentalDensity = np.zeros([nX,nY])
+        # NOTE: this counts density of > 0 expression, not gene count
+        # because of this, max count will be relative to density of spatial sampling
+        for sampleIdx,actSample in enumerate(allSamplesToAllen):
+            sampleGeneMatrix = np.array(allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'].todense(),dtype='float32')
+            if np.nansum(sampleGeneMatrix[geneIdx,:]) > 0:
+                actCellCoor = allSamplesToAllen[sampleIdx]['maskedTissuePositionList'][np.squeeze(np.array(allSamplesToAllen[sampleIdx]['geneMatrixMaskedSorted'][geneIdx,:].todense() > 0)),:]
+                density, yEdges, xEdges = np.histogram2d(actCellCoor[:,0],actCellCoor[:,1], bins=(xBinEdges, yBinEdges))
+                if experiment['experimental-group'][sampleIdx] == 0:
+                    avgControlDensity += density
+                else:
+                    avgExperimentalDensity += density
+                    
+        avgControlDensity = avgControlDensity / nSampleControl
+        avgExperimentalDensity = avgExperimentalDensity / nSampleExperimental
+        diffOfDensity = avgExperimentalDensity - avgControlDensity
+        fig, axs = plt.subplots(1,3)
+        # display mean gene count for control group
+        axs[0].imshow(template['rightHemAnnotEdges'],cmap='gray',aspect="equal")
+        axs[0].pcolormesh(yEdges, xEdges, avgControlDensity.T, cmap='Reds', vmax=heatmapMax, alpha=0.7)
+        axs[0].set_title(f'NSD')
+        axs[0].axis('off')
+        axs[1].imshow(template['rightHemAnnotEdges'], cmap='gray')
+        axs[1].pcolormesh(yEdges, xEdges, avgExperimentalDensity.T, cmap='Reds', vmax=heatmapMax, alpha=0.7)
+        axs[1].set_title(f'SD')
+        axs[1].axis('off')
+        axs[2].imshow(template['rightHemAnnotEdges'], cmap='gray')
+        axs[2].pcolormesh(yEdges, xEdges, diffOfDensity.T, cmap='seismic', vmin=-2, vmax=2, alpha=0.7)
+        axs[2].set_title(f'Difference of density\n SOR - HC')
+        axs[2].axis('off')
+        plt.suptitle(f'Mean density of spots expressing {actGene} per ${cellSize}\mu m^2$')
+        plt.savefig(os.path.join(derivatives,f'cellDensityDifference{actGene}.png'), bbox_inches='tight', dpi=300)
+        plt.show()
+        plt.close()
+    except ValueError:
+        print("{actGene} not in list")
+
+#%% display Htr1a data
+plt.close('all')
+actGene = 'Htr1a'
+for i, regSample in enumerate(processedSamples):
+    stanly.viewGeneInProcessedVisium(processedSamples[i], actGene)
 
 
 #%% create digital spots for whole slice and find nearest neighbors
