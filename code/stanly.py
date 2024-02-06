@@ -957,8 +957,6 @@ def loadProcessedVisiumSample(locOfProcessedSample, loadLog2Norm=True):
             csvreader = csv.reader(csvfile, delimiter=',')
             next(csvreader)
             for row in csvreader:
-                print(row)
-                print([row[0],row[1]])
                 tissuePositionList.append([row[0],row[1]])
                 
     tissuePositionList = np.array(tissuePositionList, dtype='float32')
