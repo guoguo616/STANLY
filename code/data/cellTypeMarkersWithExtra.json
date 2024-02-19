@@ -19,7 +19,8 @@
         "honoraryMention": [],
         "lyonsList":[],
         "reschList": ["Flt1","Slco1a4"],
-        "junkoList": []
+        "junkoList": [],
+        "zeiselList": ["ABCB1", "ABCC9", "AKAP13", "APCDD1", "APLNR", "C10orf10", "C1orf54", "CD59", "CLDN5", "CMTM8", "DCUN1D3", "EFR3B", "ELTD1", "EMCN", "ENG", "ETS2", "ETV6", "FBLN2", "FLT1", "FZD6", "GPR116", "GRK5", "HEG1", "IER5L", "ITM2A", "KITLG", "LAMB1", "LEF1", "LNX2", "LRCH1", "LRRC8C", "LTBP4", "LUZP1", "MAOA", "MAP3K3", "MAP4K2", "MKNK2", "MOSPD1", "MYCT1", "PALMD", "PCDH1", "PTPRR", "RAPGEF4", "RPS6", "SEMA7A", "SERPINB9", "SH3GLB1", "SIPA1L2", "SLC35F2", "SLC38A5", "SLC6A6", "SLC7A1", "SOX4", "SPOCK2", "SRGAP1", "STARD4", "TSPAN18"]
     },
     {
         "name":"microglia",
@@ -141,6 +142,17 @@
         "reschList": [],
         "junkoList": [],
         "zeiselList": ["AK7", "BACE2", "BPHL", "CA12", "CASC1", "CCDC146", "CCDC148", "CCDC40", "CCNO", "CETN2", "CLDN1", "CMTM4", "CNN3", "COL5A2", "COL9A1", "COX7A1", "CRYGN", "DMKN", "DNAH5", "DNAH6", "DNAJA4", "DUSP18", "EFCAB1", "EMB", "ENKUR", "FAM126A", "FAM78A", "FBLN7", "FIBIN", "GPR98", "HMGN1", "HRASLS", "HSPB6", "HTR1B", "INTU", "IQCA1", "IQCK", "KIF27", "KL", "KREMEN1", "LAMA3", "LCA5", "LGALS3", "LRRC48", "MYB", "MYO5C", "MYO7A", "N4BP2", "NIPAL2", "NPHP1", "NR1D1", "NTHL1", "PAWR", "PCOLCE2", "PLAGL1", "POSTN", "PYGL", "RARB", "RDH10", "RFX3", "RPGR", "RSPH9", "SEC24D", "SLC29A4", "SLC2A12", "SLC39A13", "SMOC1", "SPAG6", "SPEF2", "STK36", "SULF1", "SYT10", "TCTEX1D1", "TMEM107", "TMEM108", "TRIM68", "TRPM3", "TSPAN6", "TTC18", "TTR", "UPP1", "VWA3A", "ZMYND10", "ZNF786"]
+    },
+    {
+        "name":"mural",
+        "abbreviation": "mur",
+        "topGeneList": [],
+        "atacSeqGeneList": [],
+        "honoraryMention": [],
+        "lyonsList":[],
+        "reschList": [],
+        "junkoList": [],
+        "zeiselList": ["ADAMTS16", "ADAMTS8", "AMIGO2", "ARHGAP10", "ARID3B", "ASB2", "BMP5", "C1R", "C1S", "DOK6", "ERRFI1", "GUCY1B3", "IL34", "ITGA8", "LIPG", "MOB2", "MOXD1", "MYLK", "NRIP2", "OBSCN", "PDE3A", "PLA2R1", "RCN3", "SLC38A11", "ST5"]
     }
 ]
 }
