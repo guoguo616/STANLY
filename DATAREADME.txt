@@ -20,6 +20,6 @@ This dataset contains spatially resolved probe based transcriptomic data from 16
 
 * A total of up to 32285 genes were mapped onto up to 4,992 probes per Visium slide
 
-* The rawdata folder contains 1 folder per sample, each named with the associated subject ID. These folders contain, for each subject, the filtered_feature_bc_matrix.h5
+* The rawdata folder contains 16 folders, 1 folder per sample, each named with the associated subject ID. These folders contain, for each subject, the filtered_feature_bc_matrix.h5 file containing the filtered feature barcode matrix, as well as a folder titled spatial containing output from the SpaceRanger processing pipeline. The spatial folder for each subject contains the following images: aligned_fiducials.jpg, detected_tissue_image.jpg, tissue_hires_image.png, tissue_lowres_image.png, as well as a csv file named tissue_positions_list.csv and a json file named scalefactors_json.json
 
-* The derivatives folder contains 1 folder per sample, each named with the associated subject ID
+* The derivatives folder contains 13 folders, 1 folder per sample processed with the STANLY pipeline, each named with the associated subject ID
