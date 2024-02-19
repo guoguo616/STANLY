@@ -214,10 +214,11 @@ def chooseTemplateSlice(sliceLocation):
     # checks if allen ccf data has been downloaded already and downloads it if it hasn't
     if not os.path.exists(ccfPath):
         print("Downloading 10 micron resolution ara_nissl nrrd file from the Allen Institute, this may take awhile")
-        os.mkdirs(ccfPath)
+        os.mkdir(ccfPath)
         from allensdk.core.reference_space_cache import ReferenceSpaceApi
         rsapi = ReferenceSpaceApi()
         rsapi.download_volumetric_data('ara_nissl','ara_nissl_10.nrrd',10, save_file_path=os.path.join(ccfPath, 'ara_nissl_10.nrrd'))
+        rsapi.download_volumetric_data('annotation/ccf_2022','annotation_10.nrrd',10, save_file_path=os.path.join(ccfPath, 'annotation_10.nrrd'))
     ara_data = ants.image_read(os.path.join(ccfPath,'ara_nissl_10.nrrd'))
     bestSlice = sliceLocation * 10
     templateSlice = ara_data.slice_image(0,(bestSlice))
