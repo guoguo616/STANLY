@@ -1182,7 +1182,12 @@ def createRegionalDigitalSpots(regionMask, template, desiredSpotSize, hemisphere
         plt.show()
     return digitalSpots
 
-def viewGeneInProcessedVisium(processedSample, geneName):
+def viewGeneInProcessedVisium(processedSample, geneName, hemisphere='wholeBrain'):
+    # templateImage = template['wholeBrain']
+    # if hemisphere=='leftHem':
+    #     templateImage = template['leftHem']
+    # elif hemisphere=='rightHem':
+    #     templateImage = template['rightHem']
     try:
         geneIndex = processedSample['geneListMasked'].index(geneName)
         actSpots = processedSample['geneMatrixLog2'][geneIndex, :]
