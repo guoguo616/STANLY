@@ -412,7 +412,7 @@ def processVisiumData(visiumData, templateData, rotation, outputFolder, log2norm
     print(f"{processedVisium['sampleID']} has {processedVisium['spotCount']} spots")
     processedVisium['processedTissuePositionList'] = tissuePointsResized[spotMask,:]
     # print(spotMask)
-    processedVisium['tissueSpotBarcodeListSorted'] = tissueSpotBarcodeListSorted[spotMask]
+    processedVisium['tissueSpotBarcodeListSorted'] = np.array(visiumData['tissueSpotBarcodeList'])[spotMask]
     # processedVisium['filteredFeatureMatrixOrdered'] = sp_sparse.csc_matrix(orderedDenseMatrixSpotMasked)
     if log2normalize==True:
         processedVisium['geneMatrixLog2'] = sp_sparse.csc_matrix(np.log2((orderedDenseMatrixSpotMasked + 1)))
@@ -722,7 +722,6 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
     templateRegisteredData['bestFitSampleID'] = bestSampleRegisteredToTemplate['sampleID']
     templateRegisteredData['geneListMasked'] = registeredST['geneListMasked']
     templateRegisteredData['locTissuePointsToAllen'] = f"{os.path.join(registeredST['derivativesPath'],registeredST['sampleID'])}_to_{bestSampleRegisteredToTemplate['sampleID']}TemplateTransformApplied.csv"
-    templateRegisteredData['tissueSpotBarcodeListSorted'] = registeredST['tissueSpotBarcodeListSorted']
     imageFilename = os.path.join(registeredST['derivativesPath'],f"{registeredST['sampleID']}_registered_to_{bestSampleRegisteredToTemplate['sampleID']}_to_Allen_slice_{templateData['sliceNumber']}.png")
     try:
         # checks for and loads registered tissue points if they exist
@@ -755,13 +754,16 @@ def applyAntsTransformations(registeredST, bestSampleRegisteredToTemplate, templ
         plt.show()
         
     transformedTissuePositionListMask = np.logical_and(transformedTissuePositionList > 0, transformedTissuePositionList < templateRegisteredData['tissueRegistered'].shape[0])
+    maskedTissueSpotBarcodeListSorted = []
     maskedTissuePositionList = []
     geneMatrixMaskedIdx = []
     for i, masked in enumerate(transformedTissuePositionListMask):
         if masked.all() == True:
             geneMatrixMaskedIdx.append(i)
             maskedTissuePositionList.append(transformedTissuePositionList[i])
+            maskedTissueSpotBarcodeListSorted.append(registeredST['tissueSpotBarcodeListSorted'][i])
     templateRegisteredData['maskedTissuePositionList'] = np.array(maskedTissuePositionList, dtype='float32')
+    templateRegisteredData['tissueSpotBarcodeListSorted'] = maskedTissueSpotBarcodeListSorted
     if log2normalize == True:
         tempDenseMatrix = registeredST['geneMatrixLog2'].todense().astype('float32')
     else:
